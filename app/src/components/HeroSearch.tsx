@@ -79,13 +79,15 @@ export const HeroSearch = forwardRef<HeroSearchHandle, Props>(function HeroSearc
       </div>
       <AnimatePresence>
         {open && q && (
-          <motion.ul
+          <motion.div
             className="hero-search__list glass glass--strong"
-            initial={{ opacity: 0, y: -6, scale: 0.98 }}
+            initial={{ opacity: 0, y: -8, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.98 }}
-            transition={{ duration: 0.16 }}
+            exit={{ opacity: 0, y: -6, scale: 0.98 }}
+            transition={{ type: 'spring', stiffness: 380, damping: 32, mass: 0.8 }}
+            style={{ transformOrigin: 'top center' }}
           >
+            <ul className="hero-search__scroll">
             {results.length === 0 && <li className="hero-search__none">Ничего не нашлось</li>}
             {results.map((h, i) => (
               <li
@@ -103,7 +105,8 @@ export const HeroSearch = forwardRef<HeroSearchHandle, Props>(function HeroSearc
                 {!pickable(h) && <span className="hero-search__tag">занят</span>}
               </li>
             ))}
-          </motion.ul>
+            </ul>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

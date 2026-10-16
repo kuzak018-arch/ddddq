@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+
+import { comboFromEvent, dotaKeyName, toggleOverlay, useHotkeyStatus } from '../lib/overlay';
 
 import { api, subscribe } from '../api/client';
 import { useHealth, useHeroes, useSaveSettings, useSettings } from '../api/hooks';
 import type { Job, Settings } from '../api/types';
 import { heroArt, PRESETS } from '../components/Chrome';
-import { Glass } from '../components/Glass';
+import { Panel } from '../components/Glass';
 import { HeroSearch } from '../components/HeroSearch';
 import { refractionSupported } from '../glass/refraction';
 import { ErrorBox, Segmented, Slider, Toggle } from '../components/ui';
@@ -17,6 +19,7 @@ export function SettingsPage() {
     <div className="settings">
       <AppearanceCard />
       <div className="settings__col">
+        <OverlayCard />
         <AdviceCard />
         <DataCard />
       </div>
@@ -30,7 +33,7 @@ function AppearanceCard() {
   const heroes = useHeroes().data;
   const bg = ui.background;
   return (
-    <Glass className="panel" refracting>
+    <Panel refracting>
       <h2>Оформление</h2>
       <div className="field">
         <span className="label">Тема</span>
@@ -86,7 +89,112 @@ function AppearanceCard() {
         label={refractionSupported ? 'Преломление по краям стекла' : 'Преломление (недоступно в этом движке)'}
       />
       <Toggle on={ui.performance} onChange={(performance) => ui.set({ performance })} label="Режим производительности (без размытия и анимаций)" />
-    </Glass>
+    </Panel>
+  );
+}
+
+function HotkeyField({ label, value, onChange, dotaKeys }: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  dotaKeys: Set<string>;
+}) {
+  const [recording, setRecording] = useState(false);
+  const busy = dotaKeys.has(dotaKeyName(value));
+  const noMods = !value.includes('+');
+  return (
+    <div className="field">
+      <span className="label">{label}</span>
+      <div className="hotkey">
+        <button
+          className={`btn hotkey__btn ${recording ? 'is-rec' : ''}`}
+          onClick={() => setRecording(true)}
+          onBlur={() => setRecording(false)}
+          onKeyDown={(e) => {
+            if (!recording) return;
+            e.preventDefault();
+            if (e.key === 'Escape') return setRecording(false);
+            const combo = comboFromEvent(e.nativeEvent);
+            if (combo) {
+              onChange(combo);
+              setRecording(false);
+            }
+          }}
+        >
+          {recording ? 'Нажми сочетание…' : value}
+        </button>
+        {(busy || noMods) && (
+          <span className="hotkey__warn">
+            {noMods ? 'без Ctrl/Alt/Shift клавиша пропадёт в игре' : `${dotaKeyName(value)} занята в Доте — сочетание может мешать`}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function OverlayCard() {
+  const ui = useUi();
+  const ov = ui.overlay;
+  const setOv = (patch: Partial<typeof ov>) => ui.set({ overlay: { ...ov, ...patch } });
+  const hotkeyError = useHotkeyStatus((s) => s.error);
+  const keys = useQuery({ queryKey: ['dota-keys'], queryFn: () => api<{ keys: string[] }>('/dota/keybinds') });
+  const display = useQuery({
+    queryKey: ['dota-display'],
+    queryFn: () => api<{ found: boolean; label?: string; width?: number; height?: number; fullscreen?: boolean }>('/dota/display'),
+  });
+  const dotaKeys = useMemo(() => new Set(keys.data?.keys ?? []), [keys.data]);
+  return (
+    <Panel>
+      <div className="panel__head">
+        <h2>Оверлей</h2>
+        <button className="btn btn--accent" onClick={() => toggleOverlay()}>
+          Показать / скрыть
+        </button>
+      </div>
+      {display.data?.found && (
+        <p className={display.data.fullscreen ? 'error-box' : 'hint'}>
+          Дота: {display.data.width}×{display.data.height}, {display.data.label}.
+          {display.data.fullscreen
+            ? ' Поверх эксклюзивного полноэкранного режима оверлей не виден: включи «Окно без рамки» в настройках видео Доты.'
+            : ' Оверлей будет поверх игры.'}
+        </p>
+      )}
+      <HotkeyField label="Показать / скрыть" value={ov.toggle} onChange={(toggle) => setOv({ toggle })} dotaKeys={dotaKeys} />
+      <HotkeyField label="Сквозные клики вкл/выкл" value={ov.interact} onChange={(interact) => setOv({ interact })} dotaKeys={dotaKeys} />
+      {hotkeyError && <ErrorBox error={hotkeyError} />}
+      <div className="field">
+        <span className="label">Стекло поверх игры</span>
+        <Segmented
+          small
+          value={ov.effect}
+          onChange={(effect) => setOv({ effect })}
+          options={[
+            { value: 'acrylic', label: 'Acrylic (размытие игры)' },
+            { value: 'tint', label: 'Тонировка (легче)' },
+          ]}
+        />
+      </div>
+      <div className="field">
+        <span className="label">Режим</span>
+        <Segmented
+          small
+          value={ov.mode}
+          onChange={(mode) => setOv({ mode })}
+          options={[
+            { value: 'auto', label: 'Авто' },
+            { value: 'draft', label: 'Драфт' },
+            { value: 'build', label: 'Билд' },
+          ]}
+        />
+      </div>
+      <Slider label="Непрозрачность" value={ov.opacity} min={0.35} max={1} step={0.05} onChange={(opacity) => setOv({ opacity })} format={(v) => `${Math.round(v * 100)}%`} />
+      <Toggle on={ov.autoPerf} onChange={(autoPerf) => setOv({ autoPerf })} label="Во время матча — режим производительности (без Acrylic и анимаций)" />
+      <p className="hint">
+        «Авто»: на стадии драфта — подсказки, с началом матча — билд против врагов (после подключения GSI на этапе 5).
+        Позиция и размер оверлея запоминаются.
+      </p>
+    </Panel>
   );
 }
 
@@ -102,7 +210,7 @@ function AdviceCard() {
     save.mutate(next);
   };
   return (
-    <Glass className="panel">
+    <Panel>
       <h2>Подсказки</h2>
       <div className="field">
         <span className="label">Моя позиция по умолчанию</span>
@@ -124,7 +232,7 @@ function AdviceCard() {
       </p>
       <Slider label="Тир-лист за дней" value={draft.tier_days} min={3} max={30} step={1} onChange={(tier_days) => upd({ tier_days })} />
       {save.error && <ErrorBox error={save.error} />}
-    </Glass>
+    </Panel>
   );
 }
 
@@ -153,7 +261,7 @@ function DataCard() {
   );
   const shown = lines.length ? lines : last?.log ?? [];
   return (
-    <Glass className="panel">
+    <Panel>
       <h2>Данные</h2>
       {health && (
         <dl className="kv">
@@ -176,6 +284,6 @@ function DataCard() {
       {start.error && <ErrorBox error={start.error} />}
       {last?.status === 'failed' && <ErrorBox error={last.error} />}
       {shown.length > 0 && <pre className="joblog">{shown.slice(-14).join('\n')}</pre>}
-    </Glass>
+    </Panel>
   );
 }

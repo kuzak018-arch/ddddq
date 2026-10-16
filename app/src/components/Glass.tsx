@@ -30,6 +30,19 @@ export function Glass({ as: Tag = 'div', className = '', refracting, strong, ins
   );
 }
 
+/**
+ * A glass panel whose content scrolls *inside* the glass. The rim, sheen and refraction live on
+ * the outer element, so they stay put while the list scrolls (scrolling the glass element itself
+ * dragged its rim along with the content).
+ */
+export function Panel({ className = '', children, refracting }: { className?: string; children?: ReactNode; refracting?: boolean }) {
+  return (
+    <Glass className={`panel ${className}`} refracting={refracting}>
+      <div className="panel__body">{children}</div>
+    </Glass>
+  );
+}
+
 /** Pointer-following highlight for .btn elements (one listener for the whole app). */
 export function installButtonSheen(): void {
   document.addEventListener('pointermove', (e) => {

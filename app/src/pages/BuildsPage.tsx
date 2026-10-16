@@ -1,6 +1,6 @@
 import { useHeroes, useBuild } from '../api/hooks';
 import { BuildView } from '../components/BuildView';
-import { Glass } from '../components/Glass';
+import { Panel } from '../components/Glass';
 import { HeroSearch } from '../components/HeroSearch';
 import { Empty, ErrorBox, HeroIcon, Segmented } from '../components/ui';
 import { picked, useDraft } from '../state/draft';
@@ -17,7 +17,7 @@ export function BuildsPage() {
 
   return (
     <div className="builds">
-      <Glass className="panel builds__controls" refracting>
+      <Panel className="builds__controls" refracting>
         <div className="panel__head">
           <h2>Билды</h2>
         </div>
@@ -54,8 +54,8 @@ export function BuildsPage() {
             Очистить
           </button>
         </div>
-      </Glass>
-      <Glass className="panel builds__result">
+      </Panel>
+      <Panel className="builds__result">
         {!buildHero && <Empty>Выбери героя и позицию. Враги подтянутся из драфта, а билд подстроится под них.</Empty>}
         {buildHero && (
           <div className="panel__head">
@@ -66,7 +66,7 @@ export function BuildsPage() {
         )}
         {build.error && <ErrorBox error={build.error} />}
         {build.data && <BuildView b={build.data.build} vs={build.data.vs} />}
-      </Glass>
+      </Panel>
     </div>
   );
 }

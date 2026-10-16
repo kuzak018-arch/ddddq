@@ -25,6 +25,16 @@ def test_windows_paths_with_escaped_backslashes():
     assert d["libraryfolders"]["1"]["path"] == "D:\\SteamLibrary"
 
 
+def test_backslash_key_binding():
+    d = kv.loads('"config" { "bindings" { "\\"\t\t"toggleconsole"\n "F10" "x" } }')
+    assert d["config"]["bindings"] == {"\\": "toggleconsole", "F10": "x"}
+
+
+def test_escaped_quote_inside_word():
+    # an escaped quote is recognised when text follows it; before whitespace "\" is the backslash key
+    assert kv.loads('"a" "x\\"y"')["a"] == 'x"y'
+
+
 def test_dumps_roundtrip():
     d = kv.loads(GSI_CFG)
     assert kv.loads(kv.dumps(d)) == d

@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { api } from '../api/client';
 import { useHeroes, useProfile } from '../api/hooks';
-import { Glass } from '../components/Glass';
+import { Panel } from '../components/Glass';
 import { Empty, ErrorBox, fmtPct, fmtSigned, HeroIcon } from '../components/ui';
 import { useUi } from '../state/ui';
 
@@ -24,7 +24,7 @@ export function ProfilePage() {
 
   return (
     <div className="profile">
-      <Glass className="panel profile__head" refracting>
+      <Panel className="profile__head" refracting>
         <div className="panel__head">
           <h2>Профиль</h2>
           <button className="btn" onClick={() => refresh.mutate()} disabled={refresh.isPending}>
@@ -53,8 +53,8 @@ export function ProfilePage() {
             <ExperienceChart A={exp.A} k={exp.k} />
           </div>
         )}
-      </Glass>
-      <Glass className="panel profile__pool">
+      </Panel>
+      <Panel className="profile__pool">
         <h3 className="section-title">Пул героев</h3>
         {!p && !prof.error && <Empty>Загрузка…</Empty>}
         {p && (
@@ -83,7 +83,7 @@ export function ProfilePage() {
             </tbody>
           </table>
         )}
-      </Glass>
+      </Panel>
     </div>
   );
 }

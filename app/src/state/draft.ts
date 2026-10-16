@@ -16,6 +16,9 @@ interface DraftState {
   /** My position and the comfort toggle; null = take the default from backend settings. */
   pos: number | null;
   comfort: boolean | null;
+  /** Set by the backend (GSI, stage 5): match phase and the hero I picked. */
+  phase: 'idle' | 'draft' | 'game';
+  myHero: number | null;
   setPos: (p: number) => void;
   setComfort: (c: boolean) => void;
   focus: Slot;
@@ -53,6 +56,8 @@ export const useDraft = create<DraftState>((set, get) => ({
   side: null,
   pos: null,
   comfort: null,
+  phase: 'idle',
+  myHero: null,
   setPos: (pos) => set({ pos }),
   setComfort: (comfort) => set({ comfort }),
   focus: { team: 'ally', index: 0 },

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 
 import { useHeroes, useSettings, useTierList } from '../api/hooks';
 import type { TierRow } from '../api/types';
-import { Glass } from '../components/Glass';
+import { Panel } from '../components/Glass';
 import { ErrorBox, fmtPct, HeroIcon, Segmented, Sparkline } from '../components/ui';
 import { useUi } from '../state/ui';
 
@@ -26,7 +26,7 @@ export function MetaPage() {
   const myTier = tl.data?.tiers[0];
 
   return (
-    <Glass className="panel meta" refracting>
+    <Panel className="meta" refracting>
       <div className="panel__head panel__head--wrap">
         <h2>Мета</h2>
         <Segmented
@@ -114,7 +114,7 @@ export function MetaPage() {
           </table>
         </div>
       )}
-    </Glass>
+    </Panel>
   );
 }
 

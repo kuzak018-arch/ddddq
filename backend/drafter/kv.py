@@ -9,7 +9,9 @@ from __future__ import annotations
 import re
 
 # Quoted strings are matched before comments, so "http://..." inside quotes survives.
-_TOKEN = re.compile(r'"((?:[^"\\]|\\.)*)"|(//[^\n]*)|([{}])|([^\s{}"]+)')
+# Escapes: \\ and \" -- but \" right before whitespace is a literal backslash closing the string,
+# because Dota binds the backslash key as "\" (user_keys.vcfg, dotakeys_personal.lst).
+_TOKEN = re.compile(r'"((?:[^"\\]|\\\\|\\"(?!\s)|\\(?!\\))*)"|(//[^\n]*)|([{}])|([^\s{}"]+)')
 
 
 def _tokens(text: str):

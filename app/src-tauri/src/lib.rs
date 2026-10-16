@@ -1,10 +1,13 @@
 //! Desktop shell: starts the Python backend on a free localhost port with a random
-//! per-launch token, hands both to the UI, and stops the backend when the app exits.
+//! per-launch token, hands both to the UI, owns the overlay window and the global hotkeys,
+//! and stops the backend when the app exits.
 
 mod backend;
+mod overlay;
 
 use std::sync::Mutex;
-use tauri::{Manager, RunEvent};
+use tauri::{Manager, RunEvent, WindowEvent};
+use tauri_plugin_window_state::StateFlags;
 
 #[derive(Clone, serde::Serialize)]
 struct BackendInfo {
@@ -33,13 +36,40 @@ pub fn run() {
                 let _ = w.set_focus();
             }
         }))
-        .plugin(tauri_plugin_window_state::Builder::default().build())
+        // remember size and position of both windows, but never re-open the overlay by itself
+        .plugin(
+            tauri_plugin_window_state::Builder::default()
+                .with_state_flags(StateFlags::all() & !StateFlags::VISIBLE)
+                .build(),
+        )
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, shortcut, event| overlay::on_shortcut(app, shortcut, event.state()))
+                .build(),
+        )
+        .manage(overlay::OverlayState::default())
         .setup(|app| {
             let (info, child) = backend::start()?;
             app.manage(AppState { info, child: Mutex::new(child) });
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![backend_info])
+        .on_window_event(|window, event| {
+            // closing the main window quits the app (the hidden overlay must not keep it alive)
+            if window.label() == "main" {
+                if let WindowEvent::CloseRequested { .. } = event {
+                    window.app_handle().exit(0);
+                }
+            }
+        })
+        .invoke_handler(tauri::generate_handler![
+            backend_info,
+            overlay::overlay_toggle,
+            overlay::overlay_show,
+            overlay::overlay_set_click_through,
+            overlay::overlay_status,
+            overlay::overlay_set_effect,
+            overlay::overlay_set_hotkeys,
+        ])
         .build(tauri::generate_context!())
         .expect("не удалось запустить приложение");
 

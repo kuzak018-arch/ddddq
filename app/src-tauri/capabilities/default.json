@@ -1,14 +1,16 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window: own window controls (custom title bar) and backend info",
-  "windows": ["main"],
+  "description": "Main window and overlay: own window controls, dragging, backend info, overlay commands",
+  "windows": ["main", "overlay"],
   "permissions": [
     "core:default",
     "core:window:allow-minimize",
     "core:window:allow-toggle-maximize",
     "core:window:allow-close",
+    "core:window:allow-hide",
     "core:window:allow-start-dragging",
+    "core:window:allow-start-resize-dragging",
     "core:window:allow-is-maximized",
     "window-state:default"
   ]

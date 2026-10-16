@@ -86,14 +86,16 @@ export function useHeroPage(id: number | null) {
   return useQuery({ queryKey: ['hero', id], queryFn: () => api<HeroPage>(`/heroes/${id}`), enabled: !!id });
 }
 
-export function useBuild(hero: number | null, pos: number, enemies: number[]) {
+/** fallback: if the hero is barely played on `pos`, use its most played position (build.requested_pos is set). */
+export function useBuild(hero: number | null, pos: number, enemies: number[], fallback = false) {
   return useQuery({
-    queryKey: ['build', hero, pos, enemies],
+    queryKey: ['build', hero, pos, enemies, fallback],
     enabled: !!hero,
     retry: false,
     queryFn: async () => {
-      if (enemies.length) return api<{ build: Build; vs: VsItem[] }>(`/builds/${hero}/vs`, { body: { enemies, pos } });
-      return { build: await api<Build>(`/builds/${hero}?pos=${pos}`), vs: [] as VsItem[] };
+      if (enemies.length)
+        return api<{ build: Build; vs: VsItem[] }>(`/builds/${hero}/vs`, { body: { enemies, pos, fallback } });
+      return { build: await api<Build>(`/builds/${hero}?pos=${pos}&fallback=${fallback}`), vs: [] as VsItem[] };
     },
   });
 }

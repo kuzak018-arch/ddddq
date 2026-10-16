@@ -3,10 +3,10 @@ import { useEffect, useMemo, useRef } from 'react';
 
 import { useBans, useEvaluate, useHeroes, useSettings, useSuggest } from '../api/hooks';
 import type { DraftRequest, Suggestion } from '../api/types';
-import { Glass } from '../components/Glass';
+import { Panel } from '../components/Glass';
 import { HeroSearch, type HeroSearchHandle } from '../components/HeroSearch';
 import { IconReset } from '../components/Icons';
-import { ErrorBox, fmtPct, fmtSigned, HeroIcon, Segmented, TermLine, Toggle, WinBar } from '../components/ui';
+import { AnimatedPercent, ErrorBox, fmtPct, fmtSigned, HeroIcon, Segmented, TermLine, Toggle, WinBar } from '../components/ui';
 import { MAX_BANS, picked, useDraft, type Slot } from '../state/draft';
 import { useUi } from '../state/ui';
 
@@ -29,7 +29,7 @@ export function DraftPage() {
 
   return (
     <div className="draft">
-      <Glass className="panel draft__board" refracting>
+      <Panel className="draft__board" refracting>
         <div className="panel__head">
           <h2>Драфт</h2>
           <Segmented
@@ -66,7 +66,7 @@ export function DraftPage() {
             options={[1, 2, 3, 4, 5].map((p) => ({ value: p, label: String(p), title: POS_LABEL[p] }))}
           />
         </div>
-      </Glass>
+      </Panel>
 
       <WinPanel req={req} />
       <SuggestPanel req={req} comfort={comfort} onComfort={d.setComfort} />
@@ -99,10 +99,10 @@ function TeamRow({ title, team, heroes }: { title: string; team: 'ally' | 'enemy
                 {h ? (
                   <motion.span
                     key={h}
-                    initial={{ scale: 0.6, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.6, opacity: 0 }}
-                    transition={{ type: 'spring', stiffness: 520, damping: 30 }}
+                    initial={{ scale: 0.8, opacity: 0, filter: 'blur(6px)' }}
+                    animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
+                    exit={{ scale: 0.85, opacity: 0, filter: 'blur(4px)' }}
+                    transition={{ type: 'spring', stiffness: 330, damping: 26, mass: 0.9 }}
                   >
                     <HeroIcon id={h} size="md" />
                   </motion.span>
@@ -152,15 +152,13 @@ function WinPanel({ req }: { req: DraftRequest }) {
   const p = ev.data?.p_win ?? 0.5;
   const empty = !req.allies.length && !req.enemies.length;
   return (
-    <Glass className="panel draft__win" refracting>
+    <Panel className="draft__win" refracting>
       <div className="panel__head">
         <h2>Шанс победы</h2>
         {req.side && <span className={`pill c-${req.side}`}>{req.side === 'radiant' ? 'Radiant' : 'Dire'}</span>}
       </div>
       <div className="win">
-        <motion.div key={Math.round(p * 1000)} className={`win__num ${p >= 0.5 ? 'c-good' : 'c-bad'}`} initial={{ opacity: 0.4, y: 4 }} animate={{ opacity: 1, y: 0 }}>
-          {fmtPct(p)}
-        </motion.div>
+        <AnimatedPercent value={p} className={`win__num ${p >= 0.5 ? 'c-good' : 'c-bad'}`} />
         <WinBar p={p} big />
         <div className="win__legend">
           <span>Враги</span>
@@ -177,7 +175,7 @@ function WinPanel({ req }: { req: DraftRequest }) {
           {ev.data?.terms.filter((t) => Math.abs(t.pct) >= 0.15).slice(0, 12).map((t, i) => <TermLine key={i} t={t} />)}
         </ul>
       )}
-    </Glass>
+    </Panel>
   );
 }
 
@@ -187,7 +185,7 @@ function SuggestPanel({ req, comfort, onComfort }: { req: DraftRequest; comfort:
   const { placeIn } = useDraft();
   const full = req.allies.length >= 5;
   return (
-    <Glass className="panel draft__suggest" refracting>
+    <Panel className="draft__suggest" refracting>
       <div className="panel__head">
         <h2>Подбор · позиция {req.pos}</h2>
         <Toggle on={comfort} onChange={onComfort} label="мои комфортные" />
@@ -197,11 +195,15 @@ function SuggestPanel({ req, comfort, onComfort }: { req: DraftRequest; comfort:
         <p className="muted">Твоя команда собрана.</p>
       ) : (
         <div className="suggest-list">
-          {s.data?.main.map((r, i) => <SuggestCard key={r.hero} r={r} rank={i + 1} onPick={() => placeIn('ally', r.hero)} />)}
+          <AnimatePresence initial={false}>
+            {s.data?.main.map((r, i) => <SuggestCard key={r.hero} r={r} rank={i + 1} onPick={() => placeIn('ally', r.hero)} />)}
+          </AnimatePresence>
           {!!s.data?.offrole.length && (
             <>
               <h3 className="section-title">Нестандартные на эту позицию</h3>
-              {s.data.offrole.map((r) => <SuggestCard key={r.hero} r={r} onPick={() => placeIn('ally', r.hero)} />)}
+              <AnimatePresence initial={false}>
+                {s.data.offrole.map((r) => <SuggestCard key={r.hero} r={r} onPick={() => placeIn('ally', r.hero)} />)}
+              </AnimatePresence>
             </>
           )}
         </div>
@@ -217,7 +219,7 @@ function SuggestPanel({ req, comfort, onComfort }: { req: DraftRequest; comfort:
           </button>
         ))}
       </div>
-    </Glass>
+    </Panel>
   );
 }
 
@@ -225,7 +227,14 @@ function SuggestCard({ r, rank, onPick }: { r: Suggestion; rank?: number; onPick
   const openHero = useUi((s) => s.openHero);
   const [best, ...rest] = r.terms;
   return (
-    <motion.div layout className="suggest" transition={{ type: 'spring', stiffness: 420, damping: 36 }}>
+    <motion.div
+      layout="position"
+      className="suggest"
+      initial={{ opacity: 0, scale: 0.97 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.18 } }}
+      transition={{ type: 'spring', stiffness: 220, damping: 30, mass: 1 }}
+    >
       <button className="suggest__main" onClick={onPick} title="Взять в мою команду">
         {rank && <span className="suggest__rank">{rank}</span>}
         <HeroIcon id={r.hero} size="md" />

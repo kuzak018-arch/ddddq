@@ -1,6 +1,7 @@
 /** Window chrome: custom title bar, navigation dock and the wallpaper behind everything. */
 import { isTauri } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { motion } from 'motion/react';
 import { useEffect, useState } from 'react';
 
 import { useHealth } from '../api/hooks';
@@ -57,6 +58,7 @@ export function Dock() {
           onClick={() => go(p)}
           title={`${label} (Ctrl+${i + 1})`}
         >
+          {page === p && <motion.span layoutId="dock-pill" className="dock__pill" />}
           <Icon />
           <span>{label}</span>
         </button>

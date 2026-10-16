@@ -1,6 +1,6 @@
 /** Small shared pieces: icons, segmented control, toggle, slider, win bar, sparkline, explanations. */
-import { motion } from 'motion/react';
-import { useId, type ReactNode } from 'react';
+import { motion, useSpring, useTransform } from 'motion/react';
+import { useEffect, useId, type ReactNode } from 'react';
 
 import { asset } from '../api/client';
 import { useHeroes } from '../api/hooks';
@@ -58,7 +58,7 @@ export function Segmented<T extends string | number | null>({ value, options, on
           onClick={() => onChange(o.value)}
         >
           {o.value === value && (
-            <motion.span layoutId={id} className="segmented__thumb" transition={{ type: 'spring', stiffness: 500, damping: 34 }} />
+            <motion.span layoutId={id} className="segmented__thumb" transition={{ type: 'spring', stiffness: 340, damping: 32, mass: 0.9 }} />
           )}
           <span className="segmented__label">{o.label}</span>
         </button>
@@ -116,7 +116,7 @@ export function WinBar({ p, big }: { p: number; big?: boolean }) {
           className="winbar__fill"
           initial={false}
           animate={{ width: `${pct}%` }}
-          transition={{ type: 'spring', stiffness: 160, damping: 22 }}
+          transition={{ type: 'spring', stiffness: 110, damping: 22, mass: 1 }}
         />
         <span className="winbar__mid" />
       </div>
@@ -124,7 +124,15 @@ export function WinBar({ p, big }: { p: number; big?: boolean }) {
   );
 }
 
-export const fmtPct = (x: number | null | undefined, digits = 1) =>
+/** A percentage that counts smoothly to its new value instead of jumping. */
+export function AnimatedPercent({ value, className }: { value: number; className?: string }) {
+  const mv = useSpring(value, { stiffness: 90, damping: 20, mass: 1 });
+  const text = useTransform(mv, (v) => `${(v * 100).toFixed(1)}%`);
+  useEffect(() => mv.set(value), [mv, value]);
+  return <motion.div className={className}>{text}</motion.div>;
+}
+
+export const fmtPct =(x: number | null | undefined, digits = 1) =>
   x === null || x === undefined ? '—' : `${(x * 100).toFixed(digits)}%`;
 
 export const fmtSigned = (x: number, digits = 1) => `${x >= 0 ? '+' : '−'}${Math.abs(x).toFixed(digits)}`;

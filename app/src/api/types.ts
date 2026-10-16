@@ -80,6 +80,7 @@ export interface BuildItem {
 export interface Build {
   hero: number;
   pos: number;
+  requested_pos?: number;
   bracket: string;
   week: number;
   matches: number;

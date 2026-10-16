@@ -98,3 +98,24 @@ def test_token_required_when_set(monkeypatch):
                 ws.receive_json()
         with c.websocket_connect("/events?token=secret") as ws:
             assert ws.receive_json()["type"] == "hello"
+
+
+def test_session_shared_between_clients(client):
+    empty = [None] * 5
+    with client.websocket_connect("/events") as ws:
+        assert ws.receive_json()["type"] == "hello"
+        r = client.put("/session", json={"allies": [AM, None, None, None, None], "enemies": empty,
+                                          "bans": [AXE], "pos": 2, "source": "overlay-1"})
+        assert r.status_code == 200 and r.json()["rev"] >= 1
+        ev = ws.receive_json()
+        assert ev["type"] == "session" and ev["state"]["allies"][0] == AM and ev["state"]["source"] == "overlay-1"
+    assert client.get("/session").json()["bans"] == [AXE]
+    bad = client.put("/session", json={"allies": [AM, None, None, None, None], "enemies": [AM, None, None, None, None]})
+    assert bad.status_code == 422
+    assert client.put("/session", json={"allies": [AM], "enemies": empty}).status_code == 422
+
+
+def test_dota_endpoints(client):
+    d = client.get("/dota/display").json()
+    assert "found" in d
+    assert isinstance(client.get("/dota/keybinds").json()["keys"], list)

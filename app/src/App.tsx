@@ -1,9 +1,8 @@
-import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
 
 import { waitForBackend } from './api/client';
 import { Dock, TitleBar, Wallpaper } from './components/Chrome';
-import { Glass } from './components/Glass';
+import { Panel } from './components/Glass';
 import { refractionSupported } from './glass/refraction';
 import { BuildsPage } from './pages/BuildsPage';
 import { DraftPage } from './pages/DraftPage';
@@ -11,6 +10,8 @@ import { HeroPage } from './pages/HeroPage';
 import { MetaPage } from './pages/MetaPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
+import { applyHotkeys } from './lib/overlay';
+import { startSync } from './state/sync';
 import { useUi, type Page } from './state/ui';
 
 const PAGES: Record<Page, () => React.JSX.Element> = {
@@ -50,6 +51,7 @@ export default function App() {
 
   useEffect(() => {
     waitForBackend()
+      .then(startSync)
       .then(() => setReady(true))
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, []);
@@ -66,6 +68,12 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [go]);
 
+  // global hotkeys live in Rust; the main window (re)registers them from the saved settings
+  const ov = useUi((s) => s.overlay);
+  useEffect(() => {
+    void applyHotkeys(ov.toggle, ov.interact);
+  }, [ov.toggle, ov.interact]);
+
   const Current = PAGES[page];
   return (
     <>
@@ -76,7 +84,7 @@ export default function App() {
           <Dock />
           <main className="app__main">
             {!ready ? (
-              <Glass className="panel boot" refracting>
+              <Panel className="boot" refracting>
                 {error ? (
                   <>
                     <h2>Бэкенд не отвечает</h2>
@@ -90,20 +98,14 @@ export default function App() {
                     <p className="muted">Загружаю модель и данные, это несколько секунд.</p>
                   </>
                 )}
-              </Glass>
+              </Panel>
             ) : (
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={page}
-                  className="page"
-                  initial={{ opacity: 0, y: 10, filter: 'blur(4px)' }}
-                  animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                  exit={{ opacity: 0, y: -6, filter: 'blur(3px)' }}
-                  transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  <Current />
-                </motion.div>
-              </AnimatePresence>
+              // No opacity/filter on the page wrapper: in Chromium that turns it into a "backdrop root"
+              // and every glass panel inside loses the wallpaper blur for the whole transition.
+              // Panels fade in themselves (CSS .panel animation, staggered).
+              <div key={page} className="page">
+                <Current />
+              </div>
             )}
           </main>
         </div>

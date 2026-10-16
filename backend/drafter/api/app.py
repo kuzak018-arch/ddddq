@@ -16,12 +16,12 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, model_validator
 
-from .. import config, search
+from .. import config, dota_paths, keybinds, search
 from .. import settings as user_settings
 from ..builds import counter, standard
 from ..data import constants, matches, me, stratz
 from ..model import draft, explain, meta, predictor, train
-from . import refresh
+from . import refresh, session
 from .events import bus, jobs
 
 ORIGINS = ["tauri://localhost", "http://tauri.localhost", "https://tauri.localhost",
@@ -236,24 +236,33 @@ def draft_bans(d: DraftIn):
 
 # ---------- builds ----------------------------------------------------------------------
 
-def _build_or_404(hero_id: int, pos: int, rank_tier: int | None) -> dict:
-    _hero_or_404(hero_id)
+def _build_or_404(hero_id: int, pos: int, rank_tier: int | None, fallback: bool = False) -> dict:
+    """The build for (hero, pos). With fallback, a position the hero is barely played on is replaced
+    by its most played one (overlay: my position from the draft may not suit the hero I ended up on)."""
+    h = _hero_or_404(hero_id)
     bracket = stratz.bracket_for(_rank(rank_tier))
     b = standard.build(hero_id, pos, bracket)
+    if not b and fallback:
+        shares = _pred().pos_mat[hero_id]
+        for p in sorted(range(1, 6), key=lambda p: -shares[p - 1]):
+            if b := standard.build(hero_id, p, bracket):
+                b["requested_pos"] = pos
+                break
     if not b:
-        raise HTTPException(404, f"нет данных Stratz для героя {hero_id} на позиции {pos} ({bracket})")
+        raise HTTPException(404, f"нет данных Stratz для {h['name']} на позиции {pos} ({bracket})")
     return b
 
 
 @app.get("/builds/{hero_id}")
-def build(hero_id: int, pos: int = Query(..., ge=1, le=5), rank_tier: int | None = None):
-    return _build_or_404(hero_id, pos, rank_tier)
+def build(hero_id: int, pos: int = Query(..., ge=1, le=5), rank_tier: int | None = None, fallback: bool = False):
+    return _build_or_404(hero_id, pos, rank_tier, fallback)
 
 
 class VsIn(BaseModel):
     enemies: list[int] = Field(..., min_length=1, max_length=5)
     pos: int = Field(..., ge=1, le=5)
     rank_tier: int | None = None
+    fallback: bool = False
 
 
 @app.post("/builds/{hero_id}/vs")
@@ -261,8 +270,8 @@ def build_vs(hero_id: int, body: VsIn):
     known = constants.hero_by_id()
     if bad := [e for e in body.enemies if e not in known]:
         raise HTTPException(422, f"неизвестные id героев: {bad}")
-    b = _build_or_404(hero_id, body.pos, body.rank_tier)
-    recs = counter.against(body.enemies, body.pos, _pred().pos_mat, hero_items=b["item_share"])
+    b = _build_or_404(hero_id, body.pos, body.rank_tier, body.fallback)
+    recs = counter.against(body.enemies, b["pos"], _pred().pos_mat, hero_items=b["item_share"])
     have = {x["key"] for x in b["core"] + b["early"]}
     for r in recs:
         r["in_build"] = r["item"] in have
@@ -292,6 +301,36 @@ def my_profile():
 def my_refresh():
     d = me.refresh()
     return {"matches": len(d["matches"]), "rank_tier": me.rank_tier(d)}
+
+
+# ---------- shared live draft ----------------------------------------------------------------
+
+@app.get("/session", response_model=session.Session)
+def get_session():
+    return session.get()
+
+
+@app.put("/session", response_model=session.Session)
+def put_session(s: session.Session):
+    return session.put(s)
+
+
+# ---------- Dota install: display mode and key bindings (read-only) -----------------------------
+
+@app.get("/dota/display")
+def dota_display():
+    acc = config.settings().account_id
+    vm = dota_paths.video_mode(acc) if acc else None
+    if not vm:
+        return {"found": False}
+    return {"found": True, "width": vm.width, "height": vm.height, "fullscreen": vm.fullscreen,
+            "borderless": vm.borderless, "label": vm.label}
+
+
+@app.get("/dota/keybinds")
+def dota_keybinds():
+    acc = config.settings().account_id
+    return {"keys": sorted(keybinds.bound_keys(acc)) if acc else []}
 
 
 # ---------- jobs & events ----------------------------------------------------------------

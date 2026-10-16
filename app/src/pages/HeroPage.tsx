@@ -4,7 +4,7 @@ import { useBuild, useHeroPage } from '../api/hooks';
 import type { Matchup } from '../api/types';
 import { BuildView } from '../components/BuildView';
 import { heroArt } from '../components/Chrome';
-import { Glass } from '../components/Glass';
+import { Panel } from '../components/Glass';
 import { HeroSearch } from '../components/HeroSearch';
 import { Empty, ErrorBox, fmtPct, fmtSigned, HeroIcon, Segmented } from '../components/ui';
 import { useUi } from '../state/ui';
@@ -22,7 +22,7 @@ export function HeroPage() {
 
   return (
     <div className="hero-page">
-      <Glass className="panel hero-page__head" refracting>
+      <Panel className="hero-page__head" refracting>
         <HeroSearch placeholder="Найти героя…" onPick={(h) => openHero(h.id)} compact />
         {!id && <Empty>Выбери героя: поиск выше или двойной клик по герою в драфте.</Empty>}
         {id && page.isPending && <Empty>Загрузка…</Empty>}
@@ -55,17 +55,17 @@ export function HeroPage() {
             </div>
           </div>
         )}
-      </Glass>
+      </Panel>
 
       {p && (
         <>
-          <Glass className="panel hero-page__matchups">
+          <Panel className="hero-page__matchups">
             <MatchupList title="Хорош против" rows={p.matchups.counters} />
             <MatchupList title="Его контрят" rows={p.matchups.countered_by} />
             <MatchupList title="Лучшие союзники" rows={p.matchups.synergy} />
             <MatchupList title="Плохо сочетается" rows={p.matchups.anti_synergy} />
-          </Glass>
-          <Glass className="panel hero-page__build">
+          </Panel>
+          <Panel className="hero-page__build">
             <div className="panel__head">
               <h2>Билд</h2>
               <Segmented
@@ -82,7 +82,7 @@ export function HeroPage() {
             {build.isPending && <Empty>Загрузка…</Empty>}
             {build.error && <ErrorBox error={build.error} />}
             {build.data && <BuildView b={build.data.build} vs={[]} />}
-          </Glass>
+          </Panel>
         </>
       )}
     </div>

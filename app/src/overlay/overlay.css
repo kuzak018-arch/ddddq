@@ -1,0 +1,271 @@
+/* Overlay window: the page itself is transparent; with Acrylic the system blurs the game behind,
+   with "tint" the panel paints a darker translucent glass on its own. */
+html.is-overlay,
+html.is-overlay body,
+html.is-overlay #root {
+  background: transparent !important;
+}
+html.is-overlay body {
+  font-size: 13px;
+}
+
+.ov {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  overflow: hidden;
+  color: var(--text);
+  box-shadow:
+    inset 0 1px 0.5px rgba(255, 255, 255, 0.45),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  transition: opacity var(--dur) var(--ease-out);
+}
+/* Acrylic already blurs and tints the game: keep only a light sheen so text stays readable */
+.ov--acrylic {
+  background:
+    radial-gradient(130% 70% at 10% -10%, rgba(255, 255, 255, 0.14), transparent 55%),
+    rgba(12, 13, 18, 0.35);
+}
+.ov--tint {
+  background:
+    radial-gradient(130% 70% at 10% -10%, rgba(255, 255, 255, 0.1), transparent 55%),
+    rgba(14, 15, 20, 0.86);
+}
+:root[data-theme='light'] .ov--acrylic {
+  background:
+    radial-gradient(130% 70% at 10% -10%, rgba(255, 255, 255, 0.5), transparent 55%),
+    rgba(250, 250, 252, 0.45);
+}
+:root[data-theme='light'] .ov--tint {
+  background: rgba(248, 248, 250, 0.9);
+}
+.ov.is-through {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.ov__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 6px 6px 12px;
+  cursor: grab;
+}
+.ov__title {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ov__title .titlebar__logo {
+  width: 14px;
+  height: 14px;
+  border-radius: 5px;
+}
+.ov__opacity {
+  width: 64px;
+  accent-color: #fff;
+}
+.ov__head .winbtn {
+  width: 30px;
+  height: 26px;
+}
+
+.ov__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px 12px 8px;
+  scrollbar-width: thin;
+}
+.ov__center {
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 24px 8px;
+}
+.ov__warn {
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--warn) 22%, transparent);
+  font-size: 12px;
+}
+
+.ov__draft,
+.ov__build {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.ov__team {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 3px;
+}
+.ov__slot {
+  aspect-ratio: 16 / 9;
+  border-radius: 4px;
+  background: var(--slot-bg);
+  overflow: hidden;
+}
+.ov__slot .hero-icon--sm {
+  width: 100%;
+  border-radius: 0;
+  box-shadow: none;
+}
+.ov__team--ally .ov__slot {
+  box-shadow: inset 0 -2px 0 var(--radiant);
+}
+.ov__team--enemy .ov__slot {
+  box-shadow: inset 0 -2px 0 var(--dire);
+}
+.ov__win {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ov__win .winbar {
+  flex: 1;
+}
+.ov__pct {
+  font-size: 22px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.ov__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ov__row > span:not(.label) {
+  cursor: pointer;
+}
+.ov__row .is-on .hero-icon {
+  box-shadow: 0 0 0 2px var(--text);
+}
+.ov__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ov__list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: background-color var(--dur) var(--ease-out);
+}
+.ov__list li:hover {
+  background: rgba(255, 255, 255, 0.13);
+}
+.ov__why {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ov__list b {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-variant-numeric: tabular-nums;
+}
+.ov__list b small {
+  font-size: 10px;
+  opacity: 0.85;
+}
+.ov__bans {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.ov__bans .label {
+  margin-right: auto;
+}
+.ov__bans span:not(.label) {
+  cursor: pointer;
+}
+.ov__items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ov__vs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.ov__vs li {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.ov__vs li.is-rare {
+  opacity: 0.55;
+}
+.ov__vs b {
+  color: var(--text);
+}
+
+.ov__foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 6px 12px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+.ov__foot > span:first-child,
+.ov__link {
+  flex: 1;
+}
+.ov__link {
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+  font-size: 11px;
+}
+.ov__link:hover {
+  color: var(--text);
+}
+.ov__grip {
+  width: 14px;
+  height: 14px;
+  cursor: se-resize;
+  background: linear-gradient(135deg, transparent 50%, rgba(255, 255, 255, 0.35) 50% 60%, transparent 60% 70%, rgba(255, 255, 255, 0.35) 70% 80%, transparent 80%);
+}
+.is-overlay .hero-search__field {
+  height: 34px;
+}
+.is-overlay .hero-search__field input {
+  font-size: 13px;
+}
+.ov__row--start {
+  justify-content: flex-start;
+}
+.ov__row--start .label {
+  margin-right: 4px;
+}
