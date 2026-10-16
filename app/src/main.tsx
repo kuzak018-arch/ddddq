@@ -21,8 +21,24 @@ const queryClient = new QueryClient({
 
 installButtonSheen();
 
+// Never leave the user with a blank window: if the UI crashes or doesn't start, say why.
+function showFatal(message: string) {
+  const root = document.getElementById('root');
+  if (!root || root.querySelector('.app, .ov')) return;
+  root.innerHTML = '';
+  const box = document.createElement('pre');
+  box.className = 'fatal';
+  box.textContent = `Интерфейс не запустился.\n\n${message}\n\nЛог бэкенда: %LOCALAPPDATA%\\DotaDrafter\\logs\\backend.log`;
+  root.append(box);
+}
+window.addEventListener('error', (e) => showFatal(`${e.message}\n${e.error?.stack ?? ''}`));
+window.addEventListener('unhandledrejection', (e) => showFatal(String(e.reason?.stack ?? e.reason)));
+let started = false;
+setTimeout(() => !started && showFatal('Нет ответа от оболочки (backend_info) за 40 секунд.'), 40_000);
+
 // resolve the backend URL first so icon URLs are absolute from the first render
 backend().then(() => {
+  started = true;
   ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>

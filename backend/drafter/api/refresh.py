@@ -57,7 +57,10 @@ def run(log) -> None:
         stratz.fetch(stratz.bracket_for(me.rank_tier()), log=log)
     else:
         log("6/7 Stratz пропущен: нет токена")
-    log("7/7 моя история матчей…")
-    me.refresh()
+    if config.settings().account_id:
+        log("7/7 моя история матчей…")
+        me.refresh()
+    else:
+        log("7/7 история пропущена: не указан аккаунт")
     clear_caches()
     log("готово")

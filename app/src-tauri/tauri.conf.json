@@ -49,6 +49,19 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "publisher": "Dota Drafter",
+    "shortDescription": "Помощник драфта Dota 2",
+    "longDescription": "Подсказки по драфту, мета героев, билды против вражеского драфта, оверлей поверх игры.",
+    "resources": {
+      "../../build/backend/dist/drafter-backend/": "backend/"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["Russian"],
+        "displayLanguageSelector": false
+      }
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

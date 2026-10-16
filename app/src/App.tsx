@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { waitForBackend } from './api/client';
 import { Dock, TitleBar, Wallpaper } from './components/Chrome';
 import { Panel } from './components/Glass';
+import { Onboarding } from './components/Onboarding';
 import { refractionSupported } from './glass/refraction';
 import { BuildsPage } from './pages/BuildsPage';
 import { DraftPage } from './pages/DraftPage';
@@ -89,6 +90,7 @@ export default function App() {
   return (
     <>
       <Wallpaper />
+      {ready && <Onboarding />}
       <div className="app">
         <TitleBar />
         <div className="app__body">

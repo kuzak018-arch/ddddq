@@ -17,14 +17,17 @@ struct BackendInfo {
     source: String,
 }
 
+/// Managed from the very start: a window can load and ask for the backend before `setup` has
+/// started it (the release build serves the page from disk fast enough to win that race).
+#[derive(Default)]
 struct AppState {
-    info: BackendInfo,
+    info: Mutex<Option<BackendInfo>>,
     child: Mutex<Option<std::process::Child>>,
 }
 
 #[tauri::command]
-fn backend_info(state: tauri::State<'_, AppState>) -> BackendInfo {
-    state.info.clone()
+fn backend_info(state: tauri::State<'_, AppState>) -> Result<BackendInfo, String> {
+    state.info.lock().unwrap().clone().ok_or_else(|| "бэкенд ещё запускается".to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -48,9 +51,12 @@ pub fn run() {
                 .build(),
         )
         .manage(overlay::OverlayState::default())
+        .manage(AppState::default())
         .setup(|app| {
-            let (info, child) = backend::start()?;
-            app.manage(AppState { info, child: Mutex::new(child) });
+            let (info, child) = backend::start(app.path().resource_dir().ok())?;
+            let state = app.state::<AppState>();
+            *state.info.lock().unwrap() = Some(info);
+            *state.child.lock().unwrap() = child;
             Ok(())
         })
         .on_window_event(|window, event| {

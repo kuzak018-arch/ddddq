@@ -14,7 +14,13 @@ def main():
     args = ap.parse_args()
     if args.token:
         os.environ["DRAFTER_TOKEN"] = args.token
-    uvicorn.run("drafter.api.app:app", host="127.0.0.1", port=args.port, log_level="info")
+    # first start of the installed app: seed data must be on disk before modules read it
+    from drafter import config
+    config.ensure_seed()
+    # import the app object directly (not by string): in the bundled exe a failing import then
+    # shows its real traceback instead of uvicorn's generic "could not import module"
+    from drafter.api.app import app
+    uvicorn.run(app, host="127.0.0.1", port=args.port, log_level="info")
 
 
 if __name__ == "__main__":

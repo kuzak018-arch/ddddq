@@ -119,3 +119,29 @@ def test_dota_endpoints(client):
     d = client.get("/dota/display").json()
     assert "found" in d
     assert isinstance(client.get("/dota/keybinds").json()["keys"], list)
+
+
+def test_setup_writes_env_and_keeps_other_lines(client, tmp_path, monkeypatch):
+    from drafter import config
+    env = tmp_path / ".env"
+    env.write_text("# comment\nOPENDOTA_API_KEY=\n", encoding="utf-8")
+    monkeypatch.setattr(config, "ENV_FILE", env)
+    monkeypatch.delenv("STRATZ_TOKEN", raising=False)
+    r = client.put("/setup", json={"account_id": 123456, "stratz_token": "abc.DEF-1"}).json()
+    assert r["account_id"] == 123456 and r["has_stratz_token"]
+    text = env.read_text(encoding="utf-8")
+    assert "# comment" in text and "DOTA_ACCOUNT_ID=123456" in text and "STRATZ_TOKEN=abc.DEF-1" in text
+    assert client.put("/setup", json={"stratz_token": "bad token with spaces"}).status_code == 422
+    monkeypatch.setenv("DOTA_ACCOUNT_ID", "1477734386")
+
+
+def test_seed_copy(tmp_path, monkeypatch):
+    from drafter import config
+    seed, data = tmp_path / "seed", tmp_path / "data"
+    (seed / "model").mkdir(parents=True)
+    (seed / "model" / "x.txt").write_text("1")
+    (data / "constants").mkdir(parents=True)
+    monkeypatch.setattr(config, "SEED", seed)
+    monkeypatch.setattr(config, "DATA", data)
+    assert config.ensure_seed() == ["model"]
+    assert (data / "model" / "x.txt").exists() and config.ensure_seed() == []

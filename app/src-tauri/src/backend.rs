@@ -1,7 +1,7 @@
 //! Locating and launching the Python API.
 //!
 //! Order: DRAFTER_API (+ DRAFTER_TOKEN) env -> an already running external backend;
-//! `drafter-backend.exe` next to the app -> the bundled build (stage 7);
+//! `backend/drafter-backend.exe` in the app's resources -> the installed build;
 //! otherwise the repository's `.venv` (development).
 
 use std::net::TcpListener;
@@ -43,10 +43,17 @@ fn spawn(mut cmd: Command, log: &Path) -> std::io::Result<Child> {
     #[cfg(windows)]
     cmd.creation_flags(CREATE_NO_WINDOW);
     cmd.env("PYTHONIOENCODING", "utf-8");
+    // write the log line by line: a block-buffered log hides the last requests when debugging
+    cmd.env("PYTHONUNBUFFERED", "1");
     cmd.spawn()
 }
 
-pub fn start() -> Result<(BackendInfo, Option<Child>), Box<dyn std::error::Error>> {
+/// Where the installed app keeps its writable files (the backend uses the same folder).
+fn user_dir() -> PathBuf {
+    std::env::var_os("LOCALAPPDATA").map(PathBuf::from).unwrap_or_default().join("DotaDrafter")
+}
+
+pub fn start(resource_dir: Option<PathBuf>) -> Result<(BackendInfo, Option<Child>), Box<dyn std::error::Error>> {
     if let Ok(url) = std::env::var("DRAFTER_API") {
         let token = std::env::var("DRAFTER_TOKEN").unwrap_or_default();
         return Ok((BackendInfo { url, token, source: "external".into() }, None));
@@ -56,12 +63,13 @@ pub fn start() -> Result<(BackendInfo, Option<Child>), Box<dyn std::error::Error
     let url = format!("http://127.0.0.1:{port}");
     let args = ["--port".to_string(), port.to_string(), "--token".to_string(), token.clone()];
 
-    let exe_dir = std::env::current_exe()?.parent().map(Path::to_path_buf).unwrap_or_default();
-    let bundled = exe_dir.join("drafter-backend.exe");
-    if bundled.exists() {
+    // debug builds (tauri dev) run the backend from source even if a bundled copy was built
+    let prefer_source = cfg!(debug_assertions) && repo_root().is_some();
+    let bundled = resource_dir.map(|d| d.join("backend").join("drafter-backend.exe")).filter(|p| p.exists());
+    if let Some(bundled) = bundled.filter(|_| !prefer_source) {
         let mut cmd = Command::new(&bundled);
-        cmd.args(args).current_dir(&exe_dir);
-        let child = spawn(cmd, &exe_dir.join("logs").join("backend.log"))?;
+        cmd.args(args).current_dir(bundled.parent().unwrap_or(Path::new(".")));
+        let child = spawn(cmd, &user_dir().join("logs").join("backend.log"))?;
         return Ok((BackendInfo { url, token, source: "bundled".into() }, Some(child)));
     }
 

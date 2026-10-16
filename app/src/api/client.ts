@@ -13,10 +13,22 @@ export interface BackendInfo {
 
 let infoPromise: Promise<BackendInfo> | null = null;
 
+/** Ask the shell until it has started the backend (a window can load before that). */
+async function askShell(): Promise<BackendInfo> {
+  for (let i = 0; ; i++) {
+    try {
+      return await invoke<BackendInfo>('backend_info');
+    } catch (e) {
+      if (i >= 150) throw new Error(`оболочка не сообщила адрес бэкенда: ${e}`);
+      await new Promise((r) => setTimeout(r, 200));
+    }
+  }
+}
+
 export function backend(): Promise<BackendInfo> {
   if (!infoPromise) {
     infoPromise = isTauri()
-      ? invoke<BackendInfo>('backend_info')
+      ? askShell()
       : Promise.resolve({ url: import.meta.env.VITE_API ?? 'http://127.0.0.1:47900', token: '', source: 'browser' });
   }
   return infoPromise;

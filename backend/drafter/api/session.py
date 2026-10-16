@@ -42,6 +42,8 @@ class Session(BaseModel):
         ids = [h for h in self.allies + self.enemies + self.bans if h is not None]
         if len(ids) != len(set(ids)):
             raise ValueError("один и тот же герой указан дважды")
+        if not ids and not self.my_hero:
+            return self  # nothing to check (and constants may not be on disk yet at import time)
         known = constants.hero_by_id()
         if bad := [h for h in ids + ([self.my_hero] if self.my_hero else []) if h not in known]:
             raise ValueError(f"неизвестные id героев: {bad}")

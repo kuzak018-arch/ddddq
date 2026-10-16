@@ -59,6 +59,8 @@ def _on_gsi(payload: dict) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     bus.bind(asyncio.get_running_loop())
+    if copied := config.ensure_seed():
+        print(f"первый запуск: скопированы стартовые данные {copied}", flush=True)
     server = None
     if os.environ.get("DRAFTER_NO_GSI") != "1":
         try:
@@ -333,8 +335,40 @@ def my_profile():
 
 @app.post("/me/refresh")
 def my_refresh():
+    if not config.settings().account_id:
+        raise HTTPException(409, "не указан аккаунт: введи Steam ID в первом запуске или в настройках")
     d = me.refresh()
     return {"matches": len(d["matches"]), "rank_tier": me.rank_tier(d)}
+
+
+# ---------- first-run setup ----------------------------------------------------------------
+
+@app.get("/setup")
+def get_setup():
+    s = config.settings()
+    return {"account_id": s.account_id, "has_stratz_token": bool(s.stratz_token), "env_file": str(config.ENV_FILE),
+            "installed": config.FROZEN, "has_matches": matches.summary().get("matches", 0) > 0}
+
+
+class SetupIn(BaseModel):
+    account_id: int | None = Field(None, gt=0, lt=2**32)
+    stratz_token: str | None = Field(None, max_length=2000)
+
+
+@app.put("/setup")
+def put_setup(body: SetupIn):
+    """Saves the user's own Steam32 id and (optionally) their Stratz token to .env."""
+    values = {}
+    if body.account_id:
+        values["DOTA_ACCOUNT_ID"] = str(body.account_id)
+    if body.stratz_token is not None:
+        token = body.stratz_token.strip()
+        if token and not re.fullmatch(r"[A-Za-z0-9._\-]+", token):
+            raise HTTPException(422, "токен Stratz выглядит неправильно")
+        values["STRATZ_TOKEN"] = token
+    if values:
+        config.write_env(**values)
+    return get_setup()
 
 
 # ---------- shared live draft ----------------------------------------------------------------
