@@ -1,0 +1,614 @@
+{
+ "antimage": {
+  "mobility": 1.0,
+  "passives": 0.5,
+  "physical_burst": 0.5
+ },
+ "axe": {
+  "bkb_pierce": 0.7,
+  "passives": 0.5,
+  "physical_burst": 0.5,
+  "pure_damage": 1.0,
+  "targeted_disable": 0.4
+ },
+ "bane": {
+  "bkb_pierce": 1.0,
+  "pure_damage": 1.0,
+  "targeted_disable": 1.0
+ },
+ "bloodseeker": {
+  "heal": 0.6,
+  "physical_burst": 0.5,
+  "pure_damage": 1.0,
+  "silence": 0.4
+ },
+ "crystal_maiden": {
+  "magic_burst": 1.0,
+  "targeted_disable": 0.5
+ },
+ "drow_ranger": {
+  "passives": 0.6,
+  "physical_burst": 0.4,
+  "silence": 0.5
+ },
+ "earthshaker": {
+  "bkb_pierce": 0.4,
+  "magic_burst": 1.0
+ },
+ "juggernaut": {
+  "heal": 0.6,
+  "physical_burst": 0.5,
+  "summons": 0.3
+ },
+ "mirana": {
+  "invis": 0.7,
+  "magic_burst": 1.0,
+  "mobility": 0.6
+ },
+ "morphling": {
+  "illusions": 0.3,
+  "mobility": 0.7,
+  "physical_burst": 0.4
+ },
+ "nevermore": {
+  "armor_reduction": 0.5,
+  "magic_burst": 1.0
+ },
+ "phantom_lancer": {
+  "illusions": 1.0,
+  "physical_burst": 0.5
+ },
+ "puck": {
+  "magic_burst": 1.0,
+  "mobility": 1.0,
+  "silence": 0.5
+ },
+ "pudge": {
+  "bkb_pierce": 0.5,
+  "heal": 0.5,
+  "magic_burst": 0.7,
+  "pure_damage": 0.5,
+  "targeted_disable": 0.6
+ },
+ "razor": {
+  "armor_reduction": 0.5,
+  "magic_burst": 0.7,
+  "physical_burst": 0.4
+ },
+ "sand_king": {
+  "magic_burst": 1.0
+ },
+ "storm_spirit": {
+  "magic_burst": 1.0,
+  "mobility": 1.0
+ },
+ "sven": {
+  "physical_burst": 0.5,
+  "targeted_disable": 0.5
+ },
+ "tiny": {
+  "magic_burst": 0.7,
+  "physical_burst": 0.5
+ },
+ "vengefulspirit": {
+  "armor_reduction": 0.5,
+  "magic_burst": 1.0,
+  "saves": 0.4,
+  "targeted_disable": 0.6
+ },
+ "windrunner": {
+  "evasion": 0.7,
+  "mobility": 0.5,
+  "physical_burst": 0.4
+ },
+ "zuus": {
+  "magic_burst": 1.0
+ },
+ "kunkka": {
+  "magic_burst": 0.7,
+  "passives": 0.4,
+  "physical_burst": 0.5
+ },
+ "lina": {
+  "magic_burst": 1.0
+ },
+ "lion": {
+  "magic_burst": 0.7,
+  "targeted_disable": 1.0
+ },
+ "shadow_shaman": {
+  "magic_burst": 0.7,
+  "summons": 0.6,
+  "targeted_disable": 1.0
+ },
+ "slardar": {
+  "armor_reduction": 0.5,
+  "passives": 0.5,
+  "physical_burst": 0.5
+ },
+ "tidehunter": {
+  "armor_reduction": 0.5,
+  "bkb_pierce": 0.8,
+  "passives": 0.5,
+  "physical_burst": 0.5
+ },
+ "witch_doctor": {
+  "heal": 0.7,
+  "magic_burst": 1.0,
+  "pure_damage": 0.5,
+  "targeted_disable": 0.4
+ },
+ "lich": {
+  "magic_burst": 1.0
+ },
+ "riki": {
+  "armor_reduction": 0.5,
+  "evasion": 0.5,
+  "invis": 1.0,
+  "mobility": 0.5,
+  "passives": 0.6,
+  "physical_burst": 0.5,
+  "silence": 0.5
+ },
+ "enigma": {
+  "bkb_pierce": 1.0,
+  "magic_burst": 0.7,
+  "pure_damage": 0.5,
+  "summons": 0.5
+ },
+ "tinker": {
+  "magic_burst": 1.0,
+  "pure_damage": 0.5
+ },
+ "sniper": {
+  "magic_burst": 1.0,
+  "passives": 0.5
+ },
+ "necrolyte": {
+  "heal": 1.0,
+  "magic_burst": 1.0
+ },
+ "warlock": {
+  "heal": 0.5,
+  "magic_burst": 0.7,
+  "summons": 0.5
+ },
+ "beastmaster": {
+  "bkb_pierce": 1.0,
+  "magic_burst": 1.0,
+  "summons": 0.6
+ },
+ "queenofpain": {
+  "magic_burst": 0.7,
+  "mobility": 1.0,
+  "pure_damage": 0.5
+ },
+ "venomancer": {
+  "magic_burst": 1.0,
+  "summons": 0.6
+ },
+ "faceless_void": {
+  "bkb_pierce": 1.0,
+  "magic_burst": 0.7,
+  "mobility": 0.6,
+  "passives": 0.6,
+  "physical_burst": 0.5
+ },
+ "skeleton_king": {
+  "heal": 0.6,
+  "passives": 0.5,
+  "physical_burst": 0.5,
+  "targeted_disable": 0.4
+ },
+ "death_prophet": {
+  "magic_burst": 0.7,
+  "physical_burst": 0.4,
+  "silence": 0.6
+ },
+ "phantom_assassin": {
+  "evasion": 1.0,
+  "mobility": 0.6,
+  "passives": 1.0,
+  "physical_burst": 0.5
+ },
+ "pugna": {
+  "magic_burst": 0.7,
+  "saves": 0.5,
+  "summons": 0.3
+ },
+ "templar_assassin": {
+  "armor_reduction": 0.5,
+  "invis": 0.6,
+  "physical_burst": 0.4,
+  "pure_damage": 0.5
+ },
+ "viper": {
+  "magic_burst": 1.0,
+  "passives": 0.6
+ },
+ "luna": {
+  "physical_burst": 0.4
+ },
+ "dragon_knight": {
+  "heal": 0.5,
+  "magic_burst": 1.0,
+  "passives": 0.4,
+  "targeted_disable": 0.5
+ },
+ "dazzle": {
+  "armor_reduction": 0.5,
+  "heal": 0.8,
+  "saves": 1.0
+ },
+ "rattletrap": {
+  "magic_burst": 1.0
+ },
+ "leshrac": {
+  "magic_burst": 1.0,
+  "pure_damage": 0.5
+ },
+ "furion": {
+  "magic_burst": 1.0,
+  "mobility": 0.6,
+  "summons": 0.8
+ },
+ "life_stealer": {
+  "heal": 1.0,
+  "physical_burst": 0.5
+ },
+ "dark_seer": {
+  "illusions": 0.3,
+  "magic_burst": 0.7
+ },
+ "clinkz": {
+  "armor_reduction": 0.5,
+  "invis": 1.0,
+  "mobility": 0.5,
+  "physical_burst": 0.4,
+  "summons": 0.5
+ },
+ "omniknight": {
+  "heal": 1.0,
+  "pure_damage": 1.0,
+  "saves": 1.0
+ },
+ "enchantress": {
+  "heal": 0.8,
+  "pure_damage": 0.5
+ },
+ "huskar": {
+  "heal": 1.0,
+  "magic_burst": 1.0,
+  "passives": 0.8,
+  "silence": 0.4
+ },
+ "night_stalker": {
+  "magic_burst": 0.7,
+  "physical_burst": 0.5,
+  "silence": 0.6
+ },
+ "broodmother": {
+  "magic_burst": 0.7,
+  "mobility": 0.4,
+  "physical_burst": 0.5,
+  "summons": 1.0
+ },
+ "bounty_hunter": {
+  "invis": 1.0
+ },
+ "weaver": {
+  "armor_reduction": 0.5,
+  "invis": 1.0,
+  "mobility": 0.8,
+  "physical_burst": 0.4
+ },
+ "jakiro": {
+  "magic_burst": 1.0
+ },
+ "batrider": {
+  "bkb_pierce": 0.8,
+  "magic_burst": 1.0,
+  "mobility": 0.5,
+  "targeted_disable": 0.8
+ },
+ "chen": {
+  "heal": 0.6,
+  "pure_damage": 0.5,
+  "saves": 0.4,
+  "summons": 0.8
+ },
+ "spectre": {
+  "passives": 1.0,
+  "physical_burst": 0.5,
+  "pure_damage": 0.5
+ },
+ "ancient_apparition": {
+  "magic_burst": 1.0
+ },
+ "doom_bringer": {
+  "bkb_pierce": 1.0,
+  "magic_burst": 0.7,
+  "physical_burst": 0.5,
+  "pure_damage": 0.5,
+  "silence": 1.0,
+  "targeted_disable": 1.0
+ },
+ "ursa": {
+  "passives": 0.7,
+  "physical_burst": 0.5
+ },
+ "spirit_breaker": {
+  "magic_burst": 0.7,
+  "mobility": 0.4,
+  "passives": 0.5,
+  "physical_burst": 0.5,
+  "targeted_disable": 0.5
+ },
+ "gyrocopter": {
+  "magic_burst": 1.0
+ },
+ "alchemist": {
+  "armor_reduction": 0.5,
+  "heal": 0.8,
+  "physical_burst": 0.5
+ },
+ "invoker": {
+  "invis": 0.5,
+  "magic_burst": 1.0,
+  "pure_damage": 0.5,
+  "summons": 0.4
+ },
+ "silencer": {
+  "magic_burst": 1.0,
+  "silence": 1.0
+ },
+ "obsidian_destroyer": {
+  "magic_burst": 0.7,
+  "pure_damage": 0.5,
+  "targeted_disable": 0.4
+ },
+ "lycan": {
+  "armor_reduction": 0.5,
+  "physical_burst": 0.5,
+  "summons": 0.8
+ },
+ "brewmaster": {
+  "evasion": 0.6,
+  "magic_burst": 0.7,
+  "physical_burst": 0.5,
+  "summons": 0.5
+ },
+ "shadow_demon": {
+  "illusions": 0.4,
+  "magic_burst": 0.7,
+  "saves": 0.6,
+  "targeted_disable": 0.5
+ },
+ "lone_druid": {
+  "physical_burst": 0.4,
+  "summons": 0.6
+ },
+ "chaos_knight": {
+  "armor_reduction": 0.5,
+  "illusions": 0.8,
+  "passives": 0.4,
+  "physical_burst": 0.5,
+  "targeted_disable": 0.6
+ },
+ "meepo": {
+  "illusions": 0.8,
+  "magic_burst": 0.7,
+  "physical_burst": 0.5
+ },
+ "treant": {
+  "heal": 0.8,
+  "invis": 0.5,
+  "magic_burst": 1.0,
+  "saves": 0.4
+ },
+ "ogre_magi": {
+  "magic_burst": 1.0,
+  "saves": 0.4,
+  "targeted_disable": 0.6
+ },
+ "undying": {
+  "heal": 0.7,
+  "magic_burst": 1.0,
+  "summons": 0.6
+ },
+ "rubick": {
+  "targeted_disable": 0.5
+ },
+ "disruptor": {
+  "magic_burst": 1.0
+ },
+ "nyx_assassin": {
+  "invis": 1.0,
+  "magic_burst": 0.7,
+  "pure_damage": 0.5
+ },
+ "naga_siren": {
+  "armor_reduction": 0.5,
+  "illusions": 1.0,
+  "physical_burst": 0.5
+ },
+ "keeper_of_the_light": {
+  "magic_burst": 1.0
+ },
+ "wisp": {
+  "heal": 1.0,
+  "mobility": 0.4,
+  "saves": 0.6
+ },
+ "visage": {
+  "armor_reduction": 0.5,
+  "magic_burst": 0.7,
+  "summons": 0.7
+ },
+ "slark": {
+  "heal": 0.6,
+  "magic_burst": 0.7,
+  "mobility": 0.8,
+  "passives": 0.5,
+  "physical_burst": 0.5
+ },
+ "medusa": {
+  "magic_burst": 0.7,
+  "passives": 0.6,
+  "physical_burst": 0.4
+ },
+ "troll_warlord": {
+  "evasion": 0.4,
+  "magic_burst": 0.7,
+  "passives": 0.5,
+  "physical_burst": 0.4
+ },
+ "centaur": {
+  "magic_burst": 1.0,
+  "passives": 0.4
+ },
+ "magnataur": {
+  "bkb_pierce": 1.0,
+  "magic_burst": 1.0
+ },
+ "shredder": {
+  "heal": 0.7,
+  "passives": 0.6,
+  "pure_damage": 1.0
+ },
+ "bristleback": {
+  "armor_reduction": 0.5,
+  "passives": 1.0,
+  "physical_burst": 0.5
+ },
+ "tusk": {
+  "magic_burst": 1.0
+ },
+ "skywrath_mage": {
+  "magic_burst": 1.0,
+  "silence": 0.8
+ },
+ "abaddon": {
+  "heal": 1.0,
+  "magic_burst": 1.0,
+  "saves": 1.0
+ },
+ "elder_titan": {
+  "armor_reduction": 0.5,
+  "bkb_pierce": 0.4,
+  "magic_burst": 0.7
+ },
+ "legion_commander": {
+  "bkb_pierce": 1.0,
+  "heal": 0.4,
+  "physical_burst": 0.5,
+  "targeted_disable": 1.0
+ },
+ "techies": {
+  "magic_burst": 1.0
+ },
+ "ember_spirit": {
+  "magic_burst": 1.0,
+  "mobility": 1.0
+ },
+ "earth_spirit": {
+  "magic_burst": 1.0,
+  "mobility": 0.7,
+  "silence": 0.4
+ },
+ "abyssal_underlord": {
+  "magic_burst": 0.7
+ },
+ "terrorblade": {
+  "illusions": 0.8,
+  "physical_burst": 0.5
+ },
+ "phoenix": {
+  "bkb_pierce": 0.4,
+  "magic_burst": 1.0
+ },
+ "oracle": {
+  "heal": 1.0,
+  "magic_burst": 1.0,
+  "saves": 1.0
+ },
+ "winter_wyvern": {
+  "heal": 0.5,
+  "magic_burst": 0.7,
+  "saves": 0.7,
+  "targeted_disable": 0.5
+ },
+ "arc_warden": {
+  "magic_burst": 0.7,
+  "physical_burst": 0.4
+ },
+ "monkey_king": {
+  "illusions": 0.4,
+  "mobility": 0.6,
+  "passives": 0.4,
+  "physical_burst": 0.5
+ },
+ "dark_willow": {
+  "magic_burst": 1.0,
+  "mobility": 0.4
+ },
+ "pangolier": {
+  "armor_reduction": 0.5,
+  "mobility": 0.8,
+  "physical_burst": 0.5
+ },
+ "grimstroke": {
+  "magic_burst": 1.0,
+  "silence": 0.5,
+  "targeted_disable": 0.6
+ },
+ "hoodwink": {
+  "evasion": 0.5,
+  "magic_burst": 1.0,
+  "mobility": 0.5
+ },
+ "void_spirit": {
+  "magic_burst": 1.0,
+  "mobility": 1.0
+ },
+ "snapfire": {
+  "armor_reduction": 0.5,
+  "magic_burst": 1.0
+ },
+ "mars": {
+  "bkb_pierce": 0.6,
+  "magic_burst": 0.7,
+  "passives": 0.4,
+  "physical_burst": 0.5
+ },
+ "ringmaster": {
+  "magic_burst": 1.0
+ },
+ "dawnbreaker": {
+  "heal": 0.7,
+  "magic_burst": 0.7,
+  "physical_burst": 0.5
+ },
+ "marci": {
+  "heal": 0.4,
+  "magic_burst": 1.0,
+  "mobility": 0.5,
+  "targeted_disable": 0.5
+ },
+ "primal_beast": {
+  "bkb_pierce": 0.8,
+  "magic_burst": 0.7,
+  "targeted_disable": 0.6
+ },
+ "muerta": {
+  "magic_burst": 1.0
+ },
+ "kez": {
+  "mobility": 0.8,
+  "physical_burst": 0.5,
+  "pure_damage": 0.5
+ },
+ "largo": {
+  "magic_burst": 1.0
+ }
+}

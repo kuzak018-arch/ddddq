@@ -1,0 +1,172 @@
+# Правила «что собрать против драфта».
+# tag      — тег из hero_tags (сумма силы тега у врагов, с весом героя: кор/саппорт)
+# min      — порог суммы, с которого правило срабатывает
+# weight   — any: все враги одинаково; core: важнее коры (вклад = сила × доля игр героя на 1–3 позиции)
+# items    — по позициям (1..5): предметы в порядке приоритета, ключи из констант OpenDota
+# why      — объяснение; {heroes} — враги с этим тегом
+# Пересобрать после правки не нужно: файл читается при каждом запросе.
+
+- tag: magic_burst
+  min: 2.0
+  weight: any
+  items:
+    1: [black_king_bar, manta]
+    2: [black_king_bar, eternal_shroud]
+    3: [pipe, eternal_shroud, black_king_bar]
+    4: [glimmer_cape, pipe]
+    5: [glimmer_cape, pipe]
+  why: "Много магического урона ({heroes}): нужна защита от магии, без неё вас сжигают в драках."
+
+- tag: pure_damage
+  min: 1.2
+  weight: any
+  items:
+    1: [black_king_bar]
+    2: [black_king_bar]
+    3: [black_king_bar, crimson_guard]
+    4: [glimmer_cape, force_staff]
+    5: [glimmer_cape, force_staff]
+  why: "Чистый урон ({heroes}) не режется бронёй и сопротивлением, спасают BKB и уход из-под каста."
+
+- tag: illusions
+  min: 0.8
+  weight: any
+  items:
+    1: [bfury, mjollnir, radiance]
+    2: [mjollnir, shivas_guard]
+    3: [shivas_guard, crimson_guard, radiance]
+    4: [shivas_guard]
+    5: []
+  why: "Иллюзии и копии ({heroes}): нужен урон по площади, чтобы их чистить."
+
+- tag: summons
+  min: 1.2
+  weight: any
+  items:
+    1: [bfury, mjollnir]
+    2: [mjollnir, shivas_guard]
+    3: [shivas_guard, crimson_guard]
+    4: [shivas_guard]
+    5: []
+  why: "Призванные существа ({heroes}): урон по площади и броня против толпы юнитов."
+
+- tag: invis
+  min: 0.6
+  weight: any
+  items:
+    1: []
+    2: [dust]
+    3: [dust, ward_sentry]
+    4: [dust, ward_sentry, gem]
+    5: [ward_sentry, dust, gem]
+  why: "Невидимые герои ({heroes}): держите детект — Dust, Sentry, позже Gem."
+
+- tag: heal
+  min: 1.5
+  weight: any
+  items:
+    1: [skadi]
+    2: [shivas_guard, skadi]
+    3: [spirit_vessel, shivas_guard]
+    4: [spirit_vessel]
+    5: [spirit_vessel]
+  why: "Сильное лечение и реген ({heroes}): нужно резать хил — Vessel, Shiva's, Skadi."
+
+- tag: evasion
+  min: 0.8
+  weight: core
+  items:
+    1: [monkey_king_bar, bloodthorn]
+    2: [monkey_king_bar, bloodthorn]
+    3: [monkey_king_bar]
+    4: []
+    5: []
+  why: "Уклонение ({heroes}): без true strike ваши атаки промахиваются."
+
+- tag: passives
+  min: 0.8
+  weight: core
+  items:
+    1: [silver_edge]
+    2: [silver_edge]
+    3: [silver_edge]
+    4: []
+    5: []
+  why: "Сильные пассивки у коров ({heroes}): Silver Edge отключает их (Break)."
+
+- tag: silence
+  min: 1.0
+  weight: any
+  items:
+    1: [manta, black_king_bar]
+    2: [manta, black_king_bar]
+    3: [lotus_orb, black_king_bar]
+    4: [lotus_orb, glimmer_cape]
+    5: [lotus_orb, glimmer_cape]
+  why: "Сайленсы ({heroes}): Manta и Lotus снимают их, BKB защищает заранее."
+
+- tag: targeted_disable
+  min: 1.5
+  weight: any
+  items:
+    1: [sphere, black_king_bar]
+    2: [sphere, black_king_bar]
+    3: [lotus_orb, sphere]
+    4: [lotus_orb, force_staff]
+    5: [lotus_orb, force_staff]
+  why: "Много точечного контроля ({heroes}): Linken's или Lotus Orb принимают его на себя."
+
+- tag: bkb_pierce
+  min: 1.0
+  weight: any
+  items:
+    1: [aeon_disk, sphere]
+    2: [aeon_disk, sphere]
+    3: [aeon_disk, blade_mail]
+    4: [force_staff, glimmer_cape]
+    5: [force_staff, glimmer_cape]
+  why: "Контроль сквозь BKB ({heroes}): BKB не спасёт, нужен Aeon Disk или Linken's и аккуратная позиция."
+
+- tag: mobility
+  min: 1.5
+  weight: core
+  items:
+    1: [abyssal_blade, orchid, harpoon]
+    2: [orchid, sheepstick, bloodthorn]
+    3: [rod_of_atos, sheepstick, abyssal_blade]
+    4: [rod_of_atos, gungir]
+    5: [rod_of_atos, gungir]
+  why: "Мобильные коры ({heroes}): нужен контроль, который не даёт им уйти — Orchid, Hex, Atos, Abyssal."
+
+- tag: physical_burst
+  min: 1.4
+  weight: core
+  items:
+    1: [butterfly, satanic]
+    2: [blade_mail, black_king_bar]
+    3: [crimson_guard, blade_mail, assault]
+    4: [ghost, solar_crest, force_staff]
+    5: [ghost, force_staff, solar_crest]
+  why: "Много физического урона у коров ({heroes}): броня, Ghost Scepter, Crimson Guard."
+
+- tag: armor_reduction
+  min: 1.0
+  weight: any
+  items:
+    1: [assault]
+    2: []
+    3: [assault, crimson_guard]
+    4: [solar_crest]
+    5: [solar_crest]
+  why: "Снижение брони ({heroes}): нужна броня — Assault, Solar Crest."
+
+- tag: saves
+  min: 1.0
+  weight: any
+  items:
+    1: [nullifier, bloodthorn]
+    2: [nullifier, sheepstick]
+    3: [nullifier]
+    4: [cyclone]
+    5: []
+  why: "Сейвы союзников ({heroes}): Nullifier снимает их эффекты, фокусируйте сейвера первым."

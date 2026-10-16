@@ -16,7 +16,7 @@ app/src-tauri/target/
 app/src-tauri/binaries/
 
 # local data (matches, caches, models, icons, screenshots)
-data/
+/data/
 
 # os / editors
 .DS_Store
