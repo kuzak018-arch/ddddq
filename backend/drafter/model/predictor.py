@@ -49,6 +49,7 @@ class Predictor:
         add = a["additive"]
         w = add.weights
         self.S, self.C = add.S * w["syn"], add.C * w["cnt"]       # already in log-odds
+        self.pair_games = add.pairs.games()                       # (synergy, counter) games per pair
         self.hero_w, self.hero_group_w = w["hero"], w["hero_group"]
         self.intercept = w["intercept"]                            # Radiant advantage
         cal = a["cal"]["lr"].lr
