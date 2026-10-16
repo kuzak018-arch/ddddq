@@ -1,0 +1,139 @@
+/* Design tokens. Light theme on :root, dark via system preference or [data-theme]. */
+:root {
+  color-scheme: light;
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Inter', system-ui, 'Segoe UI',
+    Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  --radius-xl: 30px;
+  --radius-lg: 24px;
+  --radius-md: 18px;
+  --radius-sm: 12px;
+  --radius-tile: 10px;
+  --radius-pill: 999px;
+
+  --tile-hero-w: 86px;
+  --tile-hero-h: calc(var(--tile-hero-w) * 9 / 16);
+  --tile-item: 54px;
+  --tile-gap: 6px;
+  --row-pad: 8px;
+  --label-w: 104px;
+
+  --topbar-h: 64px;
+  --gutter: 20px;
+  --pool-w: 392px;
+
+  --ease-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* colors — light */
+  --text: #1d1d1f;
+  --text-2: rgba(29, 29, 31, 0.66);
+  --text-3: rgba(29, 29, 31, 0.44);
+  --hairline: rgba(0, 0, 0, 0.08);
+  --page-bg: #f2f2f7;
+  --accent: #0a84ff;
+  --danger: #ff3b30;
+  --focus: rgba(10, 132, 255, 0.55);
+
+  --glass-tint: rgba(255, 255, 255, 0.74);
+  --glass-tint-strong: rgba(255, 255, 255, 0.88);
+  --glass-tint-inset: rgba(0, 0, 0, 0.035);
+  --glass-rim: rgba(255, 255, 255, 0.75);
+  --glass-rim-2: rgba(255, 255, 255, 0.18);
+  --glass-specular: rgba(255, 255, 255, 0.85);
+  --glass-shadow: 0 12px 36px -12px rgba(20, 24, 40, 0.2), 0 2px 8px rgba(20, 24, 40, 0.06);
+  --glass-blur: 22px;
+  --glass-saturate: 185%;
+
+  --control-bg: rgba(0, 0, 0, 0.05);
+  --control-bg-hover: rgba(0, 0, 0, 0.08);
+  --control-bg-active: rgba(0, 0, 0, 0.12);
+  --chip-on: rgba(255, 255, 255, 0.92);
+  --chip-on-text: #1d1d1f;
+  --tile-bg: rgba(0, 0, 0, 0.12);
+  --drop-bg: rgba(0, 0, 0, 0.04);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --text: #f5f5f7;
+    --text-2: rgba(245, 245, 247, 0.7);
+    --text-3: rgba(245, 245, 247, 0.45);
+    --hairline: rgba(255, 255, 255, 0.1);
+    --page-bg: #1c1c1e;
+    --accent: #0a84ff;
+    --focus: rgba(100, 170, 255, 0.6);
+
+    --glass-tint: rgba(44, 44, 46, 0.74);
+    --glass-tint-strong: rgba(44, 44, 46, 0.9);
+    --glass-tint-inset: rgba(255, 255, 255, 0.05);
+    --glass-rim: rgba(255, 255, 255, 0.34);
+    --glass-rim-2: rgba(255, 255, 255, 0.06);
+    --glass-specular: rgba(255, 255, 255, 0.4);
+    --glass-shadow: 0 18px 50px -12px rgba(0, 0, 0, 0.6), 0 4px 14px rgba(0, 0, 0, 0.3);
+
+    --control-bg: rgba(255, 255, 255, 0.1);
+    --control-bg-hover: rgba(255, 255, 255, 0.17);
+    --control-bg-active: rgba(255, 255, 255, 0.24);
+    --chip-on: rgba(255, 255, 255, 0.88);
+    --chip-on-text: #111216;
+    --tile-bg: rgba(0, 0, 0, 0.3);
+    --drop-bg: rgba(255, 255, 255, 0.05);
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --text: #f5f5f7;
+  --text-2: rgba(245, 245, 247, 0.7);
+  --text-3: rgba(245, 245, 247, 0.45);
+  --hairline: rgba(255, 255, 255, 0.1);
+  --page-bg: #1c1c1e;
+  --accent: #0a84ff;
+  --focus: rgba(100, 170, 255, 0.6);
+
+  --glass-tint: rgba(44, 44, 46, 0.74);
+  --glass-tint-strong: rgba(44, 44, 46, 0.9);
+  --glass-tint-inset: rgba(255, 255, 255, 0.05);
+  --glass-rim: rgba(255, 255, 255, 0.34);
+  --glass-rim-2: rgba(255, 255, 255, 0.06);
+  --glass-specular: rgba(255, 255, 255, 0.4);
+  --glass-shadow: 0 18px 50px -12px rgba(0, 0, 0, 0.6), 0 4px 14px rgba(0, 0, 0, 0.3);
+
+  --control-bg: rgba(255, 255, 255, 0.1);
+  --control-bg-hover: rgba(255, 255, 255, 0.17);
+  --control-bg-active: rgba(255, 255, 255, 0.24);
+  --chip-on: rgba(255, 255, 255, 0.88);
+  --chip-on-text: #111216;
+  --tile-bg: rgba(0, 0, 0, 0.3);
+  --drop-bg: rgba(255, 255, 255, 0.05);
+}
+
+@media (max-width: 1099px) {
+  :root {
+    --gutter: 14px;
+    --label-w: 84px;
+  }
+}
+
+@media (max-width: 640px) {
+  :root {
+    --gutter: 12px;
+    --tile-hero-w: 64px;
+    --tile-item: 44px;
+    --tile-gap: 5px;
+    --row-pad: 6px;
+    --label-w: 64px;
+    --radius-xl: 26px;
+    --radius-lg: 22px;
+  }
+}
+
+@media (max-width: 380px) {
+  :root {
+    --tile-hero-w: 56px;
+    --tile-item: 40px;
+    --label-w: 56px;
+  }
+}

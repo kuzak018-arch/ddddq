@@ -1,0 +1,206 @@
+/*
+ * Liquid Glass material
+ * ─ translucent tint + backdrop blur/saturation (all browsers with backdrop-filter)
+ * ─ specular sheen from the top-left + bright rim light (gradient border)
+ * ─ soft, wide shadow so the panel floats above the wallpaper
+ * ─ edge refraction via SVG feDisplacementMap — Chromium only (.is-refracting)
+ */
+
+.glass {
+  --sheen: 0.24;
+  background:
+    radial-gradient(130% 80% at 12% -18%, rgba(255, 255, 255, var(--sheen)), transparent 58%),
+    var(--glass-tint);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 0;
+  box-shadow:
+    inset 0 1px 0.5px -0.5px var(--glass-specular),
+    inset 0 -1.5px 1px -1px rgba(255, 255, 255, 0.16),
+    inset 0 0 18px -6px rgba(255, 255, 255, 0.18),
+    var(--glass-shadow);
+  isolation: isolate;
+}
+
+/* rim light: a 1px gradient border, brightest where the light hits */
+.glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    150deg,
+    var(--glass-rim) 0%,
+    rgba(255, 255, 255, 0.12) 24%,
+    rgba(255, 255, 255, 0) 48%,
+    rgba(255, 255, 255, 0.08) 74%,
+    var(--glass-rim-soft, rgba(255, 255, 255, 0.4)) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  pointer-events: none;
+}
+
+.has-refraction .glass.is-refracting {
+  -webkit-backdrop-filter: var(--refract-filter);
+  backdrop-filter: var(--refract-filter);
+}
+
+/* ---- variants */
+
+.glass--bar {
+  --sheen: 0.2;
+}
+
+.glass--panel {
+  --sheen: 0.18;
+  background:
+    radial-gradient(120% 60% at 10% -10%, rgba(255, 255, 255, var(--sheen)), transparent 55%),
+    var(--glass-tint);
+}
+
+.glass--strong {
+  --sheen: 0.3;
+  background:
+    radial-gradient(130% 80% at 12% -18%, rgba(255, 255, 255, var(--sheen)), transparent 58%),
+    var(--glass-tint-strong);
+}
+
+.glass--thin {
+  --sheen: 0.3;
+  background:
+    radial-gradient(130% 80% at 12% -18%, rgba(255, 255, 255, var(--sheen)), transparent 58%),
+    var(--glass-tint-strong);
+  -webkit-backdrop-filter: blur(30px) saturate(200%);
+  backdrop-filter: blur(30px) saturate(200%);
+}
+
+/* recessed glass (search field, segmented track) — sits *inside* another glass layer */
+.glass--inset {
+  background: var(--glass-tint-inset);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.16),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 0 0 1px var(--glass-rim-2);
+}
+
+.glass--inset::before {
+  opacity: 0.45;
+}
+
+/* elements that need a positioning context for the rim */
+.board__capture,
+.alert,
+.search,
+.segmented {
+  position: relative;
+}
+
+.board__capture > *,
+.pool-panel > *,
+.topbar > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* ---- glass buttons: specular highlight follows the pointer */
+
+.btn--glass {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(120px circle at var(--mx, 30%) var(--my, -20%), rgba(255, 255, 255, 0.38), transparent 60%),
+    var(--control-bg);
+}
+
+.btn--glass:hover {
+  background:
+    radial-gradient(120px circle at var(--mx, 30%) var(--my, -20%), rgba(255, 255, 255, 0.5), transparent 60%),
+    var(--control-bg-hover);
+}
+
+.btn--glass.is-floating {
+  -webkit-backdrop-filter: blur(14px) saturate(190%);
+  backdrop-filter: blur(14px) saturate(190%);
+}
+
+.has-refraction .btn--glass.is-refracting {
+  -webkit-backdrop-filter: var(--refract-filter);
+  backdrop-filter: var(--refract-filter);
+}
+
+/* ---- segmented thumb: a little lens of brighter glass */
+
+.segmented__thumb {
+  background:
+    radial-gradient(120% 120% at 30% 0%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.7) 60%),
+    var(--chip-on);
+}
+
+/* ---- tier rows: tinted glass labels */
+
+.tier {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 40%),
+    var(--glass-tint-inset);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 0 0 1px var(--hairline);
+}
+
+.tier__label {
+  background:
+    radial-gradient(120% 90% at 20% 0%, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(0, 0, 0, 0.06)),
+    color-mix(in srgb, var(--tier-color) 82%, transparent);
+  box-shadow:
+    inset 0 1px 0.5px rgba(255, 255, 255, 0.75),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.12),
+    inset -1px 0 0 rgba(255, 255, 255, 0.2),
+    4px 0 18px -6px color-mix(in srgb, var(--tier-color) 70%, transparent);
+}
+
+/* ---- when backdrop-filter isn't available at all: keep things readable */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass,
+  .glass--panel,
+  .glass--bar {
+    background: var(--glass-tint-strong);
+  }
+}
+
+/* floating menus sit over busy content — use the denser tint for legibility */
+.popover.glass {
+  --sheen: 0.28;
+  background:
+    radial-gradient(130% 80% at 12% -18%, rgba(255, 255, 255, var(--sheen)), transparent 58%),
+    var(--glass-tint-strong);
+}
+
+/* controls that sit directly on the wallpaper need a denser tint to stay readable */
+.board__footer .btn--glass {
+  background:
+    radial-gradient(120px circle at var(--mx, 30%) var(--my, -20%), rgba(255, 255, 255, 0.35), transparent 60%),
+    var(--glass-tint-strong);
+}
+
+.site-footer__text {
+  display: inline-block;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--glass-tint-strong);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  backdrop-filter: blur(16px) saturate(180%);
+  color: var(--text-2);
+  text-shadow: none;
+}
