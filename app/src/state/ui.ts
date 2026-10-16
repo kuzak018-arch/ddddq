@@ -28,6 +28,7 @@ interface UiState {
     effect: 'acrylic' | 'tint';
     mode: 'auto' | 'draft' | 'build'; // auto: build once the match starts (GSI)
     autoPerf: boolean;   // performance mode in the overlay while a match is running
+    autoShow: boolean;   // show the overlay by itself when hero selection starts (GSI)
   };
   go: (page: Page) => void;
   openHero: (id: number) => void;
@@ -48,7 +49,7 @@ export const useUi = create<UiState>()(
       bgDim: 0.15,
       refraction: true,
       performance: false,
-      overlay: { toggle: 'Ctrl+Shift+M', interact: 'Ctrl+Shift+N', opacity: 0.94, effect: 'acrylic', mode: 'auto', autoPerf: true },
+      overlay: { toggle: 'Ctrl+Shift+M', interact: 'Ctrl+Shift+N', opacity: 0.94, effect: 'acrylic', mode: 'auto', autoPerf: true, autoShow: true },
       go: (page) => set({ page }),
       openHero: (id) => set({ page: 'hero', heroPageId: id }),
       openBuild: (hero, pos) => set((s) => ({ page: 'builds', buildHero: hero, buildPos: pos ?? s.buildPos })),

@@ -1,0 +1,220 @@
+"""Dota 2 Game State Integration.
+
+Dota POSTs JSON to the URI from cfg/gamestate_integration/*.cfg, so the receiver needs a fixed
+port; the API itself runs on a random per-launch port. A tiny stdlib HTTP server on 127.0.0.1
+handles only these POSTs and checks the auth token written into our cfg.
+
+What a *player* gets (Valve exposes only the local player's data): map.game_state, the match id,
+player.team_name, and hero.id/name once picked. The "draft" block is documented for spectators;
+we parse it if it ever arrives and log every payload so this can be checked on a real match.
+"""
+
+from __future__ import annotations
+
+import json
+import secrets
+import threading
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+from . import config, dota_paths, kv
+from .data import constants
+
+PORT = 47831
+CFG_NAME = "gamestate_integration_dotadrafter.cfg"
+OLD_CFGS = ["gamestate_integration_drafthelper.cfg"]  # the user's earlier attempt (approved for removal)
+STATE_FILE = config.DATA / "gsi.json"
+LOG_DIR = config.DATA / "gsi"  # one JSONL file per day, auth token stripped
+
+DRAFT_STATES = {"DOTA_GAMERULES_STATE_HERO_SELECTION", "DOTA_GAMERULES_STATE_STRATEGY_TIME"}
+GAME_STATES = {"DOTA_GAMERULES_STATE_TEAM_SHOWCASE", "DOTA_GAMERULES_STATE_WAIT_FOR_MAP_TO_LOAD",
+               "DOTA_GAMERULES_STATE_PRE_GAME", "DOTA_GAMERULES_STATE_GAME_IN_PROGRESS"}
+
+
+# ---------- config file ----------------------------------------------------------------------
+
+def _token() -> str:
+    if STATE_FILE.exists():
+        t = json.loads(STATE_FILE.read_text()).get("token")
+        if t:
+            return t
+    t = secrets.token_hex(16)
+    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    STATE_FILE.write_text(json.dumps({"token": t}))
+    return t
+
+
+def cfg_text(port: int = PORT) -> str:
+    return kv.dumps({"Dota Drafter": {
+        "uri": f"http://127.0.0.1:{port}/",
+        "timeout": "5.0", "buffer": "0.1", "throttle": "0.25", "heartbeat": "10.0",
+        "data": {"provider": "1", "map": "1", "player": "1", "hero": "1", "draft": "1"},
+        "auth": {"token": _token()},
+    }})
+
+
+def install() -> dict:
+    """Write our cfg into Dota's gamestate_integration folder and remove the old helper's cfg.
+    Dota reads these files at start, so it has to be restarted afterwards."""
+    dota = dota_paths.dota_path()
+    if not dota:
+        raise FileNotFoundError("не нашёл установку Dota 2")
+    folder = dota_paths.gsi_dir(dota)
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / CFG_NAME).write_text(cfg_text(), encoding="utf-8")
+    removed = []
+    for name in OLD_CFGS:
+        p = folder / name
+        if p.exists():
+            p.unlink()
+            removed.append(name)
+    return {"path": str(folder / CFG_NAME), "removed": removed}
+
+
+def installed() -> dict:
+    dota = dota_paths.dota_path()
+    if not dota:
+        return {"dota_found": False, "installed": False}
+    folder = dota_paths.gsi_dir(dota)
+    p = folder / CFG_NAME
+    ok = p.exists() and f"127.0.0.1:{PORT}" in p.read_text(encoding="utf-8", errors="replace") \
+        and _token() in p.read_text(encoding="utf-8", errors="replace")
+    others = sorted(x.name for x in folder.glob("*.cfg") if x.name != CFG_NAME) if folder.is_dir() else []
+    return {"dota_found": True, "installed": ok, "path": str(p), "other_cfgs": others}
+
+
+# ---------- payload -> session ---------------------------------------------------------------
+
+def _hero_id(value) -> int | None:
+    if isinstance(value, int) and value > 0:
+        return value
+    if isinstance(value, str) and value.startswith("npc_dota_hero_"):
+        key = value.removeprefix("npc_dota_hero_")
+        return next((h["id"] for h in constants.hero_index() if h["key"] == key), None)
+    if isinstance(value, str) and value.isdigit() and int(value) > 0:
+        return int(value)
+    return None
+
+
+def parse_draft(draft: dict) -> dict[str, list[int]]:
+    """Spectator-style draft block: team2 = Radiant, team3 = Dire; pickN_id / banN_id."""
+    out = {"radiant": [], "dire": [], "bans": []}
+    for team, side in (("team2", "radiant"), ("team3", "dire")):
+        t = draft.get(team) or {}
+        for i in range(10):
+            h = _hero_id(t.get(f"pick{i}_id")) or _hero_id(t.get(f"pick{i}_class"))
+            if h:
+                out[side].append(h)
+            b = _hero_id(t.get(f"ban{i}_id")) or _hero_id(t.get(f"ban{i}_class"))
+            if b:
+                out["bans"].append(b)
+    return out
+
+
+class Tracker:
+    """Turns the GSI stream into session updates. Kept separate from HTTP for tests."""
+
+    def __init__(self, apply):
+        self.apply = apply          # callable(**changes) -> patches the shared session
+        self.match_id: str | None = None
+        self.last: dict = {}
+        self.last_ts = 0.0
+        self.has_draft_block = False
+
+    def status(self) -> dict:
+        return {"last_seen": self.last_ts or None, "match_id": self.match_id, "has_draft_block": self.has_draft_block,
+                **{k: self.last.get(k) for k in ("game_state", "team", "hero_id", "phase")}}
+
+    def handle(self, payload: dict, current: dict) -> dict | None:
+        """current: the session as a dict. Returns the applied changes (or None)."""
+        self.last_ts = time.time()
+        m = payload.get("map") or {}
+        player = payload.get("player") or {}
+        hero = payload.get("hero") or {}
+        state = m.get("game_state")
+        phase = "draft" if state in DRAFT_STATES else "game" if state in GAME_STATES else "idle"
+        side = {"radiant": "radiant", "dire": "dire"}.get(str(player.get("team_name", "")).lower())
+        hero_id = _hero_id(hero.get("id")) or _hero_id(hero.get("name"))
+        self.last = {"game_state": state, "team": side, "hero_id": hero_id, "phase": phase}
+
+        changes: dict = {}
+        match_id = m.get("matchid")
+        if match_id and match_id != self.match_id and phase != "idle":
+            # a new match: start from an empty draft (my position and comfort setting stay)
+            self.match_id = match_id
+            changes.update(allies=[None] * 5, enemies=[None] * 5, bans=[], my_hero=None)
+            current = {**current, **changes}
+        if phase != current.get("phase"):
+            changes["phase"] = phase
+        if side and side != current.get("side"):
+            changes["side"] = side
+        if hero_id and hero_id != current.get("my_hero"):
+            changes["my_hero"] = hero_id
+            allies = list(changes.get("allies", current.get("allies") or [None] * 5))
+            enemies = changes.get("enemies", current.get("enemies") or [None] * 5)
+            bans = changes.get("bans", current.get("bans") or [])
+            if hero_id not in allies and hero_id not in enemies and hero_id not in bans and None in allies:
+                allies[allies.index(None)] = hero_id
+                changes["allies"] = allies
+
+        draft = payload.get("draft")
+        if isinstance(draft, dict) and (draft.get("team2") or draft.get("team3")):
+            self.has_draft_block = True
+            d = parse_draft(draft)
+            mine = side or current.get("side")
+            if mine:
+                ours, theirs = (d["radiant"], d["dire"]) if mine == "radiant" else (d["dire"], d["radiant"])
+                pad = lambda xs: (xs + [None] * 5)[:5]
+                changes.update(allies=pad(ours), enemies=pad(theirs), bans=d["bans"][:16])
+        if changes:
+            self.apply(**changes)
+            return changes
+        return None
+
+
+# ---------- HTTP receiver --------------------------------------------------------------------
+
+class _Log:
+    def __init__(self):
+        self.lock = threading.Lock()
+
+    def write(self, payload: dict) -> None:
+        LOG_DIR.mkdir(parents=True, exist_ok=True)
+        path = LOG_DIR / f"{time.strftime('%Y-%m-%d')}.jsonl"
+        safe = {k: v for k, v in payload.items() if k != "auth"}
+        with self.lock:
+            with path.open("a", encoding="utf-8") as f:
+                f.write(json.dumps({"ts": time.time(), **safe}, ensure_ascii=False) + "\n")
+
+
+def serve(on_payload, port: int = PORT) -> ThreadingHTTPServer:
+    """Start the receiver in a daemon thread. on_payload(dict) is called for authenticated POSTs."""
+    token = _token()
+    log = _Log()
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):  # noqa: N802
+            n = int(self.headers.get("Content-Length") or 0)
+            try:
+                payload = json.loads(self.rfile.read(n) or b"{}")
+            except ValueError:
+                self.send_response(400)
+                self.end_headers()
+                return
+            if (payload.get("auth") or {}).get("token") != token:
+                self.send_response(401)
+                self.end_headers()
+                return
+            log.write(payload)
+            try:
+                on_payload(payload)
+            finally:
+                self.send_response(200)
+                self.end_headers()
+
+        def log_message(self, *args):  # keep the console quiet: Dota posts several times a second
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    threading.Thread(target=server.serve_forever, name="gsi", daemon=True).start()
+    return server

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { waitForBackend } from './api/client';
 import { Dock, TitleBar, Wallpaper } from './components/Chrome';
@@ -10,7 +10,8 @@ import { HeroPage } from './pages/HeroPage';
 import { MetaPage } from './pages/MetaPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
-import { applyHotkeys } from './lib/overlay';
+import { applyHotkeys, showOverlay } from './lib/overlay';
+import { useDraft } from './state/draft';
 import { startSync } from './state/sync';
 import { useUi, type Page } from './state/ui';
 
@@ -73,6 +74,14 @@ export default function App() {
   useEffect(() => {
     void applyHotkeys(ov.toggle, ov.interact);
   }, [ov.toggle, ov.interact]);
+
+  // GSI: hero selection started -> bring up the overlay (once per transition, the user can hide it)
+  const phase = useDraft((s) => s.phase);
+  const prevPhase = useRef(phase);
+  useEffect(() => {
+    if (prevPhase.current !== 'draft' && phase === 'draft' && useUi.getState().overlay.autoShow) void showOverlay(true);
+    prevPhase.current = phase;
+  }, [phase]);
 
   const Current = PAGES[page];
   return (

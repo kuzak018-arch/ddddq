@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, model_validator
 
-from .. import config, dota_paths, keybinds, search
+from .. import config, dota_paths, gsi, keybinds, search
 from .. import settings as user_settings
 from ..builds import counter, standard
 from ..data import constants, matches, me, stratz
@@ -33,10 +33,26 @@ def token() -> str | None:
     return os.environ.get("DRAFTER_TOKEN") or None
 
 
+tracker = gsi.Tracker(lambda **changes: session.patch("gsi", **changes))
+
+
+def _on_gsi(payload: dict) -> None:
+    changes = tracker.handle(payload, session.get().model_dump())
+    bus.publish("gsi", status=tracker.status(), changes=changes)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     bus.bind(asyncio.get_running_loop())
+    server = None
+    if os.environ.get("DRAFTER_NO_GSI") != "1":
+        try:
+            server = gsi.serve(_on_gsi)
+        except OSError as e:  # port taken (another copy running): the app still works without GSI
+            print(f"GSI-приёмник не запущен: порт {gsi.PORT} занят ({e})", flush=True)
     yield
+    if server:
+        server.shutdown()
 
 
 app = FastAPI(title="Dota Drafter API", version="0.2", lifespan=lifespan)
@@ -331,6 +347,21 @@ def dota_display():
 def dota_keybinds():
     acc = config.settings().account_id
     return {"keys": sorted(keybinds.bound_keys(acc)) if acc else []}
+
+
+# ---------- Game State Integration ---------------------------------------------------------------
+
+@app.get("/gsi/status")
+def gsi_status():
+    return {"port": gsi.PORT, **gsi.installed(), **tracker.status()}
+
+
+@app.post("/gsi/install")
+def gsi_install():
+    try:
+        return gsi.install()
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
 
 
 # ---------- jobs & events ----------------------------------------------------------------

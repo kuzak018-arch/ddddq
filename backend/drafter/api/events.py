@@ -38,8 +38,8 @@ class Bus:
 
     def publish(self, type_: str, **data):
         event = {"type": type_, "ts": time.time(), **data}
-        if self.loop is None:
-            return
+        if self.loop is None or self.loop.is_closed():
+            return  # no server loop (CLI, tests, shutdown): nobody to deliver to
         try:
             running = asyncio.get_running_loop()
         except RuntimeError:

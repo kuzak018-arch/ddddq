@@ -67,7 +67,15 @@ def put(new: Session) -> Session:
 
 
 def patch(source: str, **changes) -> Session:
-    """Partial update from the backend itself (GSI, screen reading)."""
+    """Partial update from the backend itself (GSI, screen reading). A hero that arrives in one
+    slot is removed from any other slot first, so a late correction never trips validation."""
     with _lock:
-        merged = Session.model_validate({**_state.model_dump(), **changes, "source": source})
+        cur = _state.model_dump()
+        placed = {h for k in ("allies", "enemies", "bans") if k in changes for h in changes[k] if h}
+        for k in ("allies", "enemies"):
+            if k not in changes:
+                changes[k] = [None if h in placed else h for h in cur[k]]
+        if "bans" not in changes:
+            changes["bans"] = [h for h in cur["bans"] if h not in placed]
+        merged = Session.model_validate({**cur, **changes, "source": source})
     return put(merged)

@@ -19,6 +19,7 @@ export function SettingsPage() {
     <div className="settings">
       <AppearanceCard />
       <div className="settings__col">
+        <GsiCard />
         <OverlayCard />
         <AdviceCard />
         <DataCard />
@@ -89,6 +90,80 @@ function AppearanceCard() {
         label={refractionSupported ? 'Преломление по краям стекла' : 'Преломление (недоступно в этом движке)'}
       />
       <Toggle on={ui.performance} onChange={(performance) => ui.set({ performance })} label="Режим производительности (без размытия и анимаций)" />
+    </Panel>
+  );
+}
+
+interface GsiStatus {
+  port: number;
+  dota_found: boolean;
+  installed: boolean;
+  path?: string;
+  other_cfgs?: string[];
+  last_seen: number | null;
+  match_id: string | null;
+  has_draft_block: boolean;
+  game_state: string | null;
+  team: string | null;
+  hero_id: number | null;
+  phase: string | null;
+}
+
+const STATE_RU: Record<string, string> = {
+  DOTA_GAMERULES_STATE_HERO_SELECTION: 'выбор героев',
+  DOTA_GAMERULES_STATE_STRATEGY_TIME: 'стратегия',
+  DOTA_GAMERULES_STATE_PRE_GAME: 'перед стартом',
+  DOTA_GAMERULES_STATE_GAME_IN_PROGRESS: 'игра идёт',
+  DOTA_GAMERULES_STATE_POST_GAME: 'матч окончен',
+};
+
+function GsiCard() {
+  const qc = useQueryClient();
+  const heroes = useHeroes().data;
+  const status = useQuery({ queryKey: ['gsi'], queryFn: () => api<GsiStatus>('/gsi/status'), refetchInterval: 5000 });
+  const install = useMutation({
+    mutationFn: () => api<{ path: string; removed: string[] }>('/gsi/install', { method: 'POST' }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['gsi'] }),
+  });
+  useEffect(() => subscribe((e) => e.type === 'gsi' && qc.invalidateQueries({ queryKey: ['gsi'] })), [qc]);
+  const s = status.data;
+  const fresh = s?.last_seen && Date.now() / 1000 - s.last_seen < 30;
+  return (
+    <Panel>
+      <div className="panel__head">
+        <h2>Интеграция с игрой</h2>
+        <span className={`pill ${fresh ? 'c-good' : ''}`}>{fresh ? 'Дота на связи' : 'нет данных'}</span>
+      </div>
+      {s && !s.dota_found && <ErrorBox error="Не нашёл установку Dota 2." />}
+      {s?.dota_found && (
+        <>
+          <p className="hint">
+            Game State Integration — официальный способ Valve: игра сама присылает стадию матча, твою сторону и героя.
+            Память игры не читается, файлы игры не меняются — добавляется только конфиг в папку gamestate_integration.
+          </p>
+          {s.installed ? (
+            <p className="muted">Конфиг установлен (порт {s.port}). После установки Доту нужно один раз перезапустить.</p>
+          ) : (
+            <button className="btn btn--accent" onClick={() => install.mutate()} disabled={install.isPending}>
+              Установить конфиг GSI
+            </button>
+          )}
+          {install.data?.removed.length ? <p className="hint">Удалён старый конфиг: {install.data.removed.join(', ')}</p> : null}
+          {install.error && <ErrorBox error={install.error} />}
+          {s.last_seen && (
+            <dl className="kv">
+              <dt>Стадия</dt>
+              <dd>{STATE_RU[s.game_state ?? ''] ?? s.game_state ?? '—'}</dd>
+              <dt>Сторона</dt>
+              <dd>{s.team ?? '—'}</dd>
+              <dt>Мой герой</dt>
+              <dd>{s.hero_id ? heroes?.byId.get(s.hero_id)?.name : '—'}</dd>
+              <dt>Драфт от игры</dt>
+              <dd>{s.has_draft_block ? 'приходит' : 'не приходит (вводи вручную или читай с экрана)'}</dd>
+            </dl>
+          )}
+        </>
+      )}
     </Panel>
   );
 }
@@ -189,6 +264,7 @@ function OverlayCard() {
         />
       </div>
       <Slider label="Непрозрачность" value={ov.opacity} min={0.35} max={1} step={0.05} onChange={(opacity) => setOv({ opacity })} format={(v) => `${Math.round(v * 100)}%`} />
+      <Toggle on={ov.autoShow} onChange={(autoShow) => setOv({ autoShow })} label="Показывать оверлей, когда начался выбор героев (GSI)" />
       <Toggle on={ov.autoPerf} onChange={(autoPerf) => setOv({ autoPerf })} label="Во время матча — режим производительности (без Acrylic и анимаций)" />
       <p className="hint">
         «Авто»: на стадии драфта — подсказки, с началом матча — билд против врагов (после подключения GSI на этапе 5).
