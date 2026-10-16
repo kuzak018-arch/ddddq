@@ -79,10 +79,21 @@ def experience_term(n: int, exp: dict) -> float:
     return -exp["A"] * exp["k"] / (exp["k"] + n)
 
 
+_pool_cache: dict = {}
+
+
 def hero_pool(data: dict | None = None) -> dict:
     """Per hero: games, wins, the experience term and a shrunk personal skill edge — how much better
-    or worse than the experience curve predicts the user does on this hero (log-odds)."""
-    data = data or load()
+    or worse than the experience curve predicts the user does on this hero (log-odds).
+    The saved history's pool is cached until the history is refreshed."""
+    if data is None:
+        data = load()
+        key = data and (data["account_id"], data["fetched"], len(data["matches"]))
+        if key and _pool_cache.get("key") == key:
+            return _pool_cache["pool"]
+        pool = hero_pool(data) if data else hero_pool({"matches": []})
+        _pool_cache.update(key=key, pool=pool)
+        return pool
     if not data or not data["matches"]:
         return {"overall": None, "experience": None, "heroes": {}}
     exp = fit_experience(data)

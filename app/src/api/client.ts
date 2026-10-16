@@ -1,0 +1,98 @@
+/**
+ * Backend access. Inside Tauri the shell starts the Python API and tells us its URL and
+ * per-launch token; in a plain browser (vite dev) we talk to a backend started by hand
+ * (`python -m drafter.api`, no token) at VITE_API or http://127.0.0.1:47900.
+ */
+import { invoke, isTauri } from '@tauri-apps/api/core';
+
+export interface BackendInfo {
+  url: string;
+  token: string;
+  source: string;
+}
+
+let infoPromise: Promise<BackendInfo> | null = null;
+
+export function backend(): Promise<BackendInfo> {
+  if (!infoPromise) {
+    infoPromise = isTauri()
+      ? invoke<BackendInfo>('backend_info')
+      : Promise.resolve({ url: import.meta.env.VITE_API ?? 'http://127.0.0.1:47900', token: '', source: 'browser' });
+  }
+  return infoPromise;
+}
+
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+function detail(body: unknown): string {
+  if (body && typeof body === 'object' && 'detail' in body) {
+    const d = (body as { detail: unknown }).detail;
+    if (typeof d === 'string') return d;
+    if (Array.isArray(d)) return d.map((x) => (x as { msg?: string }).msg ?? String(x)).join('; ');
+  }
+  return 'ошибка сервера';
+}
+
+export async function api<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+  const { url, token } = await backend();
+  const res = await fetch(url + path, {
+    method: init.method ?? (init.body === undefined ? 'GET' : 'POST'),
+    headers: {
+      ...(token ? { 'X-Drafter-Token': token } : {}),
+      ...(init.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+    },
+    body: init.body === undefined ? undefined : JSON.stringify(init.body),
+  });
+  const body = await res.json().catch(() => null);
+  if (!res.ok) throw new ApiError(res.status, detail(body));
+  return body as T;
+}
+
+let assetBase = '';
+/** Absolute URL for backend static files (icons). main.tsx resolves the backend before rendering. */
+export function asset(path: string): string {
+  return assetBase + path;
+}
+backend().then((b) => (assetBase = b.url));
+
+export async function waitForBackend(timeoutMs = 60_000): Promise<void> {
+  const t0 = Date.now();
+  for (;;) {
+    try {
+      await api('/health');
+      return;
+    } catch (e) {
+      if (Date.now() - t0 > timeoutMs) throw e;
+      await new Promise((r) => setTimeout(r, 400));
+    }
+  }
+}
+
+/** Events from the backend (job progress, later GSI and screen reading). Reconnects on its own. */
+export function subscribe(onEvent: (e: { type: string; [k: string]: unknown }) => void): () => void {
+  let ws: WebSocket | null = null;
+  let closed = false;
+  let retry = 0;
+  const connect = async () => {
+    const { url, token } = await backend();
+    if (closed) return;
+    ws = new WebSocket(url.replace(/^http/, 'ws') + '/events' + (token ? `?token=${token}` : ''));
+    ws.onmessage = (m) => onEvent(JSON.parse(m.data));
+    ws.onopen = () => (retry = 0);
+    ws.onclose = () => {
+      if (!closed) setTimeout(connect, Math.min(5000, 300 * 2 ** retry++));
+    };
+  };
+  connect();
+  return () => {
+    closed = true;
+    ws?.close();
+  };
+}

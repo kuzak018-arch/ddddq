@@ -1,0 +1,20 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "C:\\Users\\kuzne\\projects\\dota-drafter\\.venv\\Scripts\\python.exe",
+      "runtimeArgs": ["-m", "drafter.api", "--port", "47900"],
+      "cwd": "C:\\Users\\kuzne\\projects\\dota-drafter\\backend",
+      "port": 47900,
+      "url": "http://127.0.0.1:47900"
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "C:\\Users\\kuzne\\projects\\dota-drafter\\app",
+      "port": 1420
+    }
+  ]
+}

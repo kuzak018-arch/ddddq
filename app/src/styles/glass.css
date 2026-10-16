@@ -1,0 +1,149 @@
+/*
+ * Liquid Glass material (from dota2-tierlist):
+ * translucent tint + backdrop blur/saturation, specular sheen from the top-left,
+ * a gradient rim light, a wide soft shadow, and edge refraction through an SVG
+ * displacement map (Chromium/WebView2 only: .is-refracting).
+ */
+
+.glass {
+  --sheen: 0.2;
+  position: relative;
+  background:
+    radial-gradient(130% 80% at 12% -18%, rgba(255, 255, 255, var(--sheen)), transparent 58%),
+    var(--glass-tint);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  box-shadow:
+    inset 0 1px 0.5px -0.5px var(--glass-specular),
+    inset 0 -1.5px 1px -1px rgba(255, 255, 255, 0.14),
+    inset 0 0 18px -6px rgba(255, 255, 255, 0.14),
+    var(--glass-shadow);
+  isolation: isolate;
+}
+
+.glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    150deg,
+    var(--glass-rim) 0%,
+    rgba(255, 255, 255, 0.1) 24%,
+    rgba(255, 255, 255, 0) 48%,
+    rgba(255, 255, 255, 0.06) 74%,
+    rgba(255, 255, 255, 0.3) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  pointer-events: none;
+}
+
+.glass > * {
+  position: relative;
+  z-index: 2;
+}
+
+.has-refraction .glass.is-refracting {
+  -webkit-backdrop-filter: var(--refract-filter);
+  backdrop-filter: var(--refract-filter);
+}
+
+.glass--strong {
+  --sheen: 0.26;
+  background:
+    radial-gradient(130% 80% at 12% -18%, rgba(255, 255, 255, var(--sheen)), transparent 58%),
+    var(--glass-tint-strong);
+}
+
+/* recessed glass inside another glass layer: fields, tracks, slots */
+.glass--inset {
+  background: var(--glass-tint-inset);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.18),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 0 1px var(--glass-rim-2);
+}
+
+.glass--inset::before {
+  opacity: 0.4;
+}
+
+/* buttons: the highlight follows the pointer (--mx/--my set from JS) */
+.btn {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  color: var(--text);
+  font: inherit;
+  font-weight: 560;
+  cursor: pointer;
+  background:
+    radial-gradient(110px circle at var(--mx, 30%) var(--my, -20%), rgba(255, 255, 255, 0.3), transparent 60%),
+    var(--control-bg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 0 0 1px var(--glass-rim-2);
+  transition:
+    transform 0.25s var(--ease-spring),
+    background-color 0.2s;
+}
+
+.btn:hover {
+  background:
+    radial-gradient(110px circle at var(--mx, 30%) var(--my, -20%), rgba(255, 255, 255, 0.42), transparent 60%),
+    var(--control-bg-hover);
+}
+
+.btn:active {
+  transform: scale(0.96);
+}
+
+.btn--accent {
+  background:
+    radial-gradient(110px circle at var(--mx, 30%) var(--my, -20%), rgba(255, 255, 255, 0.45), transparent 60%),
+    linear-gradient(180deg, #2b95ff, #0a6fe0);
+  color: #fff;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+  transform: none;
+}
+
+/* no backdrop-filter at all or performance mode: dense tint keeps text readable */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass {
+    background: var(--glass-tint-strong);
+  }
+}
+
+.perf .glass,
+.perf .glass.is-refracting {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background: var(--glass-tint-strong);
+}
+
+.perf *,
+.perf *::before,
+.perf *::after {
+  transition: none !important;
+  animation: none !important;
+}

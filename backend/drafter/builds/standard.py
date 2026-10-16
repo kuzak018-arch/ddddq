@@ -15,6 +15,7 @@ CORE_MIN_SHARE = 0.25
 SITUATIONAL_MIN_SHARE = 0.03
 EARLY_BEFORE_MIN = 14      # finished before this minute on average and cheap -> early item
 EARLY_MAX_COST = 2500
+TALENT_MIN_PICKS = 0.05    # below this share of matches the talent split at a level isn't shown as data
 SKIP_ITEMS = {"tpscroll", "ward_observer", "ward_sentry", "ward_dispenser", "smoke_of_deceit", "dust", "tango",
               "flask", "clarity", "enchanted_mango", "faerie_fire", "blood_grenade", "aghanims_shard_roshan",
               "cheese", "refresher_shard", "aegis"}
@@ -40,6 +41,17 @@ def _wr(w, n):
     return w / n if n else None
 
 
+def _talent_pairs(hero_id: int, hero_key: str) -> list[list[str]]:
+    """Talent pairs for levels 10/15/20/25. Valve's feed is current; OpenDota's list can be a
+    patch behind (Invoker still had a removed talent there), so it is only the fallback."""
+    vh = constants.valve_hero(hero_id)
+    if vh and len(vh.get("talents", [])) == 8:
+        names = [t["name"] for t in vh["talents"]]
+        return [names[i:i + 2] for i in range(0, 8, 2)]
+    od = constants._load("hero_abilities").get(f"npc_dota_hero_{hero_key}", {}).get("talents", [])
+    return [[t["name"] for t in od if t["level"] == lv] for lv in (1, 2, 3, 4)]
+
+
 def _num(v: float) -> str:
     return f"{v:g}"
 
@@ -52,7 +64,8 @@ def talent_text(key: str, hero_id: int) -> str:
         return _maps()[3].get(key, {}).get("dname") or key
     talent = next((t for t in vh["talents"] if t["name"] == key), None)
     if not talent:
-        return key
+        od = _maps()[3].get(key, {}).get("dname")
+        return re.sub(r"\{s:\w+\}", "?", od) if od else key
     own = {sv["name"]: sv["values_float"] for sv in talent.get("special_values", []) if sv.get("values_float")}
     bonus = None
     for ab in vh["abilities"] + vh.get("facet_abilities", []):
@@ -164,14 +177,13 @@ def build(hero_id: int, pos: int, bracket: str) -> dict | None:
     # talents: pick share for each side of a level
     talent_rows = {ability_ids.get(r["abilityId"]): r for r in p["talent"]}
     talents = []
-    hero_talents = constants._load("hero_abilities").get(f"npc_dota_hero_{hero['key']}", {}).get("talents", [])
-    for level in (1, 2, 3, 4):
-        pair = [t["name"] for t in hero_talents if t["level"] == level]
+    for level, pair in enumerate(_talent_pairs(hero_id, hero["key"]), 1):
         counts = [talent_rows.get(k, {}).get("matchCount", 0) for k in pair]
-        tot = sum(counts) or 1
-        talents.append({"level": 5 + 5 * level, "options": [
-            {"key": k, "name": talent_text(k, hero_id), "share": c / tot,
-             "wr": _wr(talent_rows.get(k, {}).get("winCount", 0), c)} for k, c in zip(pair, counts)]})
+        tot = sum(counts)
+        talents.append({"level": 5 + 5 * level, "picks": tot, "enough": tot >= TALENT_MIN_PICKS * n,
+                        "options": [{"key": k, "name": talent_text(k, hero_id), "share": c / tot if tot else 0.0,
+                                     "wr": _wr(talent_rows.get(k, {}).get("winCount", 0), c)}
+                                    for k, c in zip(pair, counts)]})
 
     return {"hero": hero_id, "pos": pos, "bracket": bracket, "week": raw["week"], "matches": p["matches"],
             "hero_wr": hero_wr, "starting": starting, "boots": boots[:3], "early": early, "core": core,
