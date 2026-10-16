@@ -12,7 +12,7 @@ export function BuildsPage() {
   const draftEnemies = picked(useDraft((s) => s.enemies));
   const [enemies, setEnemies] = useState<number[] | null>(null); // null = follow the draft
   const vsList = enemies ?? draftEnemies;
-  const build = useBuild(buildHero, buildPos, vsList);
+  const build = useBuild(buildHero, buildPos, vsList, true);
   const heroes = useHeroes().data;
 
   return (

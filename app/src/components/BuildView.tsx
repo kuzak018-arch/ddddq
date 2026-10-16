@@ -24,6 +24,11 @@ function Items({ title, items, timing = true }: { title: string; items: BuildIte
 export function BuildView({ b, vs }: { b: Build; vs: VsItem[] }) {
   return (
     <div className="build">
+      {b.requested_pos && (
+        <p className="hint">
+          На позиции {b.requested_pos} этого героя почти не играют — показан билд для позиции {b.pos}.
+        </p>
+      )}
       <p className="muted">
         {b.matches.toLocaleString('ru')} матчей на {b.bracket.replace('_', '–').toLowerCase()} за неделю
         {b.hero_wr != null && <> · винрейт {fmtPct(b.hero_wr)}</>}

@@ -89,13 +89,15 @@ def fetch(bracket: str, log=print) -> None:
             per_pos = totals.get(h["id"], {})
             n = sum(per_pos.values()) or 1
             parts = []
+            # itemFullPurchase rows are per (item, minute); without matchLimit Stratz drops rows under its
+            # default threshold, which erased most items for supports (Bane pos 4: 3 items instead of 10+).
             for p in POSITIONS:
                 if per_pos.get(p, 0) / n < MIN_POS_SHARE:
                     continue
                 a = f"heroId: {h['id']}, bracketBasicIds: [{bracket}], positionIds: [{p}]"
                 parts.append(f"""
                     {p}_start: itemStartingPurchase({a}) {{ itemId instance matchCount winCount wasGiven }}
-                    {p}_full: itemFullPurchase({a}) {{ itemId instance time matchCount winCount }}
+                    {p}_full: itemFullPurchase({a}, matchLimit: 10) {{ itemId instance time matchCount winCount }}
                     {p}_boots: itemBootPurchase({a}) {{ itemId time matchCount winCount }}
                     {p}_neutral: itemNeutral({a}) {{ itemId matchCount winCount equippedMatchCount equippedMatchWinCount }}
                     {p}_talent: talent({a}) {{ abilityId matchCount winCount }}

@@ -33,3 +33,13 @@ def test_counter_items_and_rare_on_hero():
 @needs_data
 def test_no_rules_fire_for_empty_draft():
     assert counter.against([], 1) == []
+
+
+@needs_data
+def test_support_build_not_empty_and_shares_capped():
+    # regression: Stratz dropped rare per-minute rows without matchLimit, supports got empty cores
+    b = standard.build(3, 4, "LEGEND_ANCIENT")  # Bane pos 4
+    assert len(b["core"]) >= 3
+    for section in ("starting", "boots", "early", "core", "situational"):
+        assert all(x["share"] <= 1.0 for x in b[section])
+    assert all(x["cost"] >= standard.SITUATIONAL_MIN_COST for x in b["situational"])

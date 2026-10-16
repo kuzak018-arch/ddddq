@@ -12,6 +12,8 @@ from ..data import constants, stratz
 
 START_MIN_SHARE = 0.35     # a starting item is in the build if this share of players buy it
 CORE_MIN_SHARE = 0.25
+CORE_FALLBACK_SHARE = 0.10
+SITUATIONAL_MIN_COST = 1000  # cheaper finished items are early-game pieces, not situational choices
 SITUATIONAL_MIN_SHARE = 0.03
 EARLY_BEFORE_MIN = 14      # finished before this minute on average and cheap -> early item
 EARLY_MAX_COST = 2500
@@ -92,11 +94,19 @@ def build(hero_id: int, pos: int, bracket: str) -> dict | None:
     p = raw["positions"].get(stratz.POSITIONS[pos - 1])
     if not p:
         return None
-    # Stratz item tables come from a somewhat larger sample than the position stats, so the
-    # denominator is the most common first starting purchase (nearly every player buys it).
-    n = max([p["matches"], *(r["matchCount"] for r in p["start"] if r["instance"] == 0)]) or 1
+    # Stratz's item tables come from larger (and different) samples than the position stats: on
+    # Anti-Mage pos 1, 73k matches in stats but Power Treads bought in 99.6k. Nearly every game buys
+    # boots and a first starting item, so the largest count over all tables is the match total.
+    full_first = defaultdict(int)
+    for r in p["full"]:
+        if r["instance"] == 0:
+            full_first[r["itemId"]] += r["matchCount"]
+    n = max([p["matches"],
+             *(r["matchCount"] for r in p["start"] if r["instance"] == 0),
+             *(r["matchCount"] for r in p["boots"]),
+             *full_first.values()]) or 1
     hero = constants.hero_by_id()[hero_id]
-    _, ability_ids, _, abilities = _maps()
+    _, ability_ids, all_items, abilities = _maps()
 
     # starting items: one row per (item, copy number)
     copies: dict[str, dict] = {}
@@ -106,7 +116,7 @@ def build(hero_id: int, pos: int, bracket: str) -> dict | None:
             continue
         c = copies.setdefault(it["key"], {**it, "count": 0, "share": 0.0})
         c["count"] = max(c["count"], r["instance"] + 1)
-        c["share"] = max(c["share"], r["matchCount"] / n)
+        c["share"] = max(c["share"], min(1.0, r["matchCount"] / n))
     starting = sorted(copies.values(), key=lambda x: -x["share"])
 
     boots_ids = set()
@@ -117,7 +127,7 @@ def build(hero_id: int, pos: int, bracket: str) -> dict | None:
             continue
         boots_ids.add(it["key"])
         if r["matchCount"] / n >= SITUATIONAL_MIN_SHARE:
-            boots.append({**it, "share": r["matchCount"] / n, "wr": _wr(r["winCount"], r["matchCount"]),
+            boots.append({**it, "share": min(1.0, r["matchCount"] / n), "wr": _wr(r["winCount"], r["matchCount"]),
                           "minute": round(r["time"] / r["matchCount"] / 60, 1)})
 
     # full items: rows are per (item, copy, minute bucket); first copy only
@@ -129,13 +139,15 @@ def build(hero_id: int, pos: int, bracket: str) -> dict | None:
         a["m"] += r["matchCount"]
         a["w"] += r["winCount"]
         a["t"] += r["time"] * r["matchCount"]
-    hero_wr = None
     items = []
     for iid, a in agg.items():
         it = _item(iid)
-        if not it or it["key"] in SKIP_ITEMS or it["key"] in boots_ids or a["m"] / n < SITUATIONAL_MIN_SHARE:
+        # no cost = map pickups / consumables (Healing Lotus etc.), not something you build
+        if (not it or not it["cost"] or "consumable" in (all_items[it["key"]].get("qual") or "")
+                or it["key"] in SKIP_ITEMS or it["key"] in boots_ids or a["m"] / n < SITUATIONAL_MIN_SHARE):
             continue
-        items.append({**it, "share": a["m"] / n, "wr": _wr(a["w"], a["m"]), "minute": round(a["t"] / a["m"], 1)})
+        items.append({**it, "share": min(1.0, a["m"] / n), "wr": _wr(a["w"], a["m"]),
+                      "minute": round(a["t"] / a["m"], 1)})
     total_w = sum(r["winCount"] for r in p["start"] if r["instance"] == 0)  # rough hero wr on this position
     total_m = sum(r["matchCount"] for r in p["start"] if r["instance"] == 0)
     hero_wr = _wr(total_w, total_m)
@@ -143,10 +155,18 @@ def build(hero_id: int, pos: int, bracket: str) -> dict | None:
     early = sorted([i for i in items if i["minute"] < EARLY_BEFORE_MIN and i["cost"] <= EARLY_MAX_COST
                     and i["share"] >= CORE_MIN_SHARE / 2], key=lambda i: i["minute"])
     early_keys = {i["key"] for i in early}
-    core = sorted([i for i in items if i["key"] not in early_keys and i["share"] >= CORE_MIN_SHARE],
-                  key=lambda i: i["minute"])[:6]
+    later = [i for i in items if i["key"] not in early_keys and i["cost"] >= SITUATIONAL_MIN_COST]
+    core = [i for i in later if i["share"] >= CORE_MIN_SHARE]
+    if len(core) < 3:  # supports and rare positions rarely have items above 25%: take the most common ones
+        extra = sorted((i for i in later if i not in core and i["share"] >= CORE_FALLBACK_SHARE),
+                       key=lambda i: -i["share"])
+        core += extra[:3 - len(core)]
+    core = sorted(core, key=lambda i: i["minute"])[:6]
     core_keys = {i["key"] for i in core}
-    situational = sorted([i for i in items if i["key"] not in early_keys | core_keys],
+    # a component bought on the way to an item that is already in the build is not a separate choice
+    built = {i["key"] for i in items}
+    parts_of_built = {c for k in built for c in (all_items.get(k, {}).get("components") or [])}
+    situational = sorted([i for i in later if i["key"] not in core_keys and i["key"] not in parts_of_built],
                          key=lambda i: -(i["wr"] or 0))[:10]
 
     # ability max order: weighted median level at which each ability was maxed
