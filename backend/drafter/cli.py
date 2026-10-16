@@ -140,6 +140,9 @@ def main() -> None:
     sg.add_argument("--comfort-weight", type=float, default=0.5,
                     help="доля личной кривой опыта в оценке (0..1), по умолчанию 0.5")
     sub.add_parser("tags", help="пересобрать теги героев (shared/hero_tags.json)")
+    vs = sub.add_parser("vision-synth", help="сгенерировать синтетические кадры драфта для проверки распознавания")
+    vs.add_argument("--frames", type=int, default=40)
+    sub.add_parser("vision-eval", help="точность распознавания на подтверждённых и синтетических кадрах -> reports/vision.md")
     st = sub.add_parser("stratz", help="скачать позиции, баны и билды из Stratz для брекета")
     st.add_argument("--bracket", choices=["HERALD_GUARDIAN", "CRUSADER_ARCHON", "LEGEND_ANCIENT", "DIVINE_IMMORTAL"])
     bd = sub.add_parser("build", help="билд героя на позицию, при --enemies с правками против драфта")
@@ -183,6 +186,17 @@ def main() -> None:
         stratz.fetch(args.bracket or stratz.bracket_for(me.rank_tier()), log=lambda s: print(s, flush=True))
     elif args.cmd == "build":
         build_cmd(args)
+    elif args.cmd == "vision-synth":
+        from .vision import evaluate
+        print(f"  кадры: {evaluate.synthetic(args.frames)}")
+    elif args.cmd == "vision-eval":
+        from .vision import evaluate
+        results = [evaluate.evaluate(f) for f in (evaluate.LABELED, evaluate.SYNTH) if f.exists() and any(f.glob("*.json"))]
+        for r in results:
+            p = "—" if r["precision"] is None else f"{r['precision']:.1%}"
+            rc = "—" if r["recall"] is None else f"{r['recall']:.1%}"
+            print(f"  {r['folder']}: кадров {r['frames']}, точность {p}, полнота {rc}")
+        print(f"  отчёт: {evaluate.write_report(results)}")
     elif args.cmd == "tags":
         from .builds import tags
         print(f"  героев с тегами: {len(tags.build())}")

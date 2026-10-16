@@ -1471,3 +1471,86 @@ input {
   font-size: 11px;
   color: var(--warn);
 }
+
+/* ---------- screen reading wizard ---------- */
+.vision {
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(330px, 380px) 1fr;
+  gap: var(--gutter);
+}
+.vision__canvas {
+  position: relative;
+}
+.snap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.snap__svg {
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  background: #000;
+  touch-action: none;
+  user-select: none;
+}
+.snap__slot rect {
+  fill: transparent;
+  stroke: currentColor;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.55;
+  cursor: pointer;
+}
+.snap__slot.is-active rect {
+  opacity: 1;
+  cursor: move;
+  fill: color-mix(in srgb, currentColor 12%, transparent);
+}
+.snap__slot rect.snap__handle {
+  fill: currentColor;
+  cursor: nwse-resize;
+}
+.snap__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  font-size: 11px;
+}
+.snap__tag.is-fixed {
+  box-shadow: 0 0 0 2px var(--warn);
+}
+.snap__tag.is-none {
+  opacity: 0.7;
+}
+.vision__fix {
+  position: absolute;
+  z-index: 20;
+  right: 24px;
+  top: 24px;
+  width: 340px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.select {
+  height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--control-bg);
+  color: var(--text);
+  font: inherit;
+  box-shadow: inset 0 0 0 1px var(--glass-rim-2);
+}
+.select option {
+  background: #1c1d22;
+  color: #f5f5f7;
+}

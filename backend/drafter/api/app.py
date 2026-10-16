@@ -6,7 +6,10 @@ from __future__ import annotations
 
 import asyncio
 import hmac
+import json
 import os
+import re
+import time
 from contextlib import asynccontextmanager
 from typing import Literal
 
@@ -21,6 +24,12 @@ from .. import settings as user_settings
 from ..builds import counter, standard
 from ..data import constants, matches, me, stratz
 from ..model import draft, explain, meta, predictor, train
+from ..vision import calibration as vcal
+from ..vision import capture as vcap
+from ..vision import evaluate as veval
+from ..vision import matcher as vmatch
+from ..vision import reader as vread
+from ..vision import runner
 from . import refresh, session
 from .events import bus, jobs
 
@@ -34,10 +43,16 @@ def token() -> str | None:
 
 
 tracker = gsi.Tracker(lambda **changes: session.patch("gsi", **changes))
+vision_runner = runner.Runner(
+    get_session=lambda: session.get().model_dump(),
+    patch_session=lambda **changes: session.patch("vision", **changes),
+    publish=lambda data: bus.publish("vision", **data),
+)
 
 
 def _on_gsi(payload: dict) -> None:
     changes = tracker.handle(payload, session.get().model_dump())
+    vision_runner.new_match(tracker.match_id)
     bus.publish("gsi", status=tracker.status(), changes=changes)
 
 
@@ -50,7 +65,10 @@ async def lifespan(app: FastAPI):
             server = gsi.serve(_on_gsi)
         except OSError as e:  # port taken (another copy running): the app still works without GSI
             print(f"GSI-приёмник не запущен: порт {gsi.PORT} занят ({e})", flush=True)
+    if user_settings.load().vision_enabled:
+        vision_runner.set_enabled(True)
     yield
+    vision_runner.set_enabled(False)
     if server:
         server.shutdown()
 
@@ -362,6 +380,162 @@ def gsi_install():
         return gsi.install()
     except FileNotFoundError as e:
         raise HTTPException(404, str(e))
+
+
+# ---------- screen reading (experimental) ---------------------------------------------------------
+
+SNAPSHOTS = config.DATA / "vision" / "snapshots"
+
+
+def _snapshot_path(snap_id: str):
+    if not re.fullmatch(r"[0-9a-z_\-]{1,40}", snap_id):
+        raise HTTPException(422, "неверный id снимка")
+    p = SNAPSHOTS / f"{snap_id}.png"
+    if not p.exists():
+        raise HTTPException(404, "снимок не найден")
+    return p
+
+
+def _save_snapshot(img) -> dict:
+    import cv2
+    SNAPSHOTS.mkdir(parents=True, exist_ok=True)
+    snap_id = time.strftime("%Y%m%d-%H%M%S") + f"-{int(time.time() * 1000) % 1000:03d}"
+    cv2.imencode(".png", img)[1].tofile(str(SNAPSHOTS / f"{snap_id}.png"))
+    h, w = img.shape[:2]
+    return {"id": snap_id, "width": w, "height": h}
+
+
+@app.get("/vision/status")
+def vision_status():
+    labeled = len(list(veval.LABELED.glob("*.json"))) if veval.LABELED.exists() else 0
+    report = veval.REPORT.read_text(encoding="utf-8") if veval.REPORT.exists() else None
+    return {**vision_runner.status(), "calibrated": vcal.PATH.exists(), "labeled_frames": labeled,
+            "required_precision": veval.REQUIRED_PRECISION, "report": report,
+            "dota_window": vcap.find_window() is not None}
+
+
+@app.post("/vision/snapshot")
+def vision_snapshot():
+    try:
+        return _save_snapshot(vcap.grab())
+    except vcap.CaptureError as e:
+        raise HTTPException(409, str(e))
+
+
+@app.post("/vision/upload")
+async def vision_upload(request: Request):
+    """Raw image bytes in the body (a screenshot saved with F12 in Steam, for example)."""
+    import cv2
+    import numpy as np
+    data = await request.body()
+    if len(data) > 40_000_000:
+        raise HTTPException(413, "файл больше 40 МБ")
+    img = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+    if img is None:
+        raise HTTPException(422, "это не картинка (нужен PNG или JPG)")
+    return _save_snapshot(img)
+
+
+@app.get("/vision/snapshots")
+def vision_snapshots():
+    files = sorted(SNAPSHOTS.glob("*.png"), reverse=True)[:30] if SNAPSHOTS.exists() else []
+    return [p.stem for p in files]
+
+
+@app.get("/vision/snapshots/{snap_id}.png")
+def vision_snapshot_file(snap_id: str):
+    from fastapi.responses import FileResponse
+    return FileResponse(_snapshot_path(snap_id), media_type="image/png")
+
+
+@app.get("/vision/calibration", response_model=vcal.Calibration)
+def vision_get_calibration():
+    return vcal.load()
+
+
+@app.put("/vision/calibration", response_model=vcal.Calibration)
+def vision_put_calibration(c: vcal.Calibration):
+    return vcal.save(c.model_copy(update={"preset": False}))
+
+
+@app.get("/vision/calibration/preset", response_model=vcal.Calibration)
+def vision_preset():
+    return vcal.preset_16_9()
+
+
+class ReadIn(BaseModel):
+    snapshot: str
+    calibration: vcal.Calibration | None = None   # try unsaved rects from the wizard
+
+
+@app.post("/vision/read")
+def vision_read(body: ReadIn):
+    frame = vmatch._read(_snapshot_path(body.snapshot))
+    return vread.as_json(vread.read(frame, body.calibration))
+
+
+class LabelIn(BaseModel):
+    snapshot: str
+    calibration: vcal.Calibration | None = None
+    radiant: list[int | None] = Field(..., min_length=5, max_length=5)
+    dire: list[int | None] = Field(..., min_length=5, max_length=5)
+    bans: list[int | None] = Field(default_factory=list)
+
+
+@app.post("/vision/label")
+def vision_label(body: LabelIn):
+    """The user confirmed what is really on this frame: every filled slot becomes a learned template,
+    and the frame joins the labelled set used to measure accuracy."""
+    import shutil
+    known = constants.hero_by_id()
+    if bad := [h for h in body.radiant + body.dire + body.bans if h and h not in known]:
+        raise HTTPException(422, f"неизвестные id героев: {bad}")
+    src = _snapshot_path(body.snapshot)
+    frame = vmatch._read(src)
+    cal = body.calibration or vcal.load()
+    crops = vread.crops(frame, cal)
+    learned = 0
+    for group in ("radiant", "dire", "bans"):
+        for crop, hero in zip(crops[group], getattr(body, group)):
+            if hero and crop.size:
+                vmatch.learn(hero, crop)
+                learned += 1
+    veval.LABELED.mkdir(parents=True, exist_ok=True)
+    shutil.copy(src, veval.LABELED / src.name)
+    (veval.LABELED / f"{src.stem}.json").write_text(
+        json.dumps({"radiant": body.radiant, "dire": body.dire, "bans": body.bans}), encoding="utf-8")
+    return {"learned": learned}
+
+
+@app.post("/vision/evaluate")
+def vision_evaluate():
+    results = []
+    if veval.LABELED.exists() and any(veval.LABELED.glob("*.json")):
+        results.append(veval.evaluate(veval.LABELED))
+    if veval.SYNTH.exists() and any(veval.SYNTH.glob("*.json")):
+        results.append(veval.evaluate(veval.SYNTH))
+    veval.write_report(results)
+    return {"results": [{k: v for k, v in r.items() if k != "groups"} for r in results]}
+
+
+class EnableIn(BaseModel):
+    on: bool
+
+
+@app.post("/vision/enable")
+def vision_enable(body: EnableIn):
+    if body.on:
+        ev = veval.evaluate(veval.LABELED) if veval.LABELED.exists() else {"precision": None, "frames": 0}
+        if ev["frames"] < 3:
+            raise HTTPException(409, "сначала откалибруй и подтверди хотя бы 3 настоящих кадра драфта")
+        if ev["precision"] is None or ev["precision"] < veval.REQUIRED_PRECISION:
+            got = "—" if ev["precision"] is None else f"{ev['precision']:.0%}"
+            raise HTTPException(409, f"точность на подтверждённых кадрах {got}, нужно не ниже "
+                                     f"{veval.REQUIRED_PRECISION:.0%}: подтверди ещё кадры или подними порог")
+    s = user_settings.load()
+    user_settings.save(s.model_copy(update={"vision_enabled": body.on}))
+    vision_runner.set_enabled(body.on)
+    return vision_runner.status()
 
 
 # ---------- jobs & events ----------------------------------------------------------------

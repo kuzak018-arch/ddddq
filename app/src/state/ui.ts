@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type Page = 'draft' | 'meta' | 'hero' | 'builds' | 'profile' | 'settings';
+export type Page = 'draft' | 'meta' | 'hero' | 'builds' | 'profile' | 'settings' | 'vision';
 export type Theme = 'system' | 'light' | 'dark';
 
 /** Background: a built-in gradient, a hero render from the Steam CDN, or the user's own file. */

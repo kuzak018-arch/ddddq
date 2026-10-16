@@ -10,6 +10,7 @@ import { HeroPage } from './pages/HeroPage';
 import { MetaPage } from './pages/MetaPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
+import { VisionPage } from './pages/VisionPage';
 import { applyHotkeys, showOverlay } from './lib/overlay';
 import { useDraft } from './state/draft';
 import { startSync } from './state/sync';
@@ -22,6 +23,7 @@ const PAGES: Record<Page, () => React.JSX.Element> = {
   builds: BuildsPage,
   profile: ProfilePage,
   settings: SettingsPage,
+  vision: VisionPage,
 };
 const ORDER: Page[] = ['draft', 'meta', 'hero', 'builds', 'profile', 'settings'];
 

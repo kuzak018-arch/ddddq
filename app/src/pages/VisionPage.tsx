@@ -1,0 +1,442 @@
+/**
+ * Screen reading setup: take (or upload) a screenshot of the draft, drag the slot rectangles onto
+ * the hero portraits, check what the reader sees, correct mistakes (each correction teaches it how
+ * that portrait looks in this game) and confirm frames, which also measures accuracy.
+ */
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
+
+import { api, backend } from '../api/client';
+import { useHeroes } from '../api/hooks';
+import { Panel } from '../components/Glass';
+import { HeroSearch } from '../components/HeroSearch';
+import { Empty, ErrorBox, fmtPct, HeroIcon, Segmented, Slider, Toggle } from '../components/ui';
+
+type Rect = [number, number, number, number];
+type Group = 'radiant' | 'dire' | 'bans';
+interface Calibration {
+  aspect: number;
+  radiant: Rect[];
+  dire: Rect[];
+  bans: Rect[];
+  threshold: number;
+  margin: number;
+  preset: boolean;
+}
+interface SlotResult {
+  hero: number | null;
+  score: number;
+  margin: number;
+  candidates: [number, number][];
+  empty: boolean;
+}
+type ReadResult = Record<Group, SlotResult[]> & { warnings: string[] };
+interface VisionStatus {
+  enabled: boolean;
+  running: boolean;
+  error: string | null;
+  calibrated: boolean;
+  labeled_frames: number;
+  required_precision: number;
+  dota_window: boolean;
+}
+interface Snapshot {
+  id: string;
+  width: number;
+  height: number;
+}
+
+const GROUP_LABEL: Record<Group, string> = { radiant: 'Radiant', dire: 'Dire', bans: 'Баны' };
+/** A new ban slot right after the last one (same size), or a default under the top bar. */
+function nextBan(rects: Rect[]): Rect {
+  const last = rects[rects.length - 1];
+  return last ? [Math.min(0.97, last[0] + last[2] * 1.1), last[1], last[2], last[3]] : [0.3, 0.06, 0.03, 0.03];
+}
+
+const GROUP_COLOR: Record<Group, string> = { radiant: 'var(--radiant)', dire: 'var(--dire)', bans: '#c9c9d1' };
+
+async function snapshotUrl(id: string): Promise<string> {
+  const { url, token } = await backend();
+  const res = await fetch(`${url}/vision/snapshots/${id}.png`, { headers: token ? { 'X-Drafter-Token': token } : {} });
+  if (!res.ok) throw new Error('снимок не загрузился');
+  return URL.createObjectURL(await res.blob());
+}
+
+export function VisionPage() {
+  const qc = useQueryClient();
+  const heroes = useHeroes().data;
+  const status = useQuery({ queryKey: ['vision'], queryFn: () => api<VisionStatus>('/vision/status'), refetchInterval: 4000 });
+  const saved = useQuery({ queryKey: ['vision-cal'], queryFn: () => api<Calibration>('/vision/calibration') });
+  const [cal, setCal] = useState<Calibration | null>(null);
+  useEffect(() => {
+    if (saved.data && !cal) setCal(saved.data);
+  }, [saved.data, cal]);
+
+  const recent = useQuery({ queryKey: ['vision-snaps'], queryFn: () => api<string[]>('/vision/snapshots') });
+  const [snap, setSnap] = useState<Snapshot | null>(null);
+  const [img, setImg] = useState<string | null>(null);
+  const [group, setGroup] = useState<Group>('radiant');
+  const [together, setTogether] = useState(true);
+  const [result, setResult] = useState<ReadResult | null>(null);
+  const [fixes, setFixes] = useState<Record<string, number | null>>({});
+  const [editing, setEditing] = useState<{ group: Group; i: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const file = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!snap) return;
+    let url: string | null = null;
+    snapshotUrl(snap.id).then((u) => setImg((url = u))).catch((e) => setError(String(e)));
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [snap]);
+
+  const take = useMutation({
+    mutationFn: () => api<Snapshot>('/vision/snapshot', { method: 'POST' }),
+    onSuccess: (s) => {
+      setSnap(s);
+      setResult(null);
+      setFixes({});
+      qc.invalidateQueries({ queryKey: ['vision-snaps'] });
+    },
+    onError: (e) => setError(String(e)),
+  });
+  const upload = async (f: File) => {
+    const { url, token } = await backend();
+    const res = await fetch(`${url}/vision/upload`, {
+      method: 'POST',
+      headers: { ...(token ? { 'X-Drafter-Token': token } : {}), 'Content-Type': 'application/octet-stream' },
+      body: f,
+    });
+    const body = await res.json();
+    if (!res.ok) return setError(body.detail ?? 'не удалось загрузить');
+    setSnap(body);
+    setResult(null);
+    setFixes({});
+    qc.invalidateQueries({ queryKey: ['vision-snaps'] });
+    if (cal && Math.abs(body.width / body.height - cal.aspect) > 0.02) setCal({ ...cal, aspect: body.width / body.height });
+  };
+  const read = useMutation({
+    mutationFn: () => api<ReadResult>('/vision/read', { body: { snapshot: snap!.id, calibration: cal } }),
+    onSuccess: (r) => {
+      setResult(r);
+      setFixes({});
+    },
+    onError: (e) => setError(String(e)),
+  });
+  const saveCal = useMutation({
+    mutationFn: () => api<Calibration>('/vision/calibration', { method: 'PUT', body: cal }),
+    onSuccess: (c) => {
+      setCal(c);
+      qc.invalidateQueries({ queryKey: ['vision'] });
+    },
+    onError: (e) => setError(String(e)),
+  });
+  const label = useMutation({
+    mutationFn: () => {
+      const pick = (g: Group) => (cal?.[g] ?? []).map((_, i) => (`${g}${i}` in fixes ? fixes[`${g}${i}`] : result?.[g][i]?.hero ?? null));
+      return api<{ learned: number }>('/vision/label', {
+        body: { snapshot: snap!.id, calibration: cal, radiant: pick('radiant'), dire: pick('dire'), bans: pick('bans') },
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['vision'] });
+      evalRun.mutate();
+    },
+    onError: (e) => setError(String(e)),
+  });
+  const evalRun = useMutation({
+    mutationFn: () => api<{ results: { folder: string; frames: number; precision: number | null; recall: number | null }[] }>('/vision/evaluate', { method: 'POST' }),
+  });
+  const enable = useMutation({
+    mutationFn: (on: boolean) => api('/vision/enable', { body: { on } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['vision'] }),
+    onError: (e) => setError(String(e)),
+  });
+
+  const rects = cal?.[group] ?? [];
+  const setRects = (g: Group, rs: Rect[]) => cal && setCal({ ...cal, [g]: rs, preset: false });
+  const distribute = () => {
+    if (rects.length < 3) return;
+    const first = rects[0]!;
+    const last = rects[rects.length - 1]!;
+    const n = rects.length - 1;
+    setRects(group, rects.map((_, i) => [first[0] + ((last[0] - first[0]) * i) / n, first[1] + ((last[1] - first[1]) * i) / n, first[2], first[3]]));
+  };
+  const real = evalRun.data?.results.find((r) => r.folder.includes('labeled'));
+  const s = status.data;
+
+  return (
+    <div className="vision">
+      <Panel className="vision__side" refracting>
+        <div className="panel__head">
+          <h2>Чтение экрана</h2>
+          <span className="pill">эксперимент</span>
+        </div>
+        <p className="hint">
+          Читает только картинку окна Доты (как скриншот) — без памяти игры и без изменения файлов. Работает лишь на стадии
+          выбора героев. Ручная правка слота всегда важнее.
+        </p>
+        {error && (
+          <div onClick={() => setError(null)}>
+            <ErrorBox error={error} />
+          </div>
+        )}
+        <div className="row">
+          <button className="btn btn--accent" onClick={() => take.mutate()} disabled={take.isPending || !s?.dota_window} title={s?.dota_window ? '' : 'Дота не запущена'}>
+            Снимок Доты
+          </button>
+          <button className="btn" onClick={() => file.current?.click()}>
+            Загрузить скриншот
+          </button>
+          <input ref={file} type="file" accept="image/png,image/jpeg" hidden onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
+        </div>
+        {!!recent.data?.length && (
+          <select
+            className="select"
+            value={snap?.id ?? ''}
+            onChange={(e) => {
+              const id = e.target.value;
+              if (!id) return;
+              const im = new Image();
+              snapshotUrl(id).then((u) => {
+                im.onload = () => {
+                  setSnap({ id, width: im.naturalWidth, height: im.naturalHeight });
+                  setResult(null);
+                  setFixes({});
+                  URL.revokeObjectURL(u);
+                };
+                im.src = u;
+              });
+            }}
+          >
+            <option value="">Сохранённые снимки…</option>
+            {recent.data.map((id) => (
+              <option key={id} value={id}>
+                {id}
+              </option>
+            ))}
+          </select>
+        )}
+
+        <span className="label">Рамки</span>
+        <Segmented value={group} onChange={setGroup} options={(['radiant', 'dire', 'bans'] as Group[]).map((g) => ({ value: g, label: `${GROUP_LABEL[g]} · ${cal?.[g].length ?? 0}` }))} />
+        <Toggle on={together} onChange={setTogether} label="Двигать и менять размер группой" />
+        <div className="row">
+          <button className="btn" onClick={distribute} title="Расставить слоты ровно между первым и последним">
+            Распределить
+          </button>
+          {group === 'bans' && (
+            <>
+              <button className="btn" onClick={() => setRects('bans', [...rects, nextBan(rects)])}>
+                + бан
+              </button>
+              <button className="btn" onClick={() => setRects('bans', rects.slice(0, -1))} disabled={!rects.length}>
+                − бан
+              </button>
+            </>
+          )}
+          <button className="btn" onClick={async () => setCal(await api<Calibration>('/vision/calibration/preset'))}>
+            Пресет 16:9
+          </button>
+        </div>
+        {cal && (
+          <>
+            <Slider label="Порог уверенности" value={cal.threshold} min={0.3} max={0.9} step={0.01} onChange={(threshold) => setCal({ ...cal, threshold })} format={(v) => v.toFixed(2)} />
+            <Slider label="Отрыв от второго кандидата" value={cal.margin} min={0} max={0.3} step={0.01} onChange={(margin) => setCal({ ...cal, margin })} format={(v) => v.toFixed(2)} />
+          </>
+        )}
+        <div className="row">
+          <button className="btn" onClick={() => read.mutate()} disabled={!snap || read.isPending}>
+            Проверить распознавание
+          </button>
+          <button className="btn" onClick={() => saveCal.mutate()} disabled={!cal || saveCal.isPending}>
+            Сохранить рамки
+          </button>
+        </div>
+        {result && (
+          <button className="btn btn--accent" onClick={() => label.mutate()} disabled={label.isPending}>
+            Всё верно — подтвердить кадр
+          </button>
+        )}
+        {result?.warnings.map((w) => <p key={w} className="warn">{w}</p>)}
+        <p className="hint">
+          Кликни по рамке, чтобы исправить героя (или правой кнопкой — «пусто»). Подтверждённый кадр учит распознавание и
+          проверяет точность.
+        </p>
+
+        <h3 className="section-title">Точность</h3>
+        <dl className="kv">
+          <dt>Подтверждено кадров</dt>
+          <dd>{s?.labeled_frames ?? 0}</dd>
+          <dt>Точность на них</dt>
+          <dd>{real ? fmtPct(real.precision) : '—'}</dd>
+          <dt>Полнота</dt>
+          <dd>{real ? fmtPct(real.recall) : '—'}</dd>
+        </dl>
+        <Toggle
+          on={!!s?.enabled}
+          onChange={(on) => enable.mutate(on)}
+          label={`Читать драфт во время выбора героев (нужно ≥ ${fmtPct(s?.required_precision ?? 0.98, 0)} на 3+ кадрах)`}
+        />
+        {s?.error && <p className="warn">{s.error}</p>}
+      </Panel>
+
+      <Panel className="vision__canvas">
+        {!img || !snap || !cal ? (
+          <Empty>
+            Зайди в выбор героев (лобби с ботами подойдёт), нажми «Снимок Доты» или загрузи скриншот (F12 в Steam). Затем
+            перетащи рамки на портреты героев.
+          </Empty>
+        ) : (
+          <SnapshotEditor
+            img={img}
+            snap={snap}
+            cal={cal}
+            active={group}
+            together={together}
+            onChange={setRects}
+            result={result}
+            fixes={fixes}
+            onEdit={(g, i) => setEditing({ group: g, i })}
+            onClear={(g, i) => setFixes({ ...fixes, [`${g}${i}`]: null })}
+          />
+        )}
+        {editing && (
+          <div className="vision__fix glass glass--strong">
+            <span className="label">
+              {GROUP_LABEL[editing.group]}, слот {editing.i + 1}: кто здесь на самом деле?
+            </span>
+            <HeroSearch
+              compact
+              onPick={(h) => {
+                setFixes({ ...fixes, [`${editing.group}${editing.i}`]: h.id });
+                setEditing(null);
+              }}
+            />
+            <div className="row">
+              <button className="btn" onClick={() => (setFixes({ ...fixes, [`${editing.group}${editing.i}`]: null }), setEditing(null))}>
+                Пусто
+              </button>
+              <button className="btn" onClick={() => setEditing(null)}>
+                Отмена
+              </button>
+            </div>
+            {result?.[editing.group][editing.i]?.candidates.length ? (
+              <p className="hint">
+                Кандидаты:{' '}
+                {result[editing.group][editing.i]!.candidates.map(([h, sc]) => `${heroes?.byId.get(h)?.name} ${sc.toFixed(2)}`).join(', ')}
+              </p>
+            ) : null}
+          </div>
+        )}
+      </Panel>
+    </div>
+  );
+}
+
+function SnapshotEditor({ img, snap, cal, active, together, onChange, result, fixes, onEdit, onClear }: {
+  img: string;
+  snap: Snapshot;
+  cal: Calibration;
+  active: Group;
+  together: boolean;
+  onChange: (g: Group, rs: Rect[]) => void;
+  result: ReadResult | null;
+  fixes: Record<string, number | null>;
+  onEdit: (g: Group, i: number) => void;
+  onClear: (g: Group, i: number) => void;
+}) {
+  const svg = useRef<SVGSVGElement>(null);
+  const W = snap.width;
+  const H = snap.height;
+  const drag = useRef<{ g: Group; i: number; mode: 'move' | 'size'; x: number; y: number; start: Rect[]; moved: boolean } | null>(null);
+  const [zoomMode, setZoom] = useState<'top' | 'all'>('top');
+  const zoom = zoomMode === 'top';
+  // most slots are in the top part of the screen: show that area bigger by default
+  const view = zoom ? { y: 0, h: Math.round(H * 0.3) } : { y: 0, h: H };
+
+  const toFrac = (e: React.PointerEvent) => {
+    const pt = svg.current!.createSVGPoint();
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+    const p = pt.matrixTransform(svg.current!.getScreenCTM()!.inverse());
+    return { x: p.x / W, y: p.y / H };
+  };
+  const onDown = (e: React.PointerEvent, g: Group, i: number, mode: 'move' | 'size') => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    (e.target as Element).setPointerCapture(e.pointerId);
+    const p = toFrac(e);
+    drag.current = { g, i, mode, x: p.x, y: p.y, start: cal[g].map((r) => [...r] as Rect), moved: false };
+  };
+  const onMove = (e: React.PointerEvent) => {
+    const d = drag.current;
+    if (!d) return;
+    const p = toFrac(e);
+    const dx = p.x - d.x;
+    const dy = p.y - d.y;
+    if (Math.abs(dx) + Math.abs(dy) > 0.001) d.moved = true;
+    const clamp = (v: number) => Math.min(1, Math.max(0, v));
+    const next = d.start.map((r, k) => {
+      if (k !== d.i && !together) return r;
+      if (d.mode === 'move') return [clamp(r[0] + dx), clamp(r[1] + dy), r[2], r[3]] as Rect;
+      return [r[0], r[1], Math.max(0.004, d.start[d.i]![2] + dx), Math.max(0.004, d.start[d.i]![3] + dy)] as Rect;
+    });
+    onChange(d.g, next);
+  };
+  const onUp = () => {
+    const d = drag.current;
+    drag.current = null;
+    if (d && !d.moved && d.mode === 'move') onEdit(d.g, d.i);
+  };
+
+  return (
+    <div className="snap">
+      <div className="row">
+        <Segmented small value={zoomMode} onChange={setZoom} options={[{ value: 'top', label: 'Верх экрана' }, { value: 'all', label: 'Весь кадр' }]} />
+        <span className="hint">
+          {W}×{H}
+        </span>
+      </div>
+      <svg ref={svg} className="snap__svg" viewBox={`0 ${view.y} ${W} ${view.h}`} onPointerMove={onMove} onPointerUp={onUp}>
+        <image href={img} x={0} y={0} width={W} height={H} />
+        {(['radiant', 'dire', 'bans'] as Group[]).map((g) =>
+          cal[g].map((r, i) => {
+            const [x, y, w, h] = [r[0] * W, r[1] * H, r[2] * W, r[3] * H];
+            const res = result?.[g][i];
+            const key = `${g}${i}`;
+            const hero = key in fixes ? fixes[key] : res?.hero ?? null;
+            const isActive = g === active;
+            return (
+              <g key={key} className={`snap__slot ${isActive ? 'is-active' : ''}`} style={{ color: GROUP_COLOR[g] }}>
+                <rect
+                  x={x}
+                  y={y}
+                  width={w}
+                  height={h}
+                  onPointerDown={(e) => isActive && onDown(e, g, i, 'move')}
+                  onClick={() => !isActive && onEdit(g, i)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    onClear(g, i);
+                  }}
+                />
+                {isActive && <rect className="snap__handle" x={x + w - w * 0.18} y={y + h - h * 0.3} width={w * 0.18} height={h * 0.3} onPointerDown={(e) => onDown(e, g, i, 'size')} />}
+                {result && (
+                  <foreignObject x={x} y={y + h + 2} width={Math.max(w, 60)} height={Math.max(h, 30)}>
+                    <div className={`snap__tag ${key in fixes ? 'is-fixed' : hero ? '' : 'is-none'}`}>
+                      {hero ? <HeroIcon id={hero} size="sm" /> : <span>—</span>}
+                      {res && !(key in fixes) && <small>{res.score.toFixed(2)}</small>}
+                    </div>
+                  </foreignObject>
+                )}
+              </g>
+            );
+          }),
+        )}
+      </svg>
+    </div>
+  );
+}

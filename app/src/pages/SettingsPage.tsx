@@ -20,6 +20,7 @@ export function SettingsPage() {
       <AppearanceCard />
       <div className="settings__col">
         <GsiCard />
+        <VisionCard />
         <OverlayCard />
         <AdviceCard />
         <DataCard />
@@ -164,6 +165,33 @@ function GsiCard() {
           )}
         </>
       )}
+    </Panel>
+  );
+}
+
+function VisionCard() {
+  const go = useUi((s) => s.go);
+  const status = useQuery({
+    queryKey: ['vision'],
+    queryFn: () => api<{ enabled: boolean; calibrated: boolean; labeled_frames: number; error: string | null }>('/vision/status'),
+  });
+  const s = status.data;
+  return (
+    <Panel>
+      <div className="panel__head">
+        <h2>Чтение драфта с экрана</h2>
+        <span className="pill">{s?.enabled ? 'включено' : 'выключено'}</span>
+      </div>
+      <p className="hint">
+        Экспериментально и отключаемо: захват только окна Доты и сравнение портретов с шаблонами. Нужна калибровка под твой
+        экран и несколько подтверждённых кадров — включается, когда точность на них ≥ 98%.
+      </p>
+      <p className="muted">
+        Калибровка: {s?.calibrated ? 'сохранена' : 'нет (пресет)'} · подтверждено кадров: {s?.labeled_frames ?? 0}
+      </p>
+      <button className="btn btn--accent" onClick={() => go('vision')}>
+        Открыть мастер калибровки
+      </button>
     </Panel>
   );
 }

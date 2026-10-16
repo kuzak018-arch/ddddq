@@ -19,6 +19,7 @@ class Settings(BaseModel):
     comfort_weight: float = Field(0.5, ge=0, le=1)
     rank_tier: int | None = Field(None, ge=11, le=80, description="переопределить ранг (иначе из профиля)")
     tier_days: int = Field(14, ge=1, le=60, description="за сколько дней тир-лист")
+    vision_enabled: bool = Field(False, description="читать драфт с экрана (экспериментально)")
 
 
 def load() -> Settings:
