@@ -23,7 +23,7 @@ from .. import config, dota_paths, gsi, keybinds, search
 from .. import settings as user_settings
 from ..builds import counter, standard
 from ..builds import service as build_service
-from ..data import constants, matches, me, stratz
+from ..data import constants, matches, me, my_matches, stratz
 from ..lane import bulk as lane_bulk
 from ..lane import service as lane_service
 from ..model import draft, explain, meta, predictor, train
@@ -454,11 +454,23 @@ def my_summary():
     return me.summary(_pred().pos_mat)
 
 
+@app.get("/me/matches")
+def my_matches_list(refresh: bool = False):
+    """Recent ranked matches with an estimate of how I played. Answers from the cache at once and
+    refreshes from Stratz in the background when it is stale: poll while job.status == "loading"."""
+    if not config.settings().account_id:
+        raise HTTPException(409, "не указан аккаунт: введи Steam ID в первом запуске или в настройках")
+    if os.environ.get("DRAFTER_NO_BUILD_LOAD") != "1":   # tests: never hit the network
+        my_matches.ensure_fresh(force=refresh)
+    return my_matches.history()
+
+
 @app.post("/me/refresh")
 def my_refresh():
     if not config.settings().account_id:
         raise HTTPException(409, "не указан аккаунт: введи Steam ID в первом запуске или в настройках")
     d = me.refresh()
+    my_matches.ensure_fresh(force=True)
     return {"matches": len(d["matches"]), "rank_tier": me.rank_tier(d)}
 
 

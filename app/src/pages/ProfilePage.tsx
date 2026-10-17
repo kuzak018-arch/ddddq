@@ -7,7 +7,8 @@ import type { MeSummary } from '../api/types';
 import { heroArt } from '../components/Chrome';
 import { Panel } from '../components/Glass';
 import { HeroSearch } from '../components/HeroSearch';
-import { Empty, ErrorBox, fmtPct, fmtSigned, HeroIcon, Slider } from '../components/ui';
+import { MatchHistory } from '../components/MatchHistory';
+import { Empty, ErrorBox, fmtPct, fmtSigned, HeroIcon, Segmented, Slider } from '../components/ui';
 import { loadFile, saveFile } from '../state/bgstore';
 import { useUi } from '../state/ui';
 
@@ -28,6 +29,7 @@ export function ProfilePage() {
   const exp = p?.experience;
   const avatar = useAvatar(p?.avatar, p?.fetched);
   const summary = useMeSummary().data;
+  const [tab, setTab] = useState<'matches' | 'pool'>('matches');
 
   return (
     <div className="profile">
@@ -65,9 +67,19 @@ export function ProfilePage() {
         {summary && <Summary s={summary} />}
       </Panel>
       <Panel className="profile__pool">
-        <h3 className="section-title">Пул героев</h3>
-        {!p && !prof.error && <Empty>Загрузка…</Empty>}
-        {p && (
+        <div className="panel__head">
+          <Segmented
+            value={tab}
+            onChange={setTab}
+            options={[
+              { value: 'matches', label: 'Матчи' },
+              { value: 'pool', label: 'Пул героев' },
+            ]}
+          />
+        </div>
+        {tab === 'matches' && <MatchHistory />}
+        {tab === 'pool' && !p && !prof.error && <Empty>Загрузка…</Empty>}
+        {tab === 'pool' && p && (
           <table className="table">
             <thead>
               <tr>
