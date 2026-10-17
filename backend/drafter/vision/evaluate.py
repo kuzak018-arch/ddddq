@@ -127,3 +127,53 @@ def write_report(results: list[dict]) -> Path:
     REPORT.parent.mkdir(parents=True, exist_ok=True)
     REPORT.write_text("\n".join(lines), encoding="utf-8")
     return REPORT
+
+
+def evaluate_collected(cal: calibration.Calibration | None = None, draft_list: list[dict] | None = None) -> dict:
+    """Accuracy on frames collected during real drafts, labelled from the draft board.
+
+    The board's slot order needn't match the screen, so a hero read in a team's slot is right if
+    that team has it (and a ban if it was banned; bans count only when the board has bans). Every
+    frame counts for precision (a hero shown mid-draft is already final); recall only on complete
+    frames (strategy time, all ten on screen) of drafts with full teams. Each draft is read
+    without the templates learned from that same draft."""
+    from . import collector
+    cal = cal or calibration.load()
+    filled = correct = present = found = frames = 0
+    used_drafts = 0
+    wrong = []
+    for d in draft_list if draft_list is not None else collector.drafts():
+        lab = d.get("labels")
+        if not lab or not (lab.get("radiant") or lab.get("dire")):
+            continue
+        truth = {"radiant": set(lab.get("radiant") or []), "dire": set(lab.get("dire") or []),
+                 "bans": set(lab.get("bans") or [])}
+        full = len(truth["radiant"]) == 5 and len(truth["dire"]) == 5
+        before = frames
+        for f in d.get("frames", []):
+            img = matcher._read(collector.frame_path(f["id"]))
+            if img is None:
+                continue
+            frames += 1
+            res = reader.read(img, cal, exclude=d["id"])
+            seen = set()
+            for g in ("radiant", "dire", "bans"):
+                if g == "bans" and not truth["bans"]:
+                    continue
+                for i, r in enumerate(res[g]):
+                    if not r.hero:
+                        continue
+                    filled += 1
+                    if r.hero in truth[g]:
+                        correct += 1
+                        if g != "bans":
+                            seen.add(r.hero)
+                    else:
+                        wrong.append((f["id"], g, i, r.hero, r.score))
+            if f.get("complete") and full:
+                present += 10
+                found += len(seen)
+        used_drafts += frames > before
+    return {"folder": "collected", "drafts": used_drafts, "frames": frames, "filled": filled, "correct": correct,
+            "precision": correct / filled if filled else None, "recall": found / present if present else None,
+            "wrong": wrong[:20], "threshold": cal.threshold, "margin": cal.margin}

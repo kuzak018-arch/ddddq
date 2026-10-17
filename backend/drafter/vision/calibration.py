@@ -25,6 +25,7 @@ class Calibration(BaseModel):
     threshold: float = Field(0.55, ge=0.2, le=0.95, description="минимальная уверенность")
     margin: float = Field(0.06, ge=0, le=0.5, description="отрыв от второго кандидата")
     preset: bool = False
+    auto: bool = Field(False, description="рамки найдены автоматически по кадру с известными героями")
 
     @field_validator("radiant", "dire")
     @classmethod

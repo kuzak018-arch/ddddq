@@ -29,6 +29,7 @@ class Runner:
         self.last_result: dict | None = None
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
+        self.on_frame = None   # the frame collector takes our frames instead of capturing the window twice
         self._reset_match(None)
 
     def _reset_match(self, match_key):
@@ -66,6 +67,8 @@ class Runner:
                         grabber = capture.Grabber()
                     frame = grabber.latest()
                     if frame is not None:
+                        if self.on_frame:
+                            self.on_frame(frame)
                         self.step(frame, s)
                         self.error = None
                 except capture.CaptureError as e:

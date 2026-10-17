@@ -20,8 +20,9 @@ def crops(frame: np.ndarray, cal: calibration.Calibration) -> dict[str, list[np.
     return out
 
 
-def read(frame: np.ndarray, cal: calibration.Calibration | None = None) -> dict:
-    """{radiant: [SlotResult x5], dire: [...], bans: [...], warnings: [...]}"""
+def read(frame: np.ndarray, cal: calibration.Calibration | None = None, exclude: str | None = None) -> dict:
+    """{radiant: [SlotResult x5], dire: [...], bans: [...], warnings: [...]}
+    `exclude`: leave out templates learned from that draft (fair accuracy on its own frames)."""
     cal = cal or calibration.load()
     h, w = frame.shape[:2]
     warnings = []
@@ -35,7 +36,7 @@ def read(frame: np.ndarray, cal: calibration.Calibration | None = None) -> dict:
                 res.append(matcher.SlotResult(None, 0, 0, [], empty=True))
                 continue
             aspect = crop.shape[1] / crop.shape[0]
-            res.append(matcher.bank(aspect).match(crop, cal.threshold, cal.margin, ban=group == "bans"))
+            res.append(matcher.bank(aspect, exclude).match(crop, cal.threshold, cal.margin, ban=group == "bans"))
         result[group] = res
     return result
 

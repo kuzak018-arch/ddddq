@@ -45,6 +45,22 @@ interface Snapshot {
   width: number;
   height: number;
 }
+interface CollectedDraft {
+  id: string;
+  started: number;
+  frozen: boolean;
+  frames: { id: string; state: string | null; complete: boolean; width: number; height: number }[];
+  labels: { radiant: number[]; dire: number[]; bans: number[]; side: string } | null;
+}
+interface EvalTotal {
+  drafts: number;
+  frames: number;
+  filled: number;
+  correct: number;
+  precision: number | null;
+  required: number;
+  auto_rule: { drafts: number; frames: number; filled: number };
+}
 
 const GROUP_LABEL: Record<Group, string> = { radiant: 'Radiant', dire: 'Dire', bans: 'Баны' };
 /** A new ban slot right after the last one (same size), or a default under the top bar. */
@@ -73,6 +89,7 @@ export function VisionPage() {
   }, [saved.data, cal]);
 
   const recent = useQuery({ queryKey: ['vision-snaps'], queryFn: () => api<string[]>('/vision/snapshots') });
+  const collected = useQuery({ queryKey: ['vision-collected'], queryFn: () => api<CollectedDraft[]>('/vision/collected') });
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [img, setImg] = useState<string | null>(null);
   const [group, setGroup] = useState<Group>('radiant');
@@ -147,8 +164,45 @@ export function VisionPage() {
     onError: (e) => setError(String(e)),
   });
   const evalRun = useMutation({
-    mutationFn: () => api<{ results: { folder: string; frames: number; precision: number | null; recall: number | null }[] }>('/vision/evaluate', { method: 'POST' }),
+    mutationFn: () =>
+      api<{
+        results: { folder: string; frames: number; precision: number | null; recall: number | null }[];
+        collected: { drafts: number; frames: number; precision: number | null; recall: number | null };
+        total: EvalTotal;
+      }>('/vision/evaluate', { method: 'POST' }),
   });
+  const [autoInfo, setAutoInfo] = useState<string | null>(null);
+  const autocal = useMutation({
+    mutationFn: () =>
+      api<{ calibration: Calibration | null; info: { hits: number; searched: number; fitted?: number; reason?: string } }>('/vision/autocal', {
+        body: { snapshot: snap!.id },
+      }),
+    onSuccess: (r) => {
+      if (r.calibration) {
+        setCal(r.calibration);
+        setResult(null);
+        setAutoInfo(`Нашёл ${r.info.hits} портретов из ${r.info.searched}, в ровный ряд легли ${r.info.fitted}. Проверь рамки и сохрани.`);
+      } else setAutoInfo(`Не получилось: ${r.info.reason ?? 'портреты не найдены'}.`);
+    },
+    onError: (e) => setError(String(e)),
+  });
+  const openSnapshot = (id: string) => {
+    const im = new Image();
+    snapshotUrl(id).then((u) => {
+      im.onload = () => {
+        setSnap({ id, width: im.naturalWidth, height: im.naturalHeight });
+        setResult(null);
+        setFixes({});
+        setAutoInfo(null);
+        URL.revokeObjectURL(u);
+      };
+      im.src = u;
+    });
+  };
+  const draftOf = (id: string | undefined) =>
+    id?.startsWith('auto-') ? collected.data?.find((d) => id.startsWith(`auto-${d.id}-`)) : undefined;
+  const curDraft = draftOf(snap?.id);
+  const heroName = (h: number) => heroes?.byId.get(h)?.name ?? h;
   const enable = useMutation({
     mutationFn: (on: boolean) => api('/vision/enable', { body: { on } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['vision'] }),
@@ -165,6 +219,7 @@ export function VisionPage() {
     setRects(group, rects.map((_, i) => [first[0] + ((last[0] - first[0]) * i) / n, first[1] + ((last[1] - first[1]) * i) / n, first[2], first[3]]));
   };
   const real = evalRun.data?.results.find((r) => r.folder.includes('labeled'));
+  const total = evalRun.data?.total;
   const s = status.data;
 
   return (
@@ -192,6 +247,41 @@ export function VisionPage() {
           </button>
           <input ref={file} type="file" accept="image/png,image/jpeg" hidden onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
         </div>
+        {!!collected.data?.length && (
+          <select className="select" value={curDraft ? snap!.id : ''} onChange={(e) => e.target.value && openSnapshot(e.target.value)}>
+            <option value="">Кадры из твоих матчей…</option>
+            {collected.data.map((d) => (
+              <optgroup
+                key={d.id}
+                label={`${new Date(d.started * 1000).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} · ${d.frames.length} кадров${d.labels ? ' · размечен' : ''}`}
+              >
+                {d.frames.map((f, i) => (
+                  <option key={f.id} value={f.id}>
+                    Кадр {i + 1}
+                    {f.complete ? ' — все герои (стратегия)' : ''}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        )}
+        {curDraft && (
+          <div className="vision__labels small">
+            {curDraft.labels ? (
+              <>
+                <span className="muted">Разметка из доски драфта:</span>
+                <span>Radiant: {curDraft.labels.radiant.map(heroName).join(', ') || '—'}</span>
+                <span>Dire: {curDraft.labels.dire.map(heroName).join(', ') || '—'}</span>
+                <button className="btn btn--sm" onClick={() => autocal.mutate()} disabled={autocal.isPending}>
+                  {autocal.isPending ? 'Ищу портреты…' : 'Автокалибровка по этому кадру'}
+                </button>
+              </>
+            ) : (
+              <span className="muted">У этого драфта нет разметки: доска драфта не заполнялась или сторона неизвестна.</span>
+            )}
+            {autoInfo && <span>{autoInfo}</span>}
+          </div>
+        )}
         {!!recent.data?.length && (
           <select
             className="select"
@@ -268,13 +358,28 @@ export function VisionPage() {
 
         <h3 className="section-title">Точность</h3>
         <dl className="kv">
-          <dt>Подтверждено кадров</dt>
-          <dd>{s?.labeled_frames ?? 0}</dd>
-          <dt>Точность на них</dt>
-          <dd>{real ? fmtPct(real.precision) : '—'}</dd>
-          <dt>Полнота</dt>
-          <dd>{real ? fmtPct(real.recall) : '—'}</dd>
+          <dt>Подтверждено в мастере</dt>
+          <dd>
+            {s?.labeled_frames ?? 0} кадров{real ? `, точность ${fmtPct(real.precision)}` : ''}
+          </dd>
+          <dt>Из твоих матчей</dt>
+          <dd>
+            {evalRun.data?.collected
+              ? `${evalRun.data.collected.frames} кадров в ${evalRun.data.collected.drafts} драфтах, точность ${fmtPct(evalRun.data.collected.precision)}, полнота ${fmtPct(evalRun.data.collected.recall)}`
+              : '—'}
+          </dd>
+          <dt>Всего</dt>
+          <dd>{total ? `${fmtPct(total.precision)} (${total.correct} из ${total.filled} распознанных)` : '—'}</dd>
         </dl>
+        <button className="btn btn--sm" onClick={() => evalRun.mutate()} disabled={evalRun.isPending}>
+          {evalRun.isPending ? 'Считаю…' : 'Пересчитать точность'}
+        </button>
+        {total && (
+          <p className="hint">
+            Включится само при ≥ {total.auto_rule.drafts} драфтах, ≥ {total.auto_rule.frames} кадрах, ≥ {total.auto_rule.filled} распознанных
+            героях и точности ≥ {fmtPct(total.required, 0)}.
+          </p>
+        )}
         <Toggle
           on={!!s?.enabled}
           onChange={(on) => enable.mutate(on)}

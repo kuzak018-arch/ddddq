@@ -182,3 +182,11 @@ def test_lane(client):
     assert first["hero"] == AM and first["on_lane"] and first["pos"] == 1
     storm = next(o for o in opp["opponents"] if o["hero"] == 17)
     assert not storm["on_lane"] and storm["lane_pos"] is None
+
+
+def test_settings_put_changes_only_sent_fields(client, tmp_path, monkeypatch):
+    from drafter import settings as user_settings
+    monkeypatch.setattr(user_settings, "PATH", tmp_path / "settings.json")
+    client.put("/settings", json={"vision_collect": False, "vision_collect_mb": 800})
+    s = client.put("/settings", json={"pos": 2}).json()     # an older client that knows only pos
+    assert s["pos"] == 2 and s["vision_collect"] is False and s["vision_collect_mb"] == 800

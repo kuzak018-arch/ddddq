@@ -202,6 +202,9 @@ export interface Settings {
   comfort_weight: number;
   rank_tier: number | null;
   tier_days: number;
+  vision_enabled?: boolean;
+  vision_collect?: boolean;
+  vision_collect_mb?: number;
 }
 
 export interface Job {

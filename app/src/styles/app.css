@@ -2161,3 +2161,11 @@ input {
   flex-direction: column;
   gap: 6px;
 }
+.vision__labels {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--glass-tint-inset);
+}

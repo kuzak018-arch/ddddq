@@ -220,25 +220,68 @@ function GsiCard() {
   );
 }
 
+interface CollectStatus {
+  enabled: boolean;
+  limit_mb: number;
+  used_mb: number;
+  drafts: number;
+  frames: number;
+  labeled_drafts: number;
+  error: string | null;
+}
+
 function VisionCard() {
   const go = useUi((s) => s.go);
+  const settings = useSettings().data;
+  const save = useSaveSettings();
   const status = useQuery({
     queryKey: ['vision'],
-    queryFn: () => api<{ enabled: boolean; calibrated: boolean; labeled_frames: number; error: string | null }>('/vision/status'),
+    queryFn: () =>
+      api<{
+        enabled: boolean;
+        calibrated: boolean;
+        calibration_auto: boolean;
+        labeled_frames: number;
+        error: string | null;
+        collect: CollectStatus;
+        auto: { auto_enabled: boolean; enabled_at: number | null; last: { evaluation?: { precision: number | null; frames: number; drafts: number } } | null };
+      }>('/vision/status'),
   });
   const s = status.data;
+  const c = s?.collect;
+  const ev = s?.auto.last?.evaluation;
   return (
     <Panel>
       <div className="panel__head">
         <h2>Чтение драфта с экрана</h2>
-        <span className="pill">{s?.enabled ? 'включено' : 'выключено'}</span>
+        <span className="pill">{s?.enabled ? (s.auto.auto_enabled ? 'включено само' : 'включено') : 'выключено'}</span>
       </div>
       <p className="hint">
-        Экспериментально и отключаемо: захват только окна Доты и сравнение портретов с шаблонами. Нужна калибровка под твой
-        экран и несколько подтверждённых кадров — включается, когда точность на них ≥ 98%.
+        Экспериментально и отключаемо: захват только окна Доты и сравнение портретов с шаблонами. Включается само, когда точность
+        на кадрах из твоих матчей не ниже 98%.
       </p>
-      <p className="muted">
-        Калибровка: {s?.calibrated ? 'сохранена' : 'нет (пресет)'} · подтверждено кадров: {s?.labeled_frames ?? 0}
+      <Toggle
+        on={settings?.vision_collect ?? true}
+        onChange={(vision_collect) => settings && save.mutate({ ...settings, vision_collect })}
+        label="Собирать кадры драфта для калибровки (во время выбора героев)"
+      />
+      <Slider
+        label="Место под кадры"
+        value={settings?.vision_collect_mb ?? 500}
+        min={100}
+        max={3000}
+        step={100}
+        onChange={(vision_collect_mb) => settings && save.mutate({ ...settings, vision_collect_mb })}
+        format={(v) => `${v} МБ`}
+      />
+      <p className="muted small">
+        Собрано: {c?.drafts ?? 0} драфтов, {c?.frames ?? 0} кадров, {c?.used_mb ?? 0} МБ; с разметкой из доски драфта: {c?.labeled_drafts ?? 0}.
+        {c?.error ? ` Последняя ошибка: ${c.error}` : ''}
+      </p>
+      <p className="muted small">
+        Калибровка: {s?.calibrated ? (s.calibration_auto ? 'найдена автоматически' : 'сохранена вручную') : 'нет (пресет)'} · подтверждено в
+        мастере: {s?.labeled_frames ?? 0}
+        {ev && ev.precision !== null ? ` · точность ${Math.round(ev.precision * 1000) / 10}% на ${ev.frames} кадрах` : ''}
       </p>
       <button className="btn btn--accent" onClick={() => go('vision')}>
         Открыть мастер калибровки

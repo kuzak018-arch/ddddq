@@ -81,13 +81,17 @@ def _read(path: Path) -> np.ndarray | None:
 
 
 class TemplateBank:
-    """Feature matrices for all heroes at one slot aspect ratio."""
+    """Feature matrices for all heroes at one slot aspect ratio. `exclude`: skip templates learned
+    automatically from that draft (its frames must not be judged by crops taken from them)."""
 
-    def __init__(self, aspect: float):
+    def __init__(self, aspect: float, exclude: str | None = None):
         self.aspect = aspect
         ids, greys, hists = [], [], []
         for h in constants.hero_index():
-            sources = [ICONS / f"{h['key']}.png", *sorted((LEARNED / str(h["id"])).glob("*.png"))]
+            learned = sorted((LEARNED / str(h["id"])).glob("*.png"))
+            if exclude:
+                learned = [p for p in learned if not p.name.startswith(f"{exclude}__")]
+            sources = [ICONS / f"{h['key']}.png", *learned]
             for p in sources:
                 img = _read(p) if p.exists() else None
                 if img is None:
@@ -119,25 +123,27 @@ class TemplateBank:
                           [(h, round(s, 4)) for h, s in ranked[:3]])
 
 
-@lru_cache(maxsize=8)
-def _bank(aspect_key: float, version: float) -> TemplateBank:
-    return TemplateBank(aspect_key)
+@lru_cache(maxsize=16)
+def _bank(aspect_key: float, version: float, exclude: str | None) -> TemplateBank:
+    return TemplateBank(aspect_key, exclude)
 
 
 _learned_version = 0.0
 
 
-def bank(aspect: float) -> TemplateBank:
+def bank(aspect: float, exclude: str | None = None) -> TemplateBank:
     """Banks are cached per slot aspect (rounded) and rebuilt when a learned template is added."""
-    return _bank(round(aspect, 2), _learned_version)
+    return _bank(round(aspect, 2), _learned_version, exclude)
 
 
-def learn(hero_id: int, crop_bgr: np.ndarray) -> Path:
-    """Save how this hero's portrait looks in the user's game; used as a template from now on."""
+def learn(hero_id: int, crop_bgr: np.ndarray, tag: str | None = None) -> Path:
+    """Save how this hero's portrait looks in the user's game; used as a template from now on.
+    `tag`: the draft an automatic template came from (see TemplateBank's exclude)."""
     global _learned_version
     folder = LEARNED / str(hero_id)
     folder.mkdir(parents=True, exist_ok=True)
-    path = folder / f"{int(time.time() * 1000)}.png"
+    prefix = f"{tag}__" if tag else ""
+    path = folder / f"{prefix}{int(time.time() * 1000)}.png"
     ok, buf = cv2.imencode(".png", crop_bgr)
     if not ok:
         raise ValueError("не удалось сохранить вырезку")

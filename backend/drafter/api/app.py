@@ -27,8 +27,11 @@ from ..data import constants, matches, me, stratz
 from ..lane import bulk as lane_bulk
 from ..lane import service as lane_service
 from ..model import draft, explain, meta, predictor, train
+from ..vision import auto as vauto
+from ..vision import autocal as vautocal
 from ..vision import calibration as vcal
 from ..vision import capture as vcap
+from ..vision import collector as vcollect
 from ..vision import evaluate as veval
 from ..vision import matcher as vmatch
 from ..vision import reader as vread
@@ -53,6 +56,26 @@ vision_runner = runner.Runner(
 )
 
 
+def _set_vision(on: bool) -> None:
+    s = user_settings.load()
+    user_settings.save(s.model_copy(update={"vision_enabled": on}))
+    vision_runner.set_enabled(on)
+
+
+def _after_draft(d: dict) -> None:
+    out = vauto.finalize(d, _set_vision, lambda: vision_runner.enabled)
+    bus.publish("vision", status=vision_runner.status(), auto=out)
+
+
+vision_collector = vcollect.Collector(
+    get_session=lambda: session.get().model_dump(),
+    get_game_state=lambda: tracker.last.get("game_state"),
+    get_settings=user_settings.load,
+    on_finalize=_after_draft,
+)
+vision_runner.on_frame = vision_collector.offer
+
+
 def _on_gsi(payload: dict) -> None:
     changes = tracker.handle(payload, session.get().model_dump())
     vision_runner.new_match(tracker.match_id)
@@ -72,6 +95,8 @@ async def lifespan(app: FastAPI):
             print(f"GSI-приёмник не запущен: порт {gsi.PORT} занят ({e})", flush=True)
     if user_settings.load().vision_enabled:
         vision_runner.set_enabled(True)
+    if os.environ.get("DRAFTER_NO_GSI") != "1":   # without GSI there is never a draft phase to collect
+        vision_collector.start()
     build_service.publish = lambda **data: bus.publish("builds", **data)
     if os.environ.get("DRAFTER_NO_PREFETCH") != "1":
         try:
@@ -83,6 +108,7 @@ async def lifespan(app: FastAPI):
     lane_service.stop_all()
     lane_bulk.stop()
     vision_runner.set_enabled(False)
+    vision_collector.stop()
     if server:
         server.shutdown()
 
@@ -160,7 +186,9 @@ def get_settings():
 
 @app.put("/settings", response_model=user_settings.Settings)
 def put_settings(s: user_settings.Settings):
-    return user_settings.save(s)
+    """Only the fields sent change: a client that doesn't know a newer setting can't reset it."""
+    cur = user_settings.load()
+    return user_settings.save(cur.model_copy(update=s.model_dump(include=s.model_fields_set)))
 
 
 @app.get("/heroes")
@@ -511,16 +539,18 @@ def gsi_install():
 
 # ---------- screen reading (experimental) ---------------------------------------------------------
 
-SNAPSHOTS = config.DATA / "vision" / "snapshots"
+SNAPSHOTS = vcollect.SNAPSHOTS
 
 
 def _snapshot_path(snap_id: str):
+    """Snapshots from the wizard are PNG; frames collected during drafts (auto-...) are JPEG."""
     if not re.fullmatch(r"[0-9a-z_\-]{1,40}", snap_id):
         raise HTTPException(422, "неверный id снимка")
-    p = SNAPSHOTS / f"{snap_id}.png"
-    if not p.exists():
-        raise HTTPException(404, "снимок не найден")
-    return p
+    for ext in (".png", ".jpg"):
+        p = SNAPSHOTS / f"{snap_id}{ext}"
+        if p.exists():
+            return p
+    raise HTTPException(404, "снимок не найден")
 
 
 def _save_snapshot(img) -> dict:
@@ -536,9 +566,15 @@ def _save_snapshot(img) -> dict:
 def vision_status():
     labeled = len(list(veval.LABELED.glob("*.json"))) if veval.LABELED.exists() else 0
     report = veval.REPORT.read_text(encoding="utf-8") if veval.REPORT.exists() else None
-    return {**vision_runner.status(), "calibrated": vcal.PATH.exists(), "labeled_frames": labeled,
-            "required_precision": veval.REQUIRED_PRECISION, "report": report,
-            "dota_window": vcap.find_window() is not None}
+    cal = vcal.load()
+    auto_state = vauto.state()
+    return {**vision_runner.status(), "calibrated": vcal.PATH.exists(), "calibration_auto": cal.auto,
+            "labeled_frames": labeled, "required_precision": veval.REQUIRED_PRECISION, "report": report,
+            "dota_window": vcap.find_window() is not None, "collect": vision_collector.status(),
+            "auto": {"last": auto_state.get("last"), "auto_enabled": auto_state.get("auto_enabled", False),
+                     "enabled_at": auto_state.get("enabled_at"),
+                     "rule": {"drafts": vauto.AUTO_MIN_DRAFTS, "frames": vauto.AUTO_MIN_FRAMES,
+                              "filled": vauto.AUTO_MIN_FILLED}}}
 
 
 @app.post("/vision/snapshot")
@@ -572,7 +608,35 @@ def vision_snapshots():
 @app.get("/vision/snapshots/{snap_id}.png")
 def vision_snapshot_file(snap_id: str):
     from fastapi.responses import FileResponse
-    return FileResponse(_snapshot_path(snap_id), media_type="image/png")
+    p = _snapshot_path(snap_id)
+    return FileResponse(p, media_type="image/jpeg" if p.suffix == ".jpg" else "image/png")
+
+
+@app.get("/vision/collected")
+def vision_collected():
+    """Drafts collected by themselves (newest first): frames, labels from the draft board."""
+    return vcollect.drafts()
+
+
+class AutocalIn(BaseModel):
+    snapshot: str
+    radiant: list[int] | None = None   # teams on this frame; default: the labels of its draft
+    dire: list[int] | None = None
+
+
+@app.post("/vision/autocal")
+def vision_autocal(body: AutocalIn):
+    """Fit the rects to a frame with known heroes. Not saved: the wizard shows it for a check first."""
+    frame = vmatch._read(_snapshot_path(body.snapshot))
+    radiant, dire = body.radiant, body.dire
+    if radiant is None or dire is None:
+        draft_id = body.snapshot.removeprefix("auto-").rsplit("-", 1)[0] if body.snapshot.startswith("auto-") else None
+        lab = ((vcollect.load_draft(draft_id) or {}).get("labels") if draft_id else None) or {}
+        radiant, dire = radiant or lab.get("radiant"), dire or lab.get("dire")
+    if not radiant or not dire:
+        raise HTTPException(409, "для автокалибровки нужны составы обеих команд на этом кадре")
+    cal, info = vautocal.locate(frame, radiant, dire)
+    return {"calibration": cal, "info": info}
 
 
 @app.get("/vision/calibration", response_model=vcal.Calibration)
@@ -642,7 +706,10 @@ def vision_evaluate():
     if veval.SYNTH.exists() and any(veval.SYNTH.glob("*.json")):
         results.append(veval.evaluate(veval.SYNTH))
     veval.write_report(results)
-    return {"results": [{k: v for k, v in r.items() if k != "groups"} for r in results]}
+    total = vauto.evaluate_all()
+    return {"results": [{k: v for k, v in r.items() if k != "groups"} for r in results],
+            "collected": total["collected"], "total": {k: total[k] for k in ("drafts", "frames", "filled", "correct",
+                                                                          "precision", "required", "auto_rule")}}
 
 
 class EnableIn(BaseModel):
@@ -652,16 +719,20 @@ class EnableIn(BaseModel):
 @app.post("/vision/enable")
 def vision_enable(body: EnableIn):
     if body.on:
-        ev = veval.evaluate(veval.LABELED) if veval.LABELED.exists() else {"precision": None, "frames": 0}
+        ev = vauto.evaluate_all()   # frames confirmed in the wizard plus frames collected in drafts
         if ev["frames"] < 3:
-            raise HTTPException(409, "сначала откалибруй и подтверди хотя бы 3 настоящих кадра драфта")
+            raise HTTPException(409, "сначала нужны хотя бы 3 настоящих кадра драфта: собранные в матчах "
+                                     "(с заполненной доской) или подтверждённые в мастере")
         if ev["precision"] is None or ev["precision"] < veval.REQUIRED_PRECISION:
             got = "—" if ev["precision"] is None else f"{ev['precision']:.0%}"
-            raise HTTPException(409, f"точность на подтверждённых кадрах {got}, нужно не ниже "
+            raise HTTPException(409, f"точность на настоящих кадрах {got}, нужно не ниже "
                                      f"{veval.REQUIRED_PRECISION:.0%}: подтверди ещё кадры или подними порог")
-    s = user_settings.load()
-    user_settings.save(s.model_copy(update={"vision_enabled": body.on}))
-    vision_runner.set_enabled(body.on)
+    _set_vision(body.on)
+    if not body.on:   # switched off by hand: don't switch it back on by itself
+        st = vauto.state()
+        st["auto_enabled"] = False
+        st["manual_off"] = True
+        vauto._save_state(st)
     return vision_runner.status()
 
 
