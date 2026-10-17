@@ -3,8 +3,32 @@ The Tauri shell starts this as a sidecar with a random token; for development no
 
 import argparse
 import os
+import sys
+import threading
 
 import uvicorn
+
+
+def watch_parent() -> None:
+    """Quit as soon as the shell that started us is gone (DRAFTER_PARENT_PID). The shell also puts
+    us into a Job Object that dies with it; this covers the case where that failed."""
+    pid = os.environ.get("DRAFTER_PARENT_PID", "")
+    if sys.platform != "win32" or not pid.isdigit():
+        return
+    import ctypes
+    k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    k32.OpenProcess.restype = ctypes.c_void_p
+    k32.WaitForSingleObject.argtypes = (ctypes.c_void_p, ctypes.c_uint32)
+    SYNCHRONIZE, INFINITE, ERROR_INVALID_PARAMETER = 0x00100000, 0xFFFFFFFF, 87
+    handle = k32.OpenProcess(SYNCHRONIZE, False, int(pid))
+    if not handle:
+        if ctypes.get_last_error() == ERROR_INVALID_PARAMETER:   # no such process: already gone
+            os._exit(0)
+        return
+    def wait():
+        k32.WaitForSingleObject(handle, INFINITE)
+        os._exit(0)   # caches are appended or replaced atomically, nothing to flush
+    threading.Thread(target=wait, name="parent-watch", daemon=True).start()
 
 
 def main():
@@ -12,6 +36,7 @@ def main():
     ap.add_argument("--port", type=int, default=47900)
     ap.add_argument("--token", default=os.environ.get("DRAFTER_TOKEN"))
     args = ap.parse_args()
+    watch_parent()
     if args.token:
         os.environ["DRAFTER_TOKEN"] = args.token
     # first start of the installed app: seed data must be on disk before modules read it

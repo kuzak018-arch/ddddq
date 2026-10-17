@@ -45,7 +45,83 @@ fn spawn(mut cmd: Command, log: &Path) -> std::io::Result<Child> {
     cmd.env("PYTHONIOENCODING", "utf-8");
     // write the log line by line: a block-buffered log hides the last requests when debugging
     cmd.env("PYTHONUNBUFFERED", "1");
-    cmd.spawn()
+    // the backend also watches us itself (a second line of defence, see drafter.api.__main__)
+    cmd.env("DRAFTER_PARENT_PID", std::process::id().to_string());
+    let child = cmd.spawn()?;
+    #[cfg(windows)]
+    match job::kill_with_us(&child) {
+        // never closed by us: Windows closes it when this process ends, however it ends
+        Ok(_job) => {}
+        Err(e) => eprintln!("бэкенд не привязан к Job Object: {e}"),
+    }
+    Ok(child)
+}
+
+/// Without this the backend outlives the shell whenever the shell does not exit normally: killed
+/// from Task Manager, crashed, or closed by the installer during an update. Then the orphan keeps
+/// its files open (the update fails on "cannot open file for writing") and keeps using the token.
+#[cfg(windows)]
+mod job {
+    use std::os::windows::io::AsRawHandle;
+    use windows_sys::Win32::Foundation::HANDLE;
+    use windows_sys::Win32::System::JobObjects::{
+        AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JobObjectExtendedLimitInformation, SetInformationJobObject,
+    };
+
+    /// Put the child into a job that kills everything in it when its last handle closes, and
+    /// return that handle. Processes the child starts later (the venv launcher's real python)
+    /// join the job too.
+    pub fn kill_with_us(child: &std::process::Child) -> std::io::Result<HANDLE> {
+        unsafe {
+            let job = CreateJobObjectW(std::ptr::null(), std::ptr::null());
+            if job.is_null() {
+                return Err(std::io::Error::last_os_error());
+            }
+            let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
+            info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+            let ok = SetInformationJobObject(
+                job,
+                JobObjectExtendedLimitInformation,
+                (&raw const info).cast(),
+                size_of::<JOBOBJECT_EXTENDED_LIMIT_INFORMATION>() as u32,
+            );
+            if ok == 0 {
+                return Err(std::io::Error::last_os_error());
+            }
+            if AssignProcessToJobObject(job, child.as_raw_handle()) == 0 {
+                return Err(std::io::Error::last_os_error());
+            }
+            Ok(job)
+        }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use std::process::{Command, Stdio};
+        use std::time::{Duration, Instant};
+        use windows_sys::Win32::Foundation::CloseHandle;
+
+        #[test]
+        fn closing_the_job_kills_the_child() {
+            // cmd runs ping as its own child, as the venv launcher runs the real python
+            let mut child = Command::new("cmd")
+                .args(["/C", "ping -n 60 127.0.0.1 >NUL"])
+                .stdout(Stdio::null())
+                .spawn()
+                .expect("cmd");
+            let job = super::kill_with_us(&child).expect("job");
+            std::thread::sleep(Duration::from_millis(500));
+            assert!(child.try_wait().unwrap().is_none(), "the child must still run before the job closes");
+            // what Windows does when the shell ends
+            unsafe { CloseHandle(job) };
+            let t = Instant::now();
+            while child.try_wait().unwrap().is_none() {
+                assert!(t.elapsed() < Duration::from_secs(5), "the child outlived its job");
+                std::thread::sleep(Duration::from_millis(50));
+            }
+        }
+    }
 }
 
 /// Where the installed app keeps its writable files (the backend uses the same folder).
