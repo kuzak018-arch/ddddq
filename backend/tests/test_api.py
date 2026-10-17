@@ -73,7 +73,10 @@ def test_build_vs(client):
     if r.status_code == 404:
         pytest.skip("нет данных Stratz")
     body = r.json()
-    assert body["build"]["core"] and body["vs"]
+    b = body["build"]
+    assert (b["builds"] or b["approximate"]) and body["vs"]
+    base = b["builds"][0] if b["builds"] else b["approximate"]
+    assert base["core"] and base["boots"]
     assert client.get(f"/builds/{BS}", params={"pos": 9}).status_code == 422
 
 

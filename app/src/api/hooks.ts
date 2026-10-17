@@ -1,14 +1,15 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { api } from './client';
+import { api, backendImage } from './client';
 import type {
   BanSuggestion,
-  Build,
+  BuildsResponse,
   DraftRequest,
   EvaluateResponse,
   Health,
   Hero,
   HeroPage,
+  MeSummary,
   Profile,
   Settings,
   SuggestResponse,
@@ -86,20 +87,38 @@ export function useHeroPage(id: number | null) {
   return useQuery({ queryKey: ['hero', id], queryFn: () => api<HeroPage>(`/heroes/${id}`), enabled: !!id });
 }
 
-/** fallback: if the hero is barely played on `pos`, use its most played position (build.requested_pos is set). */
-export function useBuild(hero: number | null, pos: number, enemies: number[], fallback = false) {
+/** Builds for a hero; polls while matches are loading. fallback: a position the hero is barely
+ * played on is replaced by its main one (response.requested_pos tells). */
+export function useBuild(hero: number | null, pos: number, enemies: number[], fallback = false, mode: 'all' | 'specialists' = 'all') {
   return useQuery({
-    queryKey: ['build', hero, pos, enemies, fallback],
+    queryKey: ['build', hero, pos, enemies, fallback, mode],
     enabled: !!hero,
     retry: false,
+    refetchInterval: (q) => (q.state.data?.build.status === 'loading' ? 3000 : false),
     queryFn: async () => {
       if (enemies.length)
-        return api<{ build: Build; vs: VsItem[] }>(`/builds/${hero}/vs`, { body: { enemies, pos, fallback } });
-      return { build: await api<Build>(`/builds/${hero}?pos=${pos}&fallback=${fallback}`), vs: [] as VsItem[] };
+        return api<{ build: BuildsResponse; vs: VsItem[] }>(`/builds/${hero}/vs`, { body: { enemies, pos, fallback, mode } });
+      return { build: await api<BuildsResponse>(`/builds/${hero}?pos=${pos}&fallback=${fallback}&mode=${mode}`), vs: [] as VsItem[] };
     },
   });
 }
 
 export function useProfile() {
   return useQuery({ queryKey: ['me'], queryFn: () => api<Profile>('/me'), retry: false });
+}
+
+export function useMeSummary() {
+  return useQuery({ queryKey: ['me', 'summary'], queryFn: () => api<MeSummary>('/me/summary'), retry: false });
+}
+
+/** The Steam avatar, served by the backend (the window's CSP blocks the Steam CDN). */
+export function useAvatar(path: string | null | undefined, version?: number) {
+  const q = useQuery({
+    queryKey: ['avatar', path, version],
+    queryFn: () => backendImage(path!),
+    enabled: !!path,
+    staleTime: Infinity,
+    retry: false,
+  });
+  return q.data ?? null;
 }

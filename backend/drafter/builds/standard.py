@@ -54,6 +54,17 @@ def _talent_pairs(hero_id: int, hero_key: str) -> list[list[str]]:
     return [[t["name"] for t in od if t["level"] == lv] for lv in (1, 2, 3, 4)]
 
 
+def _wmedian(pairs: list[tuple[float, int]]) -> float | None:
+    """Median of values given as (value, count) pairs."""
+    pairs = sorted(pairs)
+    half, acc = sum(c for _, c in pairs) / 2, 0
+    for value, c in pairs:
+        acc += c
+        if acc >= half:
+            return value
+    return None
+
+
 def _num(v: float) -> str:
     return f"{v:g}"
 
@@ -130,15 +141,21 @@ def build(hero_id: int, pos: int, bracket: str) -> dict | None:
             boots.append({**it, "share": min(1.0, r["matchCount"] / n), "wr": _wr(r["winCount"], r["matchCount"]),
                           "minute": round(r["time"] / r["matchCount"] / 60, 1)})
 
-    # full items: rows are per (item, copy, minute bucket); first copy only
-    agg = defaultdict(lambda: {"m": 0, "w": 0, "t": 0.0})
+    # full items: rows are per (item, copy, minute bucket); first copy only.
+    # The minute histogram gives a median purchase minute (the mean is dragged by very late buys).
+    agg = defaultdict(lambda: {"m": 0, "w": 0, "hist": []})
     for r in p["full"]:
         if r["instance"] != 0:
             continue
         a = agg[r["itemId"]]
         a["m"] += r["matchCount"]
         a["w"] += r["winCount"]
-        a["t"] += r["time"] * r["matchCount"]
+        a["hist"].append((r["time"], r["matchCount"]))
+    medians = {iid: _wmedian(a["hist"]) for iid, a in agg.items()}
+    for b in boots:  # boots timing: median from the same per-minute rows when Stratz has them there
+        iid = next((i for i, k in _maps()[0].items() if k == b["key"]), None)
+        if iid in medians:
+            b["minute"] = float(medians[iid])
     items = []
     for iid, a in agg.items():
         it = _item(iid)
@@ -147,7 +164,7 @@ def build(hero_id: int, pos: int, bracket: str) -> dict | None:
                 or it["key"] in SKIP_ITEMS or it["key"] in boots_ids or a["m"] / n < SITUATIONAL_MIN_SHARE):
             continue
         items.append({**it, "share": min(1.0, a["m"] / n), "wr": _wr(a["w"], a["m"]),
-                      "minute": round(a["t"] / a["m"], 1)})
+                      "minute": float(medians[iid])})
     total_w = sum(r["winCount"] for r in p["start"] if r["instance"] == 0)  # rough hero wr on this position
     total_m = sum(r["matchCount"] for r in p["start"] if r["instance"] == 0)
     hero_wr = _wr(total_w, total_m)
@@ -181,17 +198,8 @@ def build(hero_id: int, pos: int, bracket: str) -> dict | None:
         if key and not key.startswith("special_bonus"):
             first[key].append((r["level"], r["matchCount"]))
 
-    def wmedian(pairs):
-        pairs = sorted(pairs)
-        half, acc = sum(c for _, c in pairs) / 2, 0
-        for level, c in pairs:
-            acc += c
-            if acc >= half:
-                return level
-        return None
-
-    skills = sorted(({"key": k, "name": abilities.get(k, {}).get("dname", k), "max_level": wmedian(v),
-                      "first_level": wmedian(first.get(k, []))} for k, v in lv.items()),
+    skills = sorted(({"key": k, "name": abilities.get(k, {}).get("dname", k), "max_level": _wmedian(v),
+                      "first_level": _wmedian(first.get(k, []))} for k, v in lv.items()),
                     key=lambda s: s["max_level"] or 99)
 
     # talents: pick share for each side of a level
@@ -210,3 +218,48 @@ def build(hero_id: int, pos: int, bracket: str) -> dict | None:
             "situational": situational, "skills": skills, "talents": talents,
             "item_share": {i["key"]: round(i["share"], 4) for i in items + boots},
             "facets": hero["facets"]}
+
+
+# ---------- the same shape as the match-based builds (fallback, marked approximate) ---------------
+
+BOOTS_T2 = {"phase_boots", "power_treads", "arcane_boots", "tranquil_boots"}
+BOOTS_UP = {"travel_boots", "travel_boots_2", "guardian_greaves", "boots_of_bearing"}
+ALT_MIN_SHARE = 0.15
+
+
+def _choice(options: list[dict]) -> dict | None:
+    """Mutually exclusive options (boots): the most common one plus "or" alternatives."""
+    options = sorted(options, key=lambda o: -o["share"])
+    if not options:
+        return None
+    main = {k: options[0][k] for k in ("key", "name", "cost", "share", "minute")}
+    main["alternatives"] = [{k: o[k] for k in ("key", "name", "cost", "share", "minute")}
+                            for o in options[1:] if o["share"] >= ALT_MIN_SHARE]
+    return main
+
+
+def approximate(b: dict) -> dict:
+    """Aggregated item popularity (no per-match sequences) in the build format. Only boots are
+    known to exclude each other here, so only boots get "or"; core items are the most popular ones
+    in median-purchase order, and the result is flagged approximate."""
+    boots = [x for x in b["boots"] if x["key"] in BOOTS_T2] or [x for x in b["boots"] if x["key"] == "boots"]
+    ups = _choice([x for x in b["boots"] if x["key"] in BOOTS_UP])
+    entry = lambda x: {"key": x["key"], "name": x["name"], "cost": x["cost"], "share": round(x["share"], 3),
+                       "minute": x["minute"], "alternatives": []}
+    from .sequences import _parents
+    core_keys = {x["key"] for x in b["core"]} | {x["key"] for x in b["situational"]}
+    # intermediate components (Maelstrom -> Mjollnir, Yasha -> Sange and Yasha) are steps, not core items
+    part = lambda x: bool(_parents().get(x["key"], set()) & core_keys)
+    core = [x for x in b["core"] if not part(x)]
+    return {
+        "title": "Популярные предметы", "approximate": True, "games": b["matches"], "wins": None,
+        "wr": b["hero_wr"], "reliable": False, "share": 1.0,
+        "starting": [{"key": x["key"], "name": x["name"], "count": x.get("count", 1)} for x in b["starting"]],
+        "starting_share": None,
+        "early": [entry(x) for x in b["early"] if not part(x)],  # Perseverance -> Battle Fury
+        "boots": _choice(boots),
+        "boots_upgrade": ups if ups and ups["share"] >= ALT_MIN_SHARE else None,
+        "core": [entry(x) for x in core],
+        "situational": [entry(x) | {"wr": x.get("wr")} for x in b["situational"] if not part(x)],
+        "skills": [], "skill_order": b["skills"], "talents": b["talents"],
+    }

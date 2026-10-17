@@ -8,6 +8,7 @@ response headers): 8/s, 150/min, 1500/h, 15000/day — one request per hero stay
 from __future__ import annotations
 
 import json
+import threading
 import time
 
 import httpx
@@ -26,30 +27,42 @@ def bracket_for(rank_tier: int | None) -> str:
     return BRACKETS[min(max((tier - 1) // 2, 0), 3)]
 
 
+# Requests left on the token, from the last response's headers (shared by all clients in the process).
+# Background prefetch looks at it and steps aside, so on-demand loading never runs out.
+limits: dict[str, int] = {}
+_pace = threading.Lock()
+_last_call = [0.0]
+
+
 class Stratz:
     def __init__(self, min_interval: float = 0.6):
         token = config.settings().stratz_token
         if not token:
             raise RuntimeError("нет STRATZ_TOKEN в .env")
         self.http = httpx.Client(timeout=90, headers={"Authorization": f"Bearer {token}", "User-Agent": "STRATZ_API"})
-        self.min_interval, self._last = min_interval, 0.0
+        self.min_interval = min_interval
 
     def close(self):
         self.http.close()
 
     def q(self, query: str, retries: int = 5) -> dict:
         for attempt in range(retries):
-            wait = self.min_interval - (time.monotonic() - self._last)
-            if wait > 0:
-                time.sleep(wait)
-            self._last = time.monotonic()
+            with _pace:  # one global pace across threads: the token's per-second/minute limits are shared
+                wait = self.min_interval - (time.monotonic() - _last_call[0])
+                if wait > 0:
+                    time.sleep(wait)
+                _last_call[0] = time.monotonic()
             try:
                 r = self.http.post(config.STRATZ, json={"query": query})
             except httpx.TransportError:
                 time.sleep(2 ** attempt)
                 continue
+            for key in ("minute", "hour", "day"):
+                v = r.headers.get(f"x-ratelimit-remaining-{key}")
+                if v is not None and v.lstrip("-").isdigit():
+                    limits[key] = int(v)
             if r.status_code == 429 or r.status_code >= 500:
-                time.sleep(5 * (attempt + 1))
+                time.sleep(min(60, 5 * (attempt + 1) ** 2))
                 continue
             if r.status_code >= 400:
                 raise RuntimeError(f"Stratz HTTP {r.status_code}: {r.text[:500]}")

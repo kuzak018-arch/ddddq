@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import time
 
+import httpx
 import numpy as np
 from scipy.special import expit
 from sklearn.linear_model import LogisticRegression
@@ -32,7 +33,83 @@ def refresh(account_id: int | None = None) -> dict:
     DIR.mkdir(parents=True, exist_ok=True)
     data = {"account_id": account_id, "fetched": int(time.time()), "profile": profile, "matches": matches}
     (DIR / "history.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    _download_avatar(profile)
+    _refresh_positions(account_id)
     return data
+
+
+AVATAR = DIR / "avatar.jpg"
+POSITIONS = DIR / "positions.json"
+
+
+def _download_avatar(profile: dict) -> None:
+    """The app's CSP only allows images from our backend and the hero CDN, so the Steam avatar
+    (avatars.steamstatic.com) is downloaded and served locally."""
+    url = (profile.get("profile") or {}).get("avatarfull")
+    if not url:
+        return
+    try:
+        r = httpx.get(url, timeout=20, follow_redirects=True, headers={"User-Agent": config.USER_AGENT})
+        if r.is_success and r.headers.get("content-type", "").startswith("image"):
+            AVATAR.write_bytes(r.content)
+    except httpx.HTTPError:
+        pass  # keep the previous avatar, if any
+
+
+def _refresh_positions(account_id: int) -> None:
+    """Position (1-5) of the user's recent matches, from Stratz (OpenDota doesn't know positions)."""
+    if not config.settings().stratz_token:
+        return
+    from . import stratz
+    try:
+        sz = stratz.Stratz()
+        try:
+            ms = sz.q("""{ player(steamAccountId: %d) { matches(request: {take: 100}) { id players(steamAccountId: %d)
+                       { position } } } }""" % (account_id, account_id))["player"]["matches"] or []
+        finally:
+            sz.close()
+    except RuntimeError:
+        return
+    pos = {}
+    for m in ms:
+        p = (m.get("players") or [{}])[0].get("position") or ""
+        if p.startswith("POSITION_"):
+            pos[str(m["id"])] = int(p[-1])
+    POSITIONS.write_text(json.dumps(pos), encoding="utf-8")
+
+
+def summary(pos_mat=None, data: dict | None = None) -> dict:
+    """Last 20 games, winrate by position, main heroes of the last 30 days."""
+    data = data or load()
+    if not data:
+        return {"form": [], "positions": [], "month_heroes": []}
+    ms = sorted((m for m in data["matches"] if m.get("hero_id")), key=lambda m: -m["start_time"])
+    form = [{"match_id": m["match_id"], "hero": m["hero_id"], "win": _won(m), "kills": m.get("kills"),
+             "deaths": m.get("deaths"), "assists": m.get("assists"), "duration": m.get("duration"),
+             "start": m["start_time"]} for m in ms[:20]]
+    known = json.loads(POSITIONS.read_text(encoding="utf-8")) if POSITIONS.exists() else {}
+    by_pos: dict[int, dict] = {}
+    estimated = 0
+    for m in ms[:100]:
+        p = known.get(str(m["match_id"]))
+        if p is None and pos_mat is not None:
+            p = int(pos_mat[m["hero_id"]].argmax()) + 1   # not in Stratz: the hero's usual position
+            estimated += 1
+        if p is None:
+            continue
+        s = by_pos.setdefault(p, {"pos": p, "games": 0, "wins": 0})
+        s["games"] += 1
+        s["wins"] += _won(m)
+    positions = [{**s, "wr": s["wins"] / s["games"]} for s in sorted(by_pos.values(), key=lambda s: s["pos"])]
+    month = [m for m in ms if m["start_time"] >= time.time() - 30 * 86400]
+    heroes: dict[int, dict] = {}
+    for m in month:
+        h = heroes.setdefault(m["hero_id"], {"hero": m["hero_id"], "games": 0, "wins": 0})
+        h["games"] += 1
+        h["wins"] += _won(m)
+    month_heroes = sorted(({**h, "wr": h["wins"] / h["games"]} for h in heroes.values()), key=lambda h: -h["games"])[:8]
+    return {"form": form, "positions": positions, "positions_estimated": estimated,
+            "positions_games": min(len(ms), 100), "month_heroes": month_heroes, "month_games": len(month)}
 
 
 def load() -> dict | None:

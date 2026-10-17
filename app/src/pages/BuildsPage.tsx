@@ -12,7 +12,8 @@ export function BuildsPage() {
   const draftEnemies = picked(useDraft((s) => s.enemies));
   const [enemies, setEnemies] = useState<number[] | null>(null); // null = follow the draft
   const vsList = enemies ?? draftEnemies;
-  const build = useBuild(buildHero, buildPos, vsList, true);
+  const [mode, setMode] = useState<'all' | 'specialists'>('all');
+  const build = useBuild(buildHero, buildPos, vsList, true, mode);
   const heroes = useHeroes().data;
 
   return (
@@ -28,6 +29,15 @@ export function BuildsPage() {
         </div>
         <span className="label">Позиция</span>
         <Segmented value={buildPos} onChange={(p) => set({ buildPos: p })} options={[1, 2, 3, 4, 5].map((p) => ({ value: p, label: String(p) }))} />
+        <span className="label">Чьи билды</span>
+        <Segmented
+          value={mode}
+          onChange={setMode}
+          options={[
+            { value: 'all', label: 'Legend+ на позиции' },
+            { value: 'specialists', label: 'Специалисты', title: 'Игроки с 30+ играми на герое за сезон (лидерборд Stratz)' },
+          ]}
+        />
         <span className="label">
           Враги {enemies === null && draftEnemies.length > 0 && <span className="muted">— из драфта</span>}
         </span>
@@ -65,7 +75,7 @@ export function BuildsPage() {
           </div>
         )}
         {build.error && <ErrorBox error={build.error} />}
-        {build.data && <BuildView b={build.data.build} vs={build.data.vs} />}
+        {build.data && <BuildView r={build.data.build} vs={build.data.vs} />}
       </Panel>
     </div>
   );

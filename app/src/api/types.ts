@@ -67,37 +67,58 @@ export interface DraftRequest {
   comfort_weight?: number;
 }
 
-export interface BuildItem {
+export interface BuildEntry {
   key: string;
   name: string;
   cost: number;
   share: number;
+  minute: number | null;
+  alternatives?: BuildEntry[];
+  games?: number;
   wr?: number | null;
-  minute?: number;
-  count?: number;
 }
 
+/** One whole build: from real purchase sequences, or the aggregated fallback (approximate). */
 export interface Build {
-  hero: number;
-  pos: number;
-  requested_pos?: number;
-  bracket: string;
-  week: number;
-  matches: number;
-  hero_wr: number | null;
-  starting: BuildItem[];
-  boots: BuildItem[];
-  early: BuildItem[];
-  core: BuildItem[];
-  situational: BuildItem[];
-  skills: { key: string; name: string; max_level: number | null; first_level: number | null }[];
+  title: string;
+  approximate?: boolean;
+  games: number;
+  wins: number | null;
+  wr: number | null;
+  reliable: boolean;
+  share: number;
+  starting: { key: string; name: string; count: number }[];
+  starting_share: number | null;
+  early: BuildEntry[];
+  boots: BuildEntry | null;
+  boots_upgrade: BuildEntry | null;
+  core: BuildEntry[];
+  situational: BuildEntry[];
+  skills: { level: number; key: string; name: string; share: number }[];
+  skill_order?: { key: string; name: string; max_level: number | null; first_level: number | null }[];
   talents: {
     level: number;
     picks: number;
     enough: boolean;
-    options: { key: string; name: string; share: number; wr: number | null }[];
+    options: { key: string; name: string; share: number; wr?: number | null }[];
   }[];
-  facets: { name: string; title: string | null; description: string | null }[];
+}
+
+export interface BuildsResponse {
+  hero: number;
+  pos: number;
+  requested_pos: number | null;
+  mode: 'all' | 'specialists';
+  status: 'loading' | 'ready';
+  games: number;
+  target: number;
+  progress: { have: number; target: number; requests: number };
+  error: string | null;
+  note?: string | null;
+  builds: Build[];
+  approximate: Build | null;
+  min_games: number;
+  reliable_games: number;
 }
 
 export interface VsItem {
@@ -191,4 +212,13 @@ export interface Job {
   finished: number | null;
   log: string[];
   error: string | null;
+}
+
+export interface MeSummary {
+  form: { match_id: number; hero: number; win: boolean; kills: number | null; deaths: number | null; assists: number | null; duration: number | null; start: number }[];
+  positions: { pos: number; games: number; wins: number; wr: number }[];
+  positions_estimated?: number;
+  positions_games?: number;
+  month_heroes: { hero: number; games: number; wins: number; wr: number }[];
+  month_games?: number;
 }

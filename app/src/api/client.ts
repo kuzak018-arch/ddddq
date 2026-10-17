@@ -108,3 +108,11 @@ export function subscribe(onEvent: (e: { type: string; [k: string]: unknown }) =
     ws?.close();
   };
 }
+
+/** An image from the backend behind the token (avatar, snapshots) as an object URL. */
+export async function backendImage(path: string): Promise<string> {
+  const { url, token } = await backend();
+  const res = await fetch(url + path, { headers: token ? { 'X-Drafter-Token': token } : {} });
+  if (!res.ok) throw new ApiError(res.status, 'картинка не загрузилась');
+  return URL.createObjectURL(await res.blob());
+}

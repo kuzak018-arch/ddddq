@@ -252,32 +252,44 @@ function BuildMode() {
         </div>
       )}
       {build.error && <p className="muted">{(build.error as Error).message}</p>}
-      {build.data && (
-        <>
-          {build.data.build.requested_pos && (
-            <p className="hint">
-              На позиции {build.data.build.requested_pos} этого героя почти не играют — билд для позиции {build.data.build.pos}.
-            </p>
-          )}
-          <span className="label">Коровые</span>
-          <div className="ov__items">
-            {build.data.build.core.map((it) => (
-              <ItemIcon key={it.key} k={it.key} title={`${it.name} ~${Math.round(it.minute ?? 0)} мин`} size={30} />
-            ))}
-          </div>
-          {build.data.vs.length > 0 && <span className="label">Против этого драфта</span>}
-          <ul className="ov__vs">
-            {build.data.vs.slice(0, 5).map((v) => (
-              <li key={v.item} className={v.rare_on_hero ? 'is-rare' : ''}>
-                <ItemIcon k={v.item} title={v.name} size={26} />
-                <span>
-                  <b>{v.name}</b> {v.reasons[0]?.text}
+      {build.data && (() => {
+        const r = build.data.build;
+        const b = r.builds[0] ?? r.approximate;
+        return (
+          <>
+            {r.requested_pos && (
+              <p className="hint">
+                На позиции {r.requested_pos} этого героя почти не играют — билд для позиции {r.pos}.
+              </p>
+            )}
+            {r.status === 'loading' && <p className="hint">Загружаю матчи: {r.progress.have} из {r.target}…</p>}
+            {b && (
+              <>
+                <span className="label">
+                  {b.approximate ? 'Популярные предметы (приблизительно)' : `${b.title} · ${b.games} игр · ${Math.round((b.wr ?? 0) * 100)}%`}
                 </span>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
+                <div className="ov__items">
+                  {b.boots && <ItemIcon k={b.boots.key} title={`${b.boots.name} ~${Math.round(b.boots.minute ?? 0)} мин`} size={30} />}
+                  {b.core.map((it) => (
+                    <ItemIcon key={it.key} k={it.key} title={`${it.name} ~${Math.round(it.minute ?? 0)} мин`} size={30} />
+                  ))}
+                </div>
+              </>
+            )}
+            {build.data.vs.length > 0 && <span className="label">Против этого драфта</span>}
+            <ul className="ov__vs">
+              {build.data.vs.slice(0, 5).map((v) => (
+                <li key={v.item} className={v.rare_on_hero ? 'is-rare' : ''}>
+                  <ItemIcon k={v.item} title={v.name} size={26} />
+                  <span>
+                    <b>{v.name}</b> {v.reasons[0]?.text}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
+        );
+      })()}
     </div>
   );
 }

@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field, model_validator
 from .. import config, dota_paths, gsi, keybinds, search
 from .. import settings as user_settings
 from ..builds import counter, standard
+from ..builds import service as build_service
 from ..data import constants, matches, me, stratz
 from ..model import draft, explain, meta, predictor, train
 from ..vision import calibration as vcal
@@ -69,7 +70,14 @@ async def lifespan(app: FastAPI):
             print(f"GSI-приёмник не запущен: порт {gsi.PORT} занят ({e})", flush=True)
     if user_settings.load().vision_enabled:
         vision_runner.set_enabled(True)
+    build_service.publish = lambda **data: bus.publish("builds", **data)
+    if os.environ.get("DRAFTER_NO_PREFETCH") != "1":
+        try:
+            build_service.start_prefetch(_pred().pos_mat)
+        except HTTPException:
+            pass  # no model yet
     yield
+    build_service.stop_all()
     vision_runner.set_enabled(False)
     if server:
         server.shutdown()
@@ -187,7 +195,8 @@ def hero_page(hero_id: int, rank_tier: int | None = None):
     pool = me.hero_pool()
     mine = (pool or {}).get("heroes", {}).get(hero_id)
     bracket = stratz.bracket_for(rank)
-    builds = [p for p in range(1, 6) if standard.build(hero_id, p, bracket)]
+    # positions with builds: wherever the hero is played in >= 10% of games (loaded on demand)
+    builds = [p for p in range(1, 6) if pr.pos_mat[hero_id, p - 1] >= build_service.OFFROLE_SHARE]
     return {
         "hero": {**h, "icon": f"/icons/heroes/{h['key']}.png"},
         "rank_tier": rank, "bracket": bracket,
@@ -272,31 +281,25 @@ def draft_bans(d: DraftIn):
 
 # ---------- builds ----------------------------------------------------------------------
 
-def _build_or_404(hero_id: int, pos: int, rank_tier: int | None, fallback: bool = False) -> dict:
-    """The build for (hero, pos). With fallback, a position the hero is barely played on is replaced
-    by its most played one (overlay: my position from the draft may not suit the hero I ended up on)."""
-    h = _hero_or_404(hero_id)
-    bracket = stratz.bracket_for(_rank(rank_tier))
-    b = standard.build(hero_id, pos, bracket)
-    if not b and fallback:
-        shares = _pred().pos_mat[hero_id]
-        for p in sorted(range(1, 6), key=lambda p: -shares[p - 1]):
-            if b := standard.build(hero_id, p, bracket):
-                b["requested_pos"] = pos
-                break
-    if not b:
-        raise HTTPException(404, f"нет данных Stratz для {h['name']} на позиции {pos} ({bracket})")
-    return b
+def _builds(hero_id: int, pos: int, mode: str, rank_tier: int | None, fallback: bool) -> dict:
+    _hero_or_404(hero_id)
+    if mode not in ("all", "specialists"):
+        raise HTTPException(422, "mode: all или specialists")
+    return build_service.get(hero_id, pos, mode, stratz.bracket_for(_rank(rank_tier)), _pred().pos_mat, fallback)
 
 
 @app.get("/builds/{hero_id}")
-def build(hero_id: int, pos: int = Query(..., ge=1, le=5), rank_tier: int | None = None, fallback: bool = False):
-    return _build_or_404(hero_id, pos, rank_tier, fallback)
+def build(hero_id: int, pos: int = Query(..., ge=1, le=5), mode: str = "all", rank_tier: int | None = None,
+          fallback: bool = False):
+    """Whole builds from real purchase sequences (loads matches in the background if needed:
+    poll while status == "loading"); below the minimum, the aggregated build marked approximate."""
+    return _builds(hero_id, pos, mode, rank_tier, fallback)
 
 
 class VsIn(BaseModel):
     enemies: list[int] = Field(..., min_length=1, max_length=5)
     pos: int = Field(..., ge=1, le=5)
+    mode: str = "all"
     rank_tier: int | None = None
     fallback: bool = False
 
@@ -306,9 +309,14 @@ def build_vs(hero_id: int, body: VsIn):
     known = constants.hero_by_id()
     if bad := [e for e in body.enemies if e not in known]:
         raise HTTPException(422, f"неизвестные id героев: {bad}")
-    b = _build_or_404(hero_id, body.pos, body.rank_tier, body.fallback)
+    b = _builds(hero_id, body.pos, body.mode, body.rank_tier, body.fallback)
     recs = counter.against(body.enemies, b["pos"], _pred().pos_mat, hero_items=b["item_share"])
-    have = {x["key"] for x in b["core"] + b["early"]}
+    base = b["builds"][0] if b["builds"] else b["approximate"]
+    have = set()
+    if base:
+        have = {x["key"] for x in base["core"] + base["early"]} | {a["key"] for x in base["core"] for a in x["alternatives"]}
+        if base.get("boots"):
+            have.add(base["boots"]["key"])
     for r in recs:
         r["in_build"] = r["item"] in have
         r["rare_on_hero"] = r["hero_share"] is not None and r["hero_share"] < counter.RARE_ON_HERO
@@ -326,11 +334,25 @@ def my_profile():
     pool = me.hero_pool(data)
     prof = data["profile"].get("profile") or {}
     heroes = sorted(pool["heroes"].items(), key=lambda kv: -kv[1]["games"])[:30]
-    return {"account_id": data["account_id"], "name": prof.get("personaname"), "avatar": prof.get("avatarfull"),
+    return {"account_id": data["account_id"], "name": prof.get("personaname"),
+            "avatar": "/me/avatar" if me.AVATAR.exists() else None,
             "rank_tier": me.rank_tier(data), "fetched": data["fetched"], "overall": pool["overall"],
             "experience": pool["experience"],
             "heroes": [{"hero": h, **{k: (round(v, 4) if isinstance(v, float) else v) for k, v in s.items()}}
                        for h, s in heroes]}
+
+
+@app.get("/me/avatar")
+def my_avatar():
+    from fastapi.responses import FileResponse
+    if not me.AVATAR.exists():
+        raise HTTPException(404, "аватар ещё не загружен: обнови историю")
+    return FileResponse(me.AVATAR, media_type="image/jpeg")
+
+
+@app.get("/me/summary")
+def my_summary():
+    return me.summary(_pred().pos_mat)
 
 
 @app.post("/me/refresh")

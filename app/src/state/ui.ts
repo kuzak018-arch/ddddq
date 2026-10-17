@@ -21,6 +21,8 @@ interface UiState {
   bgDim: number;       // 0..0.8 dark overlay over the wallpaper
   refraction: boolean; // SVG edge refraction (Chromium only)
   performance: boolean; // no blur, no refraction, no animations
+  /** Profile banner: own file (image or GIF, in IndexedDB) or a hero render; x/y = visible part in %. */
+  banner: { kind: 'none' | 'file' | 'hero'; key?: string; x: number; y: number; blur: number; dim: number };
   overlay: {
     toggle: string;      // global hotkey: show/hide
     interact: string;    // global hotkey: click-through on/off
@@ -49,6 +51,7 @@ export const useUi = create<UiState>()(
       bgDim: 0.15,
       refraction: true,
       performance: false,
+      banner: { kind: 'none', x: 50, y: 30, blur: 0, dim: 0.35 },
       overlay: { toggle: 'Ctrl+Shift+M', interact: 'Ctrl+Shift+N', opacity: 0.94, effect: 'acrylic', mode: 'auto', autoPerf: true, autoShow: true },
       go: (page) => set({ page }),
       openHero: (id) => set({ page: 'hero', heroPageId: id }),
@@ -64,6 +67,7 @@ export const useUi = create<UiState>()(
         ...current,
         ...(persisted as Partial<UiState>),
         overlay: { ...current.overlay, ...((persisted as Partial<UiState>)?.overlay ?? {}) },
+        banner: { ...current.banner, ...((persisted as Partial<UiState>)?.banner ?? {}) },
       }),
     },
   ),

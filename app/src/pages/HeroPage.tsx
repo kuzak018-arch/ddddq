@@ -81,7 +81,7 @@ export function HeroPage() {
             </div>
             {build.isPending && <Empty>Загрузка…</Empty>}
             {build.error && <ErrorBox error={build.error} />}
-            {build.data && <BuildView b={build.data.build} vs={[]} />}
+            {build.data && <BuildView r={build.data.build} vs={[]} />}
           </Panel>
         </>
       )}

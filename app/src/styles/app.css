@@ -1374,6 +1374,185 @@ input {
   stroke-width: 2.5;
 }
 
+/* profile banner: bleeds to the panel edges; text stays readable via dim + bottom gradient */
+.banner {
+  position: relative;
+  flex-shrink: 0; /* the panel body is a scrolling flex column: don't squeeze the header */
+  margin: -18px -20px 0;
+  padding: 18px 20px 20px;
+  overflow: hidden;
+  isolation: isolate;
+}
+.banner.has-img {
+  min-height: 170px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  --text: #fff;
+  --text-2: rgba(255, 255, 255, 0.82);
+  color: #fff;
+}
+.banner.has-img .banner__content {
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55);
+}
+.banner__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: -2;
+  user-select: none;
+  pointer-events: none;
+}
+.banner__dim {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(180deg, transparent 35%, rgba(0, 0, 0, calc(0.25 + var(--dim) * 0.6)) 100%),
+    rgba(0, 0, 0, var(--dim));
+}
+.banner__content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  justify-content: space-between;
+}
+.banner.is-editing {
+  cursor: grab;
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--warn) 70%, transparent);
+}
+.banner.is-editing:active {
+  cursor: grabbing;
+}
+.banner__edit {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease-out);
+}
+.banner:hover .banner__edit,
+.banner.is-editing .banner__edit,
+.banner__edit:focus-visible {
+  opacity: 1;
+}
+.btn--sm {
+  height: 28px;
+  padding: 0 12px;
+  font-size: 12.5px;
+}
+.banner-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border-radius: var(--radius-lg, 16px);
+  background: var(--glass-tint-inset);
+  box-shadow: inset 0 0 0 1px var(--glass-rim-2);
+}
+.banner-edit__row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.me__sub {
+  color: var(--text-2);
+}
+.small {
+  font-size: 12px;
+}
+.sum,
+.banner-edit {
+  flex-shrink: 0;
+}
+.sum {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.form-strip {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 5px;
+}
+.form-strip__g {
+  padding: 0 0 4px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  border-bottom: 3px solid var(--bad);
+  border-radius: 6px;
+  transition: transform 0.3s var(--ease-spring);
+}
+.form-strip__g.is-win {
+  border-bottom-color: var(--good);
+}
+.form-strip__g:hover {
+  transform: translateY(-2px);
+}
+.form-strip__g .hero-icon--sm {
+  width: 100%;
+}
+.form-strip__g.is-loss .hero-icon {
+  filter: saturate(0.55) brightness(0.85);
+}
+.pos-wr {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pos-wr__row {
+  display: grid;
+  grid-template-columns: 96px 1fr 32px 40px;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+}
+.pos-wr__row > :nth-child(n + 3) {
+  text-align: right;
+}
+.pos-wr__bar {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--control-bg);
+  overflow: hidden;
+}
+.pos-wr__bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--text-2);
+}
+.month {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+.month__h {
+  display: grid;
+  grid-template-columns: auto 1fr auto 38px;
+  gap: 8px;
+  align-items: center;
+  padding: 4px 8px 4px 4px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--control-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.month__h:hover {
+  background: var(--control-bg-active);
+}
+.month__h > :last-child {
+  text-align: right;
+}
+
 /* ---------- settings ---------- */
 .settings {
   height: 100%;
@@ -1604,4 +1783,137 @@ input {
   font: 13px/1.5 ui-monospace, 'Cascadia Mono', Consolas, monospace;
   white-space: pre-wrap;
   user-select: text;
+}
+
+/* ---------- builds from real games ---------- */
+.bv {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.bv__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 15px;
+}
+.bv__head .pill {
+  margin-left: 6px;
+}
+.pill.warn {
+  background: color-mix(in srgb, var(--warn) 22%, transparent);
+  color: var(--warn);
+}
+.bv__loading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.bv__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bv__step {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 5px 8px;
+  border-radius: 12px;
+  background: var(--glass-tint-inset);
+}
+.bv__step--up {
+  opacity: 0.9;
+}
+.bv__n {
+  width: 18px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--text-3);
+}
+.bv__step-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+}
+.bv__step-main small {
+  font-variant-numeric: tabular-nums;
+}
+.bv__alts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: auto;
+}
+.bv__alt {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px 2px 4px;
+  border-radius: 99px;
+  background: var(--control-bg);
+  font-size: 12px;
+  color: var(--text-2);
+}
+.bv__alt i {
+  font-style: normal;
+  color: var(--text-3);
+  padding-left: 4px;
+}
+.bv__alt small {
+  color: var(--text);
+  font-weight: 650;
+}
+.bv__skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.bv__skill {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  color: #111;
+}
+.bv__skill small {
+  font-size: 9px;
+  font-weight: 600;
+  opacity: 0.7;
+}
+.bv__skill-legend {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 12px;
+}
+.bv__skill-legend span {
+  padding: 2px 8px;
+  border-radius: 99px;
+  color: #111;
+  font-weight: 600;
+}
+.a0 { background: #7cc4ff; }
+.a1 { background: #ffb86b; }
+.a2 { background: #8ee28e; }
+.a3 { background: #ff8fa8; }
+.a4 { background: #d1b3ff; }
+.bv__skill.is-talent {
+  background: color-mix(in srgb, var(--warn) 22%, transparent);
+  color: var(--warn);
 }
