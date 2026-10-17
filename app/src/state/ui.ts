@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 
 export type Page = 'draft' | 'meta' | 'hero' | 'builds' | 'profile' | 'settings' | 'vision';
 export type Theme = 'system' | 'light' | 'dark';
+export type Effect = 'none' | 'rain' | 'snow' | 'stars' | 'fog' | 'particles';
 
 /** Background: a built-in gradient, a hero render from the Steam CDN, or the user's own file. */
 export type Background =
@@ -21,6 +22,8 @@ interface UiState {
   bgDim: number;       // 0..0.8 dark overlay over the wallpaper
   refraction: boolean; // SVG edge refraction (Chromium only)
   performance: boolean; // no blur, no refraction, no animations
+  /** Background effect over the wallpaper and its intensity (0.1..1). */
+  fx: { kind: Effect; intensity: number };
   /** App icon next to the title and in the taskbar: built-in or the user's picture (IndexedDB). */
   logo: { kind: 'default' | 'file'; key?: string };
   /** Profile banner: own file (image or GIF, in IndexedDB) or a hero render; x/y = visible part in %. */
@@ -54,6 +57,7 @@ export const useUi = create<UiState>()(
       refraction: true,
       performance: false,
       logo: { kind: 'default' },
+      fx: { kind: 'none', intensity: 0.5 },
       banner: { kind: 'none', x: 50, y: 30, blur: 0, dim: 0.35 },
       overlay: { toggle: 'Ctrl+Shift+M', interact: 'Ctrl+Shift+N', opacity: 0.94, effect: 'acrylic', mode: 'auto', autoPerf: true, autoShow: true },
       go: (page) => set({ page }),
@@ -71,6 +75,7 @@ export const useUi = create<UiState>()(
         ...(persisted as Partial<UiState>),
         overlay: { ...current.overlay, ...((persisted as Partial<UiState>)?.overlay ?? {}) },
         banner: { ...current.banner, ...((persisted as Partial<UiState>)?.banner ?? {}) },
+        fx: { ...current.fx, ...((persisted as Partial<UiState>)?.fx ?? {}) },
       }),
     },
   ),

@@ -8,6 +8,7 @@ import { useHealth } from '../api/hooks';
 import { useLogoUrl } from '../lib/appIcon';
 import { loadBackgroundFile } from '../state/bgstore';
 import { useUi, type Background, type Page } from '../state/ui';
+import { Effects } from './Effects';
 import { Glass } from './Glass';
 import { IconBuild, IconClose, IconDraft, IconHero, IconMax, IconMeta, IconMin, IconProfile, IconSettings } from './Icons';
 
@@ -138,6 +139,7 @@ export function Wallpaper() {
         style={{ background: css, filter: blur ? `blur(${blur}px)` : undefined, transform: blur ? 'scale(1.06)' : undefined }}
       />
       <div className="wallpaper__dim" style={{ background: `rgba(0,0,0,${bgDim})` }} />
+      <Effects />
     </div>
   );
 }

@@ -89,6 +89,34 @@ function AppearanceCard() {
       <HeroSearch placeholder="Арт героя как фон…" onPick={(h) => ui.set({ background: { kind: 'hero', key: h.key } })} compact />
       <Slider label="Размытие фона" value={ui.bgBlur} min={0} max={40} step={1} onChange={(bgBlur) => ui.set({ bgBlur })} format={(v) => `${v} px`} />
       <Slider label="Затемнение фона" value={ui.bgDim} min={0} max={0.8} step={0.05} onChange={(bgDim) => ui.set({ bgDim })} format={(v) => `${Math.round(v * 100)}%`} />
+      <div className="field">
+        <span className="label">Эффекты фона</span>
+        <Segmented
+          small
+          value={ui.fx.kind}
+          onChange={(kind) => ui.set({ fx: { ...ui.fx, kind } })}
+          options={[
+            { value: 'none', label: 'Нет' },
+            { value: 'rain', label: 'Дождь' },
+            { value: 'snow', label: 'Снег' },
+            { value: 'stars', label: 'Звёзды' },
+            { value: 'fog', label: 'Туман' },
+            { value: 'particles', label: 'Частицы' },
+          ]}
+        />
+      </div>
+      {ui.fx.kind !== 'none' && (
+        <Slider
+          label="Интенсивность эффекта"
+          value={ui.fx.intensity}
+          min={0.1}
+          max={1}
+          step={0.05}
+          onChange={(intensity) => ui.set({ fx: { ...ui.fx, intensity } })}
+          format={(v) => `${Math.round(v * 100)}%`}
+        />
+      )}
+      <p className="hint">Лёгкая отрисовка; сама выключается в оверлее, во время матча и в режиме производительности.</p>
       <Toggle
         on={ui.refraction && refractionSupported}
         onChange={(refraction) => ui.set({ refraction })}
