@@ -148,3 +148,14 @@ def test_seed_copy(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "DATA", data)
     assert config.ensure_seed() == ["model"]
     assert (data / "model" / "x.txt").exists() and config.ensure_seed() == []
+    # an update brings new files: merged into stratz, existing ones untouched; model stays whole
+    (seed / "stratz" / "match_players").mkdir(parents=True)
+    (seed / "stratz" / "match_players" / "1.jsonl").write_text("new")
+    (seed / "stratz" / "match_players" / "4.jsonl").write_text("new")
+    (seed / "model" / "y.txt").write_text("2")
+    (data / "stratz" / "match_players").mkdir(parents=True)
+    (data / "stratz" / "match_players" / "1.jsonl").write_text("mine")
+    assert config.ensure_seed() == ["stratz"]
+    assert (data / "stratz" / "match_players" / "1.jsonl").read_text() == "mine"
+    assert (data / "stratz" / "match_players" / "4.jsonl").read_text() == "new"
+    assert not (data / "model" / "y.txt").exists() and config.ensure_seed() == []

@@ -61,7 +61,7 @@ def _on_gsi(payload: dict) -> None:
 async def lifespan(app: FastAPI):
     bus.bind(asyncio.get_running_loop())
     if copied := config.ensure_seed():
-        print(f"первый запуск: скопированы стартовые данные {copied}", flush=True)
+        print(f"стартовые данные: скопировано {copied}", flush=True)
     server = None
     if os.environ.get("DRAFTER_NO_GSI") != "1":
         try:

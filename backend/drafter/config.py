@@ -39,19 +39,36 @@ VALVE_PATCHES = "https://www.dota2.com/datafeed/patchnoteslist?language=english"
 USER_AGENT = "dota-drafter/0.1 (personal draft helper)"
 
 SEED_DIRS = ("constants", "icons", "model", "stratz")
+# folders of independent files: after an update, files new in the bundle (Stratz match caches,
+# icons of a new hero) are added to an existing folder. The model is one unit and is only
+# copied whole, so a new install never mixes two models.
+SEED_MERGE = ("icons", "stratz")
 
 
 def ensure_seed() -> list[str]:
-    """First start of an installed app: copy the bundled data (constants, icons, trained model,
-    Stratz builds) into the user's data folder. Never overwrites what is already there."""
+    """Copy the bundled data (constants, icons, trained model, Stratz data) into the user's data
+    folder: whole folders on the first start, missing files of SEED_MERGE folders after an update.
+    Never overwrites what is already there."""
     if not SEED or not SEED.exists():
         return []
     copied = []
     for name in SEED_DIRS:
         src, dst = SEED / name, DATA / name
-        if src.exists() and not dst.exists():
+        if not src.exists():
+            continue
+        if not dst.exists():
             shutil.copytree(src, dst)
             copied.append(name)
+        elif name in SEED_MERGE:
+            added = False
+            for f in src.rglob("*"):
+                target = dst / f.relative_to(src)
+                if f.is_file() and not target.exists():
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(f, target)
+                    added = True
+            if added:
+                copied.append(name)
     return copied
 
 
