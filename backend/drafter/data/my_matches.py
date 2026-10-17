@@ -241,7 +241,8 @@ def assess(rec: dict) -> dict:
         # a core expects to be near the top, a support near the bottom
         expect = {1: 1, 2: 2, 3: 3, 4: 4, 5: 5}.get(pos or 3, 3)
         items.append(((expect - place) * 0.08, "nw_place", f"{place}-й по нетворсу в команде"))
-    others = [x["imp"] for x in mates if x.get("imp") is not None and x.get("acc") != config.settings().account_id]
+    # me = my hero on my side (unique there), so this doesn't depend on which account is configured
+    others = [x["imp"] for x in mates if x.get("imp") is not None and x.get("hero") != p.get("hero")]
     if others:
         out["team_imp"] = round(sum(others) / len(others))
         # credit or blame only when the rest of the team really played differently from me

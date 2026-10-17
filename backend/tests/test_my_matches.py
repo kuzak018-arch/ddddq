@@ -72,9 +72,7 @@ def team_of(my_imp, mates_imp, radiant=True):
            [{"acc": i, "hero": 10 + i, "radiant": radiant, "pos": 2 + i, "nw": 9000, "imp": mates_imp} for i in range(4)]
 
 
-def test_blame_is_relative_to_the_team(monkeypatch):
-    from drafter import config
-    monkeypatch.setattr(config, "settings", lambda: type("S", (), {"account_id": ME})())
+def test_blame_is_relative_to_the_team():
     # everyone played badly: not "I threw", a loss together
     assert mm.assess(rec(1, False, -48, team=team_of(-48, -42)))["label_key"] == "lost_together"
     # the rest did clearly better: on me
