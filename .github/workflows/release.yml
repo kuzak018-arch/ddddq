@@ -1,0 +1,114 @@
+# Builds the Windows installer on GitHub's Windows machine and publishes it with latest.json, from
+# which installed copies of the app update themselves.
+#
+# Start: push a tag (git tag v0.2.0 && git push origin v0.2.0) or "Run workflow" with a version.
+# Needs (see PLAN.md, "Обновления через GitHub"):
+#   - variable RELEASES_REPO: owner/name of the public repository the installers go to (the source
+#     stays in this private one; a private repository's files can't be downloaded by the updater);
+#   - secret RELEASES_TOKEN: a fine-grained token with "Contents: read and write" on RELEASES_REPO;
+#   - secret TAURI_SIGNING_PRIVATE_KEY: the content of secrets/updater.key (the update signing key);
+#   - a release "seed-data" in this repository with seed-data.zip (scripts/publish-seed.ps1).
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Версия, например 0.2.0"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version and target repository
+        id: meta
+        shell: pwsh
+        run: |
+          $v = "${{ github.event.inputs.version }}"
+          if (-not $v) { $v = "${{ github.ref_name }}".TrimStart('v') }
+          if ($v -notmatch '^\d+\.\d+\.\d+$') { throw "версия должна быть вида 1.2.3, а не '$v'" }
+          $repo = "${{ vars.RELEASES_REPO }}"
+          if ($repo -notmatch '^[\w.-]+/[\w.-]+$') { throw "задай переменную RELEASES_REPO (owner/name)" }
+          $owner, $name = $repo.Split('/')
+          "version=$v" >> $env:GITHUB_OUTPUT
+          "owner=$owner" >> $env:GITHUB_OUTPUT
+          "name=$name" >> $env:GITHUB_OUTPUT
+          # release-only settings: the version, signed updater artifacts and where updates live
+          $conf = @{
+            version = $v
+            bundle  = @{ createUpdaterArtifacts = $true }
+            plugins = @{ updater = @{ endpoints = @("https://github.com/$repo/releases/latest/download/latest.json") } }
+          } | ConvertTo-Json -Depth 5
+          Set-Content -Path app/src-tauri/tauri.release.conf.json -Value $conf -Encoding utf8
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Python packages
+        run: python -m pip install -r backend/requirements.txt
+
+      - name: Seed data (constants, icons, model, Stratz) from the "seed-data" release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download seed-data --pattern seed-data.zip --repo "${{ github.repository }}"
+          Expand-Archive seed-data.zip -DestinationPath data -Force
+          Get-ChildItem data | Format-Table Name
+
+      - name: Backend (PyInstaller)
+        run: python -m PyInstaller backend/drafter-backend.spec --distpath build/backend/dist --workpath build/backend/work --noconfirm
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Node packages
+        working-directory: app
+        run: npm ci
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+
+      - name: Installer, signatures and latest.json → ${{ vars.RELEASES_REPO }}
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+        with:
+          projectPath: app
+          tauriScript: npm run tauri
+          args: --config src-tauri/tauri.release.conf.json
+          owner: ${{ steps.meta.outputs.owner }}
+          repo: ${{ steps.meta.outputs.name }}
+          tagName: v${{ steps.meta.outputs.version }}
+          releaseName: Dota Drafter ${{ steps.meta.outputs.version }}
+          releaseBody: |
+            Обновление Dota Drafter ${{ steps.meta.outputs.version }}.
+            Установленное приложение обновится само (Настройки → Обновления) или скачай установщик ниже.
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: true
+          updaterJsonPreferNsis: true

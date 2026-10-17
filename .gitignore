@@ -1,5 +1,6 @@
-# secrets
+# secrets: the token file and the updater's signing key never go to git
 .env
+/secrets/
 
 # python
 .venv/
@@ -8,12 +9,14 @@ __pycache__/
 .pytest_cache/
 build/
 *.spec
+!backend/drafter-backend.spec
 
 # node / tauri
 node_modules/
 app/dist/
 app/src-tauri/target/
 app/src-tauri/binaries/
+app/src-tauri/tauri.release.conf.json
 
 # local data (matches, caches, models, icons, screenshots)
 /data/

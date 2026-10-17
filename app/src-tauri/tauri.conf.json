@@ -48,7 +48,9 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "publisher": "Dota Drafter",
     "shortDescription": "Помощник драфта Dota 2",
     "longDescription": "Подсказки по драфту, мета героев, билды против вражеского драфта, оверлей поверх игры.",
@@ -58,7 +60,9 @@
     "windows": {
       "nsis": {
         "installMode": "currentUser",
-        "languages": ["Russian"],
+        "languages": [
+          "Russian"
+        ],
         "displayLanguageSelector": false,
         "installerHooks": "./windows/hooks.nsh"
       }
@@ -70,5 +74,14 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQzMjNGQzA3NTI3RDc4QjEKUldTeGVIMVNCL3dqUTZFdFV3R2tHTnZ1b2hPSDhLRTVMeUJQSXA3UFd1enBNSFJkOEpTT3FDVmQK",
+      "endpoints": [],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

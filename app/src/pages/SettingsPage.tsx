@@ -10,6 +10,7 @@ import { heroArt, PRESETS } from '../components/Chrome';
 import { Panel } from '../components/Glass';
 import { HeroSearch } from '../components/HeroSearch';
 import { LaneBulkCard } from '../components/LaneBulkCard';
+import { UpdatesCard } from '../components/UpdatesCard';
 import { refractionSupported } from '../glass/refraction';
 import { ErrorBox, Segmented, Slider, Toggle } from '../components/ui';
 import { LOGO_KEY, useLogoUrl } from '../lib/appIcon';
@@ -27,6 +28,7 @@ export function SettingsPage() {
         <AdviceCard />
         <DataCard />
         <LaneBulkCard />
+        <UpdatesCard />
       </div>
     </div>
   );

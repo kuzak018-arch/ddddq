@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 
 import { useHealth } from '../api/hooks';
 import { useLogoUrl } from '../lib/appIcon';
+import { useUpdates } from '../lib/updates';
 import { loadBackgroundFile } from '../state/bgstore';
 import { useUi, type Background, type Page } from '../state/ui';
 import { Effects } from './Effects';
@@ -16,6 +17,8 @@ export function TitleBar() {
   const health = useHealth().data;
   const win = isTauri() ? getCurrentWindow() : null;
   const logo = useLogoUrl();
+  const update = useUpdates((s) => (s.status === 'available' ? s.version : null));
+  const go = useUi((s) => s.go);
   return (
     <header className="titlebar" data-tauri-drag-region>
       <div className="titlebar__brand" data-tauri-drag-region>
@@ -26,6 +29,11 @@ export function TitleBar() {
         )}
         Dota Drafter
         {health?.patch && <span className="titlebar__meta">патч {health.patch}</span>}
+        {update && (
+          <button className="titlebar__update" onClick={() => go('settings')} title="Открыть настройки, чтобы обновиться">
+            Обновление {update}
+          </button>
+        )}
       </div>
       {win && (
         <div className="titlebar__buttons">
