@@ -9,36 +9,60 @@ import type { LaneEvent, LanePoint, LaneResponse, LaneWindow } from '../api/type
 import { ErrorBox, fmtPct, HeroIcon, ItemIcon, Segmented } from './ui';
 
 const POS_SHORT = ['', 'керри', 'мид', 'оффлейн', 'четвёрка', 'пятёрка'];
+const POS_ACC = ['', 'керри', 'мид', 'оффлейн', 'четвёрку', 'пятёрку'];
+const POS_GEN = ['', 'керри', 'мида', 'оффлейна', 'четвёрки', 'пятёрки'];
 const BRACKET = (b: string) => (b === 'ALL' ? 'все ранги' : b.replace('_', '–').toLowerCase().replace(/(^|–)\w/g, (m) => m.toUpperCase()));
 
 /** Lane block for a draft: picks the lane opponent among the enemies (main one first). */
 export function LaneView({ hero, pos, enemies }: { hero: number | null; pos: number; enemies: number[] }) {
-  const opp = useLaneOpponents(pos, enemies).data;
+  const heroes = useHeroes().data;
+  const opp = useLaneOpponents(pos, enemies, hero).data;
   const [chosen, setChosen] = useState<number | null>(null);
-  const auto = opp?.find((o) => o.main)?.hero ?? opp?.[0]?.hero ?? null;
+  const list = opp?.opponents ?? [];
+  const auto = list.find((o) => o.main)?.hero ?? list.find((o) => o.on_lane)?.hero ?? null;
   const enemy = chosen && enemies.includes(chosen) ? chosen : auto;
   useEffect(() => setChosen(null), [pos, hero]);
-  const o = opp?.find((x) => x.hero === enemy);
-  const lane = useLane(hero, pos, enemy, o?.on_lane ? o.pos : null);
+  const o = list.find((x) => x.hero === enemy);
+  const enemyPos = o ? (o.on_lane ? o.pos : o.lane_pos) : null;
+  const lanePos = opp?.pos ?? pos;
+  const lane = useLane(hero, lanePos, o && enemyPos ? enemy : null, enemyPos);
 
   if (!hero) return <p className="muted small">Выбери своего героя, и здесь появится разбор линии.</p>;
   if (!enemies.length) return <p className="muted small">Добавь врагов: соперник по линии подставится сам.</p>;
+  const myName = heroes?.byId.get(hero)?.name ?? '';
   return (
     <div className="lane">
+      {opp?.requested_pos && (
+        <p className="muted small">
+          {myName} почти не играет {POS_ACC[opp.requested_pos]}, показываю линию {POS_GEN[opp.pos]}.
+        </p>
+      )}
       <div className="lane__opps">
-        {(opp ?? enemies.map((h) => ({ hero: h, pos: 0, on_lane: false, main: false }))).map((x) => (
+        {list.map((x) => (
           <button
             key={x.hero}
-            className={`lane__opp ${x.hero === enemy ? 'is-on' : ''} ${x.on_lane ? 'is-lane' : ''}`}
+            className={`lane__opp ${x.hero === enemy ? 'is-on' : ''} ${x.on_lane ? 'is-lane' : ''} ${x.lane_pos ? '' : 'is-never'}`}
             onClick={() => setChosen(x.hero)}
-            title={x.on_lane ? `На твоей линии (${POS_SHORT[x.pos]})` : x.pos ? `Скорее всего ${POS_SHORT[x.pos]}` : ''}
+            title={
+              x.on_lane
+                ? `На твоей линии (${POS_SHORT[x.pos]})`
+                : x.lane_pos
+                  ? `Скорее всего ${POS_SHORT[x.pos]}, но может прийти на твою линию как ${POS_SHORT[x.lane_pos]}`
+                  : `Скорее всего ${POS_SHORT[x.pos]}, на твоей линии почти не бывает`
+            }
           >
             <HeroIcon id={x.hero} size="sm" />
           </button>
         ))}
       </div>
+      {opp && !enemy && <p className="muted small">На твоей линии из этих врагов обычно никто не стоит. Выбери соперника вручную.</p>}
+      {o && !enemyPos && (
+        <p className="muted small">
+          {heroes?.byId.get(o.hero)?.name} почти никогда не стоит на линии {POS_GEN[lanePos]}: такой пары на линии не бывает, данных нет.
+        </p>
+      )}
       {lane.error && <ErrorBox error={lane.error} />}
-      {lane.data && <LaneBody r={lane.data} />}
+      {lane.data && !lane.data.off_lane && o && enemyPos ? <LaneBody r={lane.data} /> : null}
     </div>
   );
 }
@@ -75,7 +99,7 @@ function LaneBody({ r }: { r: LaneResponse }) {
         </p>
       )}
 
-      {a.curves && a.curves.length > 1 ? (
+      {r.rare && r.status !== 'loading' && !a.games ? null : a.curves && a.curves.length > 1 ? (
         <>
           <div className="lane__head">
             <h3 className="section-title">По минутам</h3>
@@ -111,6 +135,15 @@ function LaneBody({ r }: { r: LaneResponse }) {
 function Outcome({ r, me, them }: { r: LaneResponse; me: string; them: string }) {
   const o = r.outcome;
   if (!o) return <p className="muted small">{r.outcome_error ? `Stratz: ${r.outcome_error}` : 'Stratz не знает исходов линии для этой пары.'}</p>;
+  if (!o.enough)
+    return (
+      <div className="lane__outcome">
+        <div className="lane__verdict muted">Недостаточно данных</div>
+        <p className="muted small">
+          У Stratz всего {o.rated} оценённых линий этой пары ({BRACKET(o.bracket)}, за неделю), для вывода нужно хотя бы {o.min_verdict}.
+        </p>
+      </div>
+    );
   const verdict = o.edge >= 0.08 ? `Линию чаще выигрывает ${me}` : o.edge <= -0.08 ? `Линию чаще выигрывает ${them}` : 'Линия примерно ровная';
   return (
     <div className="lane__outcome">

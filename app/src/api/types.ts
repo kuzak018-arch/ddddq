@@ -237,7 +237,9 @@ export interface LaneOutcome {
   draw_share: number;
   loss_share: number;
   edge: number;
+  enough: boolean;
   reliable: boolean;
+  min_verdict: number;
 }
 
 export interface LanePoint {
@@ -281,8 +283,11 @@ export interface LaneEvent {
 export interface LaneResponse {
   hero: number;
   pos: number;
+  requested_pos: number | null;
   enemy: number;
   enemy_pos: number;
+  off_lane: false;
+  rare: boolean;
   target: number;
   outcome: LaneOutcome | null;
   outcome_error: string | null;
@@ -306,7 +311,26 @@ export interface LaneResponse {
 
 export interface LaneOpponent {
   hero: number;
+  /** likely position in this draft */
   pos: number;
   on_lane: boolean;
+  /** where it would stand if it came to my lane; null = never plays there */
+  lane_pos: number | null;
   main: boolean;
+}
+
+export interface LaneOpponentsResponse {
+  pos: number;
+  requested_pos: number | null;
+  opponents: LaneOpponent[];
+}
+
+export interface LaneOffLane {
+  hero: number;
+  pos: number;
+  requested_pos: number | null;
+  enemy: number;
+  enemy_pos: null;
+  off_lane: true;
+  status: 'ready';
 }

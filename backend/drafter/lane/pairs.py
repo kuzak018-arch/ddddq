@@ -128,18 +128,32 @@ def usable(rec: dict, a: int, pa: int, b: int, pb: int) -> bool:
 
 
 def collect(a: int, pa: int, b: int, pb: int, target: int, *, stop: threading.Event | None = None,
-            progress: Callable[[int, int, int], None] | None = None, max_requests: int | None = None) -> int:
+            progress: Callable[[int, int, int], None] | None = None, max_requests: int | None = None,
+            floor: int = sm.FOREGROUND_FLOOR, info: dict | None = None) -> int:
     """Fetch matches of the pair until `target` usable ones are cached (or candidates, the request
-    cap or the token's hourly budget run out). Returns how many usable matches there are."""
+    cap or the token's hourly budget down to `floor` run out). Returns how many usable matches
+    there are; `info` gets the number of candidates and why it stopped: target, budget, stopped,
+    exhausted (no more matches of the pair in our base) or cap."""
+    info = {} if info is None else info
     have = load(a, b)
     count = sum(usable(r, a, pa, b, pb) for r in have)
+    info.update(candidates=None, reason="target")
     if count >= target:
         return count
     ids = candidates(a, b, {r["m"] for r in have})
+    cap = max_requests or target * 3
+    info["candidates"] = len(ids)
+    if not ids:
+        info["reason"] = "exhausted"
+        return count
     sz = stratz.Stratz(min_interval=0.45)
     try:
-        for n, mid in enumerate(ids[:max_requests or target * 3], 1):
-            if (stop and stop.is_set()) or not sm._budget_ok(sm.FOREGROUND_FLOOR):
+        for n, mid in enumerate(ids[:cap], 1):
+            if stop and stop.is_set():
+                info["reason"] = "stopped"
+                break
+            if not sm._budget_ok(floor):
+                info["reason"] = "budget"
                 break
             try:
                 rec = fetch_match(sz, mid, a, b)
@@ -150,7 +164,10 @@ def collect(a: int, pa: int, b: int, pb: int, target: int, *, stop: threading.Ev
             if progress:
                 progress(count, target, n)
             if count >= target:
+                info["reason"] = "target"
                 break
+        else:
+            info["reason"] = "exhausted" if len(ids) <= cap else "cap"
     finally:
         sz.close()
     return count

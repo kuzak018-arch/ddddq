@@ -20,6 +20,7 @@ MAX_AGE = 3 * 86400
 ALL = "ALL"                 # every bracket: used when the user's bracket has too few lanes of the pair
 MIN_RATED = 60              # fewer rated lanes in the user's bracket -> also look at all brackets
 RELIABLE = 150
+MIN_VERDICT = 50            # fewer rated lanes: no verdict, "not enough data" (a 3-0 record is not "100%")
 
 
 def _path(bracket: str, hero: int, pos: int) -> Path:
@@ -68,7 +69,8 @@ def summarize(row: dict | None, bracket: str, week: int | None) -> dict | None:
     return {"bracket": bracket, "week": week, "matches": row["matchCount"], "rated": rated,
             "win": w, "draw": d, "loss": l, "stomp_win": row["stompWinCount"], "stomp_loss": row["stompLossCount"],
             "win_share": round(w / rated, 3), "draw_share": round(d / rated, 3), "loss_share": round(l / rated, 3),
-            "edge": round((w - l) / rated, 3), "reliable": rated >= RELIABLE}
+            "edge": round((w - l) / rated, 3), "enough": rated >= MIN_VERDICT, "reliable": rated >= RELIABLE,
+            "min_verdict": MIN_VERDICT}
 
 
 def get(hero: int, pos: int, enemy: int, bracket: str, load: bool = True) -> dict | None:

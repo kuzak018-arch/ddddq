@@ -9,7 +9,8 @@ import type {
   Health,
   Hero,
   HeroPage,
-  LaneOpponent,
+  LaneOffLane,
+  LaneOpponentsResponse,
   LaneResponse,
   MeSummary,
   Profile,
@@ -134,15 +135,15 @@ export function useLane(hero: number | null, pos: number, enemy: number | null, 
     placeholderData: keepPreviousData,
     refetchInterval: (q) => (q.state.data?.status === 'loading' ? 3000 : false),
     queryFn: () =>
-      api<LaneResponse>(`/lane?hero=${hero}&pos=${pos}&enemy=${enemy}${enemyPos ? `&enemy_pos=${enemyPos}` : ''}`),
+      api<LaneResponse | LaneOffLane>(`/lane?hero=${hero}&pos=${pos}&enemy=${enemy}${enemyPos ? `&enemy_pos=${enemyPos}` : ''}`),
   });
 }
 
-export function useLaneOpponents(pos: number, enemies: number[]) {
+export function useLaneOpponents(pos: number, enemies: number[], hero: number | null) {
   return useQuery({
-    queryKey: ['lane-opponents', pos, enemies],
+    queryKey: ['lane-opponents', pos, enemies, hero],
     enabled: enemies.length > 0,
     staleTime: Infinity,
-    queryFn: () => api<LaneOpponent[]>('/lane/opponents', { body: { pos, enemies } }),
+    queryFn: () => api<LaneOpponentsResponse>('/lane/opponents', { body: { pos, enemies, hero } }),
   });
 }

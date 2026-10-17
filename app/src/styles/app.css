@@ -2136,3 +2136,12 @@ input {
   flex-direction: column;
   gap: 3px;
 }
+.lane__opp.is-never {
+  opacity: 0.3;
+  filter: grayscale(0.7);
+}
+.bulk {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}

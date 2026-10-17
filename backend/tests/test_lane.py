@@ -81,6 +81,46 @@ def test_opponents_from_draft():
     pos_mat[3] = [0.01, 0.01, 0.03, 0.15, 0.8]    # hard support
     pos_mat[4] = [0.01, 0.9, 0.05, 0.03, 0.01]    # mid
     opp = service.opponents(1, [3, 4, 1, 2], pos_mat)
-    assert [o["hero"] for o in opp][:1] == [2] and opp[0]["main"] and opp[0]["pos"] == 3
-    assert {o["hero"]: o["on_lane"] for o in opp} == {2: True, 3: False, 4: False, 1: False}
-    assert service.opponents(2, [3, 4], pos_mat)[0] == {"hero": 4, "pos": 2, "on_lane": True, "main": True}
+    assert opp[0]["hero"] == 2 and opp[0]["main"] and opp[0]["pos"] == 3
+    on = {o["hero"]: o["on_lane"] for o in opp}
+    assert on == {2: True, 3: False, 4: False, 1: False}
+    # the hard support could come to my lane as a 4 (15% of its games); the mid never does
+    lane_pos = {o["hero"]: o["lane_pos"] for o in opp}
+    assert lane_pos[3] == 4 and lane_pos[4] is None and lane_pos[1] is None
+    assert service.opponents(2, [3, 4], pos_mat)[0] == {"hero": 4, "pos": 2, "on_lane": True, "lane_pos": 2, "main": True}
+    # only enemy is a carry while I am the carry: it is not on my lane, nobody is forced there
+    solo = service.opponents(1, [1], pos_mat)
+    assert solo == [{"hero": 1, "pos": 1, "on_lane": False, "lane_pos": None, "main": False}]
+
+
+def test_effective_position():
+    pos_mat = np.full((200, 5), 0.01)
+    pos_mat[2] = [0.004, 0.023, 0.929, 0.028, 0.016]   # Axe
+    assert service.effective_pos(2, 1, pos_mat) == 3 and service.effective_pos(2, 3, pos_mat) == 3
+
+
+def test_verdict_needs_enough_lanes():
+    few = outcome.summarize({"matchCount": 4, "winCount": 3, "drawCount": 0, "lossCount": 0,
+                             "stompWinCount": 0, "stompLossCount": 0}, "LEGEND_ANCIENT", 1)
+    assert few["win_share"] == 1.0 and not few["enough"]
+
+
+def test_bulk_plan(monkeypatch):
+    from drafter.lane import bulk
+    k = 160
+    counts = np.zeros((k, k), dtype=np.int64)
+    pos_mat = np.zeros((k, 5))
+    pos_mat[10] = [0.9, 0.05, 0.03, 0.01, 0.01]     # my pool carry
+    pos_mat[20] = [0.02, 0.03, 0.9, 0.03, 0.02]     # frequent offlaner
+    pos_mat[21] = [0.02, 0.03, 0.9, 0.03, 0.02]     # rare offlaner
+    pos_mat[30] = [0.01, 0.95, 0.02, 0.01, 0.01]    # two mids
+    pos_mat[31] = [0.01, 0.95, 0.02, 0.01, 0.01]
+    for a, b, n in ((10, 20, 5000), (10, 21, 20), (30, 31, 8000)):
+        counts[a, b] = counts[b, a] = n
+    monkeypatch.setattr(bulk, "pair_counts", lambda: counts)
+    plan = bulk.plan(pos_mat, [(10, 1)])
+    keys = [(p["a"], p["pa"], p["b"], p["pb"], p["why"]) for p in plan]
+    assert keys[0] == (10, 1, 20, 3, "pool")                 # pool first
+    assert not any(p["b"] == 21 for p in plan)               # expected < RARE: nothing to download
+    mids = [k for k in keys if k[1] == k[3] == 2]
+    assert mids == [(30, 2, 31, 2, "all")]                   # mid vs mid once, whichever side

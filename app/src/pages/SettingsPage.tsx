@@ -9,6 +9,7 @@ import type { Job, Settings } from '../api/types';
 import { heroArt, PRESETS } from '../components/Chrome';
 import { Panel } from '../components/Glass';
 import { HeroSearch } from '../components/HeroSearch';
+import { LaneBulkCard } from '../components/LaneBulkCard';
 import { refractionSupported } from '../glass/refraction';
 import { ErrorBox, Segmented, Slider, Toggle } from '../components/ui';
 import { saveBackgroundFile } from '../state/bgstore';
@@ -24,6 +25,7 @@ export function SettingsPage() {
         <OverlayCard />
         <AdviceCard />
         <DataCard />
+        <LaneBulkCard />
       </div>
     </div>
   );

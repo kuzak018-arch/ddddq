@@ -165,8 +165,20 @@ def test_lane(client):
     r = client.get("/lane", params={"hero": AM, "pos": 1, "enemy": AXE})
     assert r.status_code == 200
     b = r.json()
-    assert b["enemy_pos"] in (3, 4) and b["status"] == "ready" and "games" in b["analysis"]
+    assert b["enemy_pos"] in (3, 4) and b["status"] == "ready" and "games" in b["analysis"] and not b["off_lane"]
     assert client.get("/lane", params={"hero": AM, "pos": 1, "enemy": AM}).status_code == 422
     assert client.get("/lane", params={"hero": AM, "pos": 9, "enemy": AXE}).status_code == 422
+    # Axe with "carry" selected: Axe is an offlaner, so the lane is the offlane, facing the carry AM
+    b = client.get("/lane", params={"hero": AXE, "pos": 1, "enemy": AM}).json()
+    assert b["pos"] == 3 and b["requested_pos"] == 1 and b["enemy_pos"] == 1
+    # a mid hero never stands on the safe lane against a carry
+    assert client.get("/lane", params={"hero": AM, "pos": 1, "enemy": 17}).json()["off_lane"]
     opp = client.post("/lane/opponents", json={"pos": 1, "enemies": [LION, AXE, PUDGE]}).json()
-    assert opp[0]["hero"] == AXE and opp[0]["main"] and {o["hero"] for o in opp} == {LION, AXE, PUDGE}
+    assert opp["pos"] == 1 and opp["opponents"][0]["hero"] == AXE and opp["opponents"][0]["main"]
+    assert {o["hero"] for o in opp["opponents"]} == {LION, AXE, PUDGE}
+    opp = client.post("/lane/opponents", json={"pos": 1, "hero": AXE, "enemies": [AM, 17]}).json()
+    assert opp["pos"] == 3 and opp["requested_pos"] == 1
+    first = opp["opponents"][0]
+    assert first["hero"] == AM and first["on_lane"] and first["pos"] == 1
+    storm = next(o for o in opp["opponents"] if o["hero"] == 17)
+    assert not storm["on_lane"] and storm["lane_pos"] is None

@@ -24,6 +24,7 @@ from .. import settings as user_settings
 from ..builds import counter, standard
 from ..builds import service as build_service
 from ..data import constants, matches, me, stratz
+from ..lane import bulk as lane_bulk
 from ..lane import service as lane_service
 from ..model import draft, explain, meta, predictor, train
 from ..vision import calibration as vcal
@@ -80,6 +81,7 @@ async def lifespan(app: FastAPI):
     yield
     build_service.stop_all()
     lane_service.stop_all()
+    lane_bulk.stop()
     vision_runner.set_enabled(False)
     if server:
         server.shutdown()
@@ -330,32 +332,67 @@ def build_vs(hero_id: int, body: VsIn):
 
 @app.get("/lane")
 def lane(hero: int, enemy: int, pos: int = Query(..., ge=1, le=5), enemy_pos: int | None = Query(None, ge=1, le=5),
-         rank_tier: int | None = None):
+         rank_tier: int | None = None, fallback: bool = True):
     """Who wins the lane (Stratz lane outcomes) and how it goes minute by minute in real matches of the
-    pair (loads them in the background: poll while status == "loading"). Without enemy_pos, the enemy's
-    most likely position among those facing `pos`."""
+    pair (loads them in the background: poll while status == "loading").
+    With fallback, a position the hero almost never plays is replaced by its usual one. Without
+    enemy_pos, where the enemy would stand on that lane; if it plays none of the facing positions,
+    `off_lane` is set and nothing is loaded."""
     _hero_or_404(hero)
     _hero_or_404(enemy)
     if hero == enemy:
         raise HTTPException(422, "герой не может стоять против себя")
+    pos_mat = _pred().pos_mat
+    requested = pos
+    if fallback:
+        pos = lane_service.effective_pos(hero, pos, pos_mat)
     if enemy_pos is None:
-        pos_mat = _pred().pos_mat
-        enemy_pos = max(lane_service.LANE_OPPONENTS[pos], key=lambda p: pos_mat[enemy, p - 1])
-    return lane_service.get(hero, pos, enemy, enemy_pos, stratz.bracket_for(_rank(rank_tier)))
+        enemy_pos = lane_service.lane_position(enemy, pos, pos_mat)
+    if enemy_pos is None:
+        return {"hero": hero, "pos": pos, "requested_pos": requested if requested != pos else None, "enemy": enemy,
+                "enemy_pos": None, "off_lane": True, "status": "ready"}
+    out = lane_service.get(hero, pos, enemy, enemy_pos, stratz.bracket_for(_rank(rank_tier)))
+    out.update(requested_pos=requested if requested != pos else None, off_lane=False)
+    return out
 
 
 class LaneOpponentsIn(BaseModel):
     pos: int = Field(..., ge=1, le=5)
     enemies: list[int] = Field(..., min_length=1, max_length=5)
+    hero: int | None = None   # my hero: a position it almost never plays is replaced by its usual one
 
 
 @app.post("/lane/opponents")
 def lane_opponents(body: LaneOpponentsIn):
-    """Enemies on my lane, main opponent first, each with its most likely position."""
+    """Enemies with their likely positions in this draft, the ones on my lane first."""
     known = constants.hero_by_id()
-    if bad := [e for e in body.enemies if e not in known]:
+    if bad := [e for e in body.enemies + ([body.hero] if body.hero else []) if e not in known]:
         raise HTTPException(422, f"неизвестные id героев: {bad}")
-    return lane_service.opponents(body.pos, list(dict.fromkeys(body.enemies)), _pred().pos_mat)
+    pos_mat = _pred().pos_mat
+    pos = lane_service.effective_pos(body.hero, body.pos, pos_mat) if body.hero else body.pos
+    enemies = [e for e in dict.fromkeys(body.enemies) if e != body.hero]
+    return {"pos": pos, "requested_pos": body.pos if body.pos != pos else None,
+            "opponents": lane_service.opponents(pos, enemies, pos_mat) if enemies else []}
+
+
+@app.get("/lane/bulk")
+def lane_bulk_status():
+    """Background download of lane data (pool heroes first, then frequent core pairs)."""
+    return lane_bulk.status()
+
+
+class LaneBulkIn(BaseModel):
+    action: Literal["start", "stop"]
+
+
+@app.post("/lane/bulk")
+def lane_bulk_action(body: LaneBulkIn):
+    if body.action == "stop":
+        return lane_bulk.stop()
+    try:
+        return lane_bulk.start(_pred().pos_mat)
+    except RuntimeError as e:
+        raise HTTPException(409, str(e))
 
 
 # ---------- me ----------------------------------------------------------------------
