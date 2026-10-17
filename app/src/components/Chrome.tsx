@@ -5,6 +5,7 @@ import { motion } from 'motion/react';
 import { useEffect, useState } from 'react';
 
 import { useHealth } from '../api/hooks';
+import { useLogoUrl } from '../lib/appIcon';
 import { loadBackgroundFile } from '../state/bgstore';
 import { useUi, type Background, type Page } from '../state/ui';
 import { Glass } from './Glass';
@@ -13,10 +14,15 @@ import { IconBuild, IconClose, IconDraft, IconHero, IconMax, IconMeta, IconMin, 
 export function TitleBar() {
   const health = useHealth().data;
   const win = isTauri() ? getCurrentWindow() : null;
+  const logo = useLogoUrl();
   return (
     <header className="titlebar" data-tauri-drag-region>
       <div className="titlebar__brand" data-tauri-drag-region>
-        <span className="titlebar__logo" />
+        {logo ? (
+          <img className="titlebar__logo titlebar__logo--img" src={logo} alt="" draggable={false} data-tauri-drag-region />
+        ) : (
+          <span className="titlebar__logo" />
+        )}
         Dota Drafter
         {health?.patch && <span className="titlebar__meta">патч {health.patch}</span>}
       </div>

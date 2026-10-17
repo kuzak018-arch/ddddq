@@ -21,6 +21,8 @@ interface UiState {
   bgDim: number;       // 0..0.8 dark overlay over the wallpaper
   refraction: boolean; // SVG edge refraction (Chromium only)
   performance: boolean; // no blur, no refraction, no animations
+  /** App icon next to the title and in the taskbar: built-in or the user's picture (IndexedDB). */
+  logo: { kind: 'default' | 'file'; key?: string };
   /** Profile banner: own file (image or GIF, in IndexedDB) or a hero render; x/y = visible part in %. */
   banner: { kind: 'none' | 'file' | 'hero'; key?: string; x: number; y: number; blur: number; dim: number };
   overlay: {
@@ -51,6 +53,7 @@ export const useUi = create<UiState>()(
       bgDim: 0.15,
       refraction: true,
       performance: false,
+      logo: { kind: 'default' },
       banner: { kind: 'none', x: 50, y: 30, blur: 0, dim: 0.35 },
       overlay: { toggle: 'Ctrl+Shift+M', interact: 'Ctrl+Shift+N', opacity: 0.94, effect: 'acrylic', mode: 'auto', autoPerf: true, autoShow: true },
       go: (page) => set({ page }),

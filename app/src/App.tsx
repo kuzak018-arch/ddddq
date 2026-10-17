@@ -12,6 +12,7 @@ import { MetaPage } from './pages/MetaPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { VisionPage } from './pages/VisionPage';
+import { useWindowIcon } from './lib/appIcon';
 import { applyHotkeys, showOverlay } from './lib/overlay';
 import { useDraft } from './state/draft';
 import { startSync } from './state/sync';
@@ -52,6 +53,7 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useAppearance();
+  useWindowIcon(true);
 
   useEffect(() => {
     waitForBackend()

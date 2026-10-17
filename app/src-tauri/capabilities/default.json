@@ -1,8 +1,11 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window and overlay: own window controls, dragging, backend info, overlay commands",
-  "windows": ["main", "overlay"],
+  "description": "Main window and overlay: own window controls, dragging, the window icon, backend info, overlay commands",
+  "windows": [
+    "main",
+    "overlay"
+  ],
   "permissions": [
     "core:default",
     "core:window:allow-minimize",
@@ -12,6 +15,8 @@
     "core:window:allow-start-dragging",
     "core:window:allow-start-resize-dragging",
     "core:window:allow-is-maximized",
-    "window-state:default"
+    "window-state:default",
+    "core:window:allow-set-icon",
+    "core:app:allow-default-window-icon"
   ]
 }

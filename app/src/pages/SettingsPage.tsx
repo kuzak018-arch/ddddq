@@ -12,7 +12,8 @@ import { HeroSearch } from '../components/HeroSearch';
 import { LaneBulkCard } from '../components/LaneBulkCard';
 import { refractionSupported } from '../glass/refraction';
 import { ErrorBox, Segmented, Slider, Toggle } from '../components/ui';
-import { saveBackgroundFile } from '../state/bgstore';
+import { LOGO_KEY, useLogoUrl } from '../lib/appIcon';
+import { saveBackgroundFile, saveFile } from '../state/bgstore';
 import { useUi } from '../state/ui';
 
 export function SettingsPage() {
@@ -51,6 +52,7 @@ function AppearanceCard() {
           ]}
         />
       </div>
+      <LogoField />
       <span className="label">Фон</span>
       <div className="bg-grid">
         {PRESETS.map((p) => (
@@ -94,6 +96,53 @@ function AppearanceCard() {
       />
       <Toggle on={ui.performance} onChange={(performance) => ui.set({ performance })} label="Режим производительности (без размытия и анимаций)" />
     </Panel>
+  );
+}
+
+/** The icon next to "Dota Drafter" and in the taskbar: the built-in one or the user's picture. */
+function LogoField() {
+  const logo = useUi((s) => s.logo);
+  const set = useUi((s) => s.set);
+  const url = useLogoUrl();
+  const input = useRef<HTMLInputElement>(null);
+  const [err, setErr] = useState<string | null>(null);
+  return (
+    <div className="field">
+      <span className="label">Значок приложения</span>
+      <div className="logo-field">
+        {url ? <img className="logo-field__preview" src={url} alt="" /> : <span className="titlebar__logo logo-field__preview" />}
+        <button className="btn btn--sm" onClick={() => input.current?.click()}>
+          Своя картинка…
+        </button>
+        {logo.kind === 'file' && (
+          <button className="btn btn--sm" onClick={() => set({ logo: { kind: 'default' } })}>
+            Стандартный
+          </button>
+        )}
+      </div>
+      <p className="hint">Показывается рядом с названием и на панели задач (на панели — первый кадр GIF, обрезка по центру).</p>
+      {err && <p className="c-bad small">{err}</p>}
+      <input
+        ref={input}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={async (e) => {
+          const f = e.target.files?.[0];
+          e.target.value = '';
+          if (!f) return;
+          if (f.size > 20 * 1024 * 1024) return setErr('Файл больше 20 МБ — возьми поменьше.');
+          try {
+            await createImageBitmap(f); // not a picture -> fail here, not in the title bar
+          } catch {
+            return setErr('Не получилось прочитать картинку.');
+          }
+          setErr(null);
+          await saveFile(LOGO_KEY, f);
+          set({ logo: { kind: 'file', key: `${f.name}:${f.size}:${Date.now()}` } });
+        }}
+      />
+    </div>
   );
 }
 
