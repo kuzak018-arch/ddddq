@@ -2,6 +2,7 @@ import { useHeroes, useBuild } from '../api/hooks';
 import { BuildView } from '../components/BuildView';
 import { Panel } from '../components/Glass';
 import { HeroSearch } from '../components/HeroSearch';
+import { LaneView } from '../components/LaneView';
 import { Empty, ErrorBox, HeroIcon, Segmented } from '../components/ui';
 import { picked, useDraft } from '../state/draft';
 import { useUi } from '../state/ui';
@@ -64,6 +65,12 @@ export function BuildsPage() {
             Очистить
           </button>
         </div>
+        {buildHero && vsList.length > 0 && (
+          <section className="builds__lane">
+            <h3 className="section-title">Линия</h3>
+            <LaneView hero={buildHero} pos={buildPos} enemies={vsList} />
+          </section>
+        )}
       </Panel>
       <Panel className="builds__result">
         {!buildHero && <Empty>Выбери героя и позицию. Враги подтянутся из драфта, а билд подстроится под них.</Empty>}

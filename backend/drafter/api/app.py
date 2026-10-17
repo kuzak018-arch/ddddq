@@ -24,6 +24,7 @@ from .. import settings as user_settings
 from ..builds import counter, standard
 from ..builds import service as build_service
 from ..data import constants, matches, me, stratz
+from ..lane import service as lane_service
 from ..model import draft, explain, meta, predictor, train
 from ..vision import calibration as vcal
 from ..vision import capture as vcap
@@ -78,6 +79,7 @@ async def lifespan(app: FastAPI):
             pass  # no model yet
     yield
     build_service.stop_all()
+    lane_service.stop_all()
     vision_runner.set_enabled(False)
     if server:
         server.shutdown()
@@ -322,6 +324,38 @@ def build_vs(hero_id: int, body: VsIn):
         r["rare_on_hero"] = r["hero_share"] is not None and r["hero_share"] < counter.RARE_ON_HERO
         r["icon"] = f"/icons/items/{r['item']}.png"
     return {"build": b, "vs": recs}
+
+
+# ---------- lane ----------------------------------------------------------------------
+
+@app.get("/lane")
+def lane(hero: int, enemy: int, pos: int = Query(..., ge=1, le=5), enemy_pos: int | None = Query(None, ge=1, le=5),
+         rank_tier: int | None = None):
+    """Who wins the lane (Stratz lane outcomes) and how it goes minute by minute in real matches of the
+    pair (loads them in the background: poll while status == "loading"). Without enemy_pos, the enemy's
+    most likely position among those facing `pos`."""
+    _hero_or_404(hero)
+    _hero_or_404(enemy)
+    if hero == enemy:
+        raise HTTPException(422, "герой не может стоять против себя")
+    if enemy_pos is None:
+        pos_mat = _pred().pos_mat
+        enemy_pos = max(lane_service.LANE_OPPONENTS[pos], key=lambda p: pos_mat[enemy, p - 1])
+    return lane_service.get(hero, pos, enemy, enemy_pos, stratz.bracket_for(_rank(rank_tier)))
+
+
+class LaneOpponentsIn(BaseModel):
+    pos: int = Field(..., ge=1, le=5)
+    enemies: list[int] = Field(..., min_length=1, max_length=5)
+
+
+@app.post("/lane/opponents")
+def lane_opponents(body: LaneOpponentsIn):
+    """Enemies on my lane, main opponent first, each with its most likely position."""
+    known = constants.hero_by_id()
+    if bad := [e for e in body.enemies if e not in known]:
+        raise HTTPException(422, f"неизвестные id героев: {bad}")
+    return lane_service.opponents(body.pos, list(dict.fromkeys(body.enemies)), _pred().pos_mat)
 
 
 # ---------- me ----------------------------------------------------------------------

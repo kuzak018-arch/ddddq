@@ -222,3 +222,91 @@ export interface MeSummary {
   month_heroes: { hero: number; games: number; wins: number; wr: number }[];
   month_games?: number;
 }
+
+export interface LaneOutcome {
+  bracket: string;
+  week: number | null;
+  matches: number;
+  rated: number;
+  win: number;
+  draw: number;
+  loss: number;
+  stomp_win: number;
+  stomp_loss: number;
+  win_share: number;
+  draw_share: number;
+  loss_share: number;
+  edge: number;
+  reliable: boolean;
+}
+
+export interface LanePoint {
+  minute: number;
+  n: number;
+  nw: number;
+  nw_lo: number;
+  nw_hi: number;
+  xp: number;
+  xp_lo: number;
+  xp_hi: number;
+  ahead: number;
+  avg_nw: number;
+}
+
+export interface LaneWindow {
+  metric: 'nw' | 'xp';
+  from: number;
+  to: number;
+  leader: 'hero' | 'enemy';
+  per_min: number;
+  z: number;
+  sure: boolean;
+  n: number;
+  spike?: string;
+}
+
+export interface LaneEvent {
+  side: 'hero' | 'enemy';
+  hero: number;
+  key: string;
+  kind: 'level' | 'item';
+  name: string;
+  minute: number;
+  share: number;
+  cost?: number;
+  spike: boolean;
+  window: LaneWindow | null;
+}
+
+export interface LaneResponse {
+  hero: number;
+  pos: number;
+  enemy: number;
+  enemy_pos: number;
+  target: number;
+  outcome: LaneOutcome | null;
+  outcome_error: string | null;
+  status: 'loading' | 'ready';
+  games: number;
+  progress: { have: number; target: number; requests: number };
+  error: string | null;
+  note: string | null;
+  analysis: {
+    games: number;
+    reliable: boolean;
+    min_games: number;
+    wins: number;
+    curves?: LanePoint[];
+    windows?: LaneWindow[];
+    events?: LaneEvent[];
+    phases?: { from: number; to: number; leader: 'hero' | 'enemy' | null; peak: number }[];
+    at?: { minute: number; nw: number; xp: number; ahead: number } | null;
+  };
+}
+
+export interface LaneOpponent {
+  hero: number;
+  pos: number;
+  on_lane: boolean;
+  main: boolean;
+}

@@ -159,3 +159,14 @@ def test_seed_copy(tmp_path, monkeypatch):
     assert (data / "stratz" / "match_players" / "1.jsonl").read_text() == "mine"
     assert (data / "stratz" / "match_players" / "4.jsonl").read_text() == "new"
     assert not (data / "model" / "y.txt").exists() and config.ensure_seed() == []
+
+
+def test_lane(client):
+    r = client.get("/lane", params={"hero": AM, "pos": 1, "enemy": AXE})
+    assert r.status_code == 200
+    b = r.json()
+    assert b["enemy_pos"] in (3, 4) and b["status"] == "ready" and "games" in b["analysis"]
+    assert client.get("/lane", params={"hero": AM, "pos": 1, "enemy": AM}).status_code == 422
+    assert client.get("/lane", params={"hero": AM, "pos": 9, "enemy": AXE}).status_code == 422
+    opp = client.post("/lane/opponents", json={"pos": 1, "enemies": [LION, AXE, PUDGE]}).json()
+    assert opp[0]["hero"] == AXE and opp[0]["main"] and {o["hero"] for o in opp} == {LION, AXE, PUDGE}

@@ -1917,3 +1917,222 @@ input {
   background: color-mix(in srgb, var(--warn) 22%, transparent);
   color: var(--warn);
 }
+
+/* ---------- lane matchup ---------- */
+.draft__lane,
+.builds__lane {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex-shrink: 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--hairline);
+}
+.draft__me {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.lane {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.lane__opps {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.lane__opp {
+  padding: 2px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+  opacity: 0.55;
+  box-shadow: inset 0 0 0 1px transparent;
+  transition:
+    opacity var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out);
+}
+.lane__opp.is-lane {
+  opacity: 0.8;
+}
+.lane__opp:hover,
+.lane__opp.is-on {
+  opacity: 1;
+}
+.lane__opp.is-on {
+  box-shadow: 0 0 0 2px var(--text-2);
+}
+.lane__vs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.lane__outcome {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.lane__verdict {
+  font-size: 15px;
+  font-weight: 650;
+}
+.lane__bar {
+  display: flex;
+  height: 10px;
+  border-radius: 99px;
+  overflow: hidden;
+  gap: 2px;
+}
+.lane__bar i {
+  display: block;
+  min-width: 2px;
+}
+.lane__bar .is-win {
+  background: var(--good);
+}
+.lane__bar .is-draw {
+  background: var(--control-bg-active);
+}
+.lane__bar .is-loss {
+  background: var(--bad);
+}
+.lane__legend {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.lane__loading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.lane__progress {
+  height: 4px;
+  border-radius: 99px;
+  background: var(--control-bg);
+  overflow: hidden;
+}
+.lane__progress i {
+  display: block;
+  height: 100%;
+  background: var(--text-2);
+  transition: width 0.6s var(--ease-out);
+}
+.lane__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.lane-chart {
+  display: block;
+  overflow: visible;
+}
+.lane-chart text {
+  font-size: 10px;
+  fill: var(--text-3);
+}
+.lane-chart__zero {
+  stroke: var(--text-3);
+  stroke-width: 1;
+}
+.lane-chart__grid {
+  stroke: var(--hairline);
+  stroke-dasharray: 3 4;
+}
+.lane-chart__band {
+  fill: color-mix(in srgb, var(--text-2) 12%, transparent);
+}
+.lane-chart__line {
+  fill: none;
+  stroke: var(--warn);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+.lane-chart__dot {
+  fill: var(--warn);
+}
+.lane-chart__win.is-hero {
+  fill: color-mix(in srgb, var(--good) 10%, transparent);
+}
+.lane-chart__win.is-enemy {
+  fill: color-mix(in srgb, var(--bad) 10%, transparent);
+}
+.lane-chart__win.is-sure.is-hero {
+  fill: color-mix(in srgb, var(--good) 20%, transparent);
+}
+.lane-chart__win.is-sure.is-enemy {
+  fill: color-mix(in srgb, var(--bad) 20%, transparent);
+}
+.lane-chart__who {
+  font-weight: 600;
+}
+.lane-chart__who.is-hero {
+  fill: var(--good);
+}
+.lane-chart__who.is-enemy {
+  fill: var(--bad);
+}
+.lane-spikes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.lane-spikes__row {
+  position: relative;
+}
+.lane-spikes__who {
+  position: absolute;
+  left: 0;
+  top: 1px;
+}
+.lane-spikes__who .hero-icon--sm {
+  width: 22px;
+  border-radius: 4px;
+}
+.lane-spikes__ev {
+  position: absolute;
+  top: 3px;
+  transform: translateX(-50%);
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 2px;
+  border-radius: 6px;
+  background: var(--control-bg);
+  font-size: 11px;
+  cursor: default;
+}
+.lane-spikes__row.is-hero .lane-spikes__ev b {
+  color: var(--good);
+}
+.lane-spikes__row.is-enemy .lane-spikes__ev b {
+  color: var(--bad);
+}
+.lane-spikes__ev.is-spike {
+  box-shadow: 0 0 0 2px var(--warn), 0 0 10px color-mix(in srgb, var(--warn) 50%, transparent);
+  z-index: 1;
+}
+.lane-spikes__ev .item-icon {
+  border-radius: 3px;
+}
+.lane__story {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+.lane__story ul {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}

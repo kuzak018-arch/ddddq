@@ -9,6 +9,8 @@ import type {
   Health,
   Hero,
   HeroPage,
+  LaneOpponent,
+  LaneResponse,
   MeSummary,
   Profile,
   Settings,
@@ -121,4 +123,26 @@ export function useAvatar(path: string | null | undefined, version?: number) {
     retry: false,
   });
   return q.data ?? null;
+}
+
+/** Lane matchup; the minute-by-minute part loads in the background, so poll while it does. */
+export function useLane(hero: number | null, pos: number, enemy: number | null, enemyPos?: number | null) {
+  return useQuery({
+    queryKey: ['lane', hero, pos, enemy, enemyPos],
+    enabled: !!hero && !!enemy && hero !== enemy,
+    retry: false,
+    placeholderData: keepPreviousData,
+    refetchInterval: (q) => (q.state.data?.status === 'loading' ? 3000 : false),
+    queryFn: () =>
+      api<LaneResponse>(`/lane?hero=${hero}&pos=${pos}&enemy=${enemy}${enemyPos ? `&enemy_pos=${enemyPos}` : ''}`),
+  });
+}
+
+export function useLaneOpponents(pos: number, enemies: number[]) {
+  return useQuery({
+    queryKey: ['lane-opponents', pos, enemies],
+    enabled: enemies.length > 0,
+    staleTime: Infinity,
+    queryFn: () => api<LaneOpponent[]>('/lane/opponents', { body: { pos, enemies } }),
+  });
 }

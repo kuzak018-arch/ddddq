@@ -1,11 +1,12 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useBans, useEvaluate, useHeroes, useSettings, useSuggest } from '../api/hooks';
 import type { DraftRequest, Suggestion } from '../api/types';
 import { Panel } from '../components/Glass';
 import { HeroSearch, type HeroSearchHandle } from '../components/HeroSearch';
 import { IconReset } from '../components/Icons';
+import { LaneView } from '../components/LaneView';
 import { AnimatedPercent, ErrorBox, fmtPct, fmtSigned, HeroIcon, Segmented, TermLine, Toggle, WinBar } from '../components/ui';
 import { MAX_BANS, picked, useDraft, type Slot } from '../state/draft';
 import { useUi } from '../state/ui';
@@ -66,11 +67,37 @@ export function DraftPage() {
             options={[1, 2, 3, 4, 5].map((p) => ({ value: p, label: String(p), title: POS_LABEL[p] }))}
           />
         </div>
+        <DraftLane pos={pos} />
       </Panel>
 
       <WinPanel req={req} />
       <SuggestPanel req={req} comfort={comfort} onComfort={d.setComfort} />
     </div>
+  );
+}
+
+/** Lane matchup for my hero: the one GSI reported, or the ally I point at. */
+function DraftLane({ pos }: { pos: number }) {
+  const d = useDraft();
+  const allies = picked(d.allies);
+  const enemies = picked(d.enemies);
+  const [mine, setMine] = useState<number | null>(null);
+  const me = d.myHero ?? (mine && allies.includes(mine) ? mine : allies.length === 1 ? allies[0]! : null);
+  return (
+    <section className="draft__lane">
+      <h3 className="section-title">Линия</h3>
+      {!d.myHero && allies.length > 1 && (
+        <div className="draft__me">
+          <span className="label">Ты играешь на</span>
+          {allies.map((h) => (
+            <button key={h} className={`lane__opp ${h === me ? 'is-on' : ''}`} onClick={() => setMine(h)}>
+              <HeroIcon id={h} size="sm" />
+            </button>
+          ))}
+        </div>
+      )}
+      <LaneView hero={me} pos={pos} enemies={enemies} />
+    </section>
   );
 }
 
