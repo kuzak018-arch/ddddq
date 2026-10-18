@@ -7,7 +7,7 @@ import { Panel } from '../components/Glass';
 import { HeroSearch, type HeroSearchHandle } from '../components/HeroSearch';
 import { IconReset } from '../components/Icons';
 import { LaneView } from '../components/LaneView';
-import { AnimatedPercent, ErrorBox, fmtPct, fmtSigned, HeroIcon, Segmented, TermLine, Toggle, WinBar } from '../components/ui';
+import { AnimatedPercent, ErrorBox, fmtPct, fmtSigned, HeroIcon, Loading, Segmented, TermLine, Toggle, WinBar } from '../components/ui';
 import { MAX_BANS, picked, useDraft, type Slot } from '../state/draft';
 import { useUi } from '../state/ui';
 
@@ -220,6 +220,8 @@ function SuggestPanel({ req, comfort, onComfort }: { req: DraftRequest; comfort:
       {s.error && <ErrorBox error={s.error} />}
       {full ? (
         <p className="muted">Твоя команда собрана.</p>
+      ) : s.isPending ? (
+        <Loading>Подбираю героев…</Loading>
       ) : (
         <div className="suggest-list">
           <AnimatePresence initial={false}>
@@ -237,6 +239,7 @@ function SuggestPanel({ req, comfort, onComfort }: { req: DraftRequest; comfort:
       )}
       <h3 className="section-title">Кого банить</h3>
       <div className="ban-suggest">
+        {bans.isPending && <Loading inline>Считаю баны…</Loading>}
         {bans.data?.bans.map((b) => (
           <button key={b.hero} className="ban-chip" onClick={() => placeIn('ban', b.hero)} title={b.terms.map((t) => t.text).join('\n')}>
             <HeroIcon id={b.hero} size="sm" />
@@ -268,7 +271,7 @@ function SuggestCard({ r, rank, onPick }: { r: Suggestion; rank?: number; onPick
         <span className="suggest__name">
           <HeroName id={r.hero} />
           <span className="muted">
-            мета {fmtPct(r.meta_wr)} · на позиции {fmtPct(r.pos_share, 0)}
+            <span className="nowrap">мета {fmtPct(r.meta_wr)}</span> · <span className="nowrap">на позиции {fmtPct(r.pos_share, 0)}</span>
             {r.specialist && <span className="warn" title="Высокий винрейт за счёт тех, кто на нём специализируется"> · специалисты</span>}
           </span>
         </span>

@@ -10,6 +10,7 @@ import { api, backend } from '../api/client';
 import { useHeroes } from '../api/hooks';
 import { Panel } from '../components/Glass';
 import { HeroSearch } from '../components/HeroSearch';
+import { useUi } from '../state/ui';
 import { Empty, ErrorBox, fmtPct, HeroIcon, Segmented, Slider, Toggle } from '../components/ui';
 
 type Rect = [number, number, number, number];
@@ -226,6 +227,9 @@ export function VisionPage() {
     <div className="vision">
       <Panel className="vision__side" refracting>
         <div className="panel__head">
+          <button className="btn btn--sm btn--ghost" onClick={() => useUi.getState().go('settings')} title="Вернуться в настройки">
+            ← Настройки
+          </button>
           <h2>Чтение экрана</h2>
           <span className="pill">эксперимент</span>
         </div>

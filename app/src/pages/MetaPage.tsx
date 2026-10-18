@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { useHeroes, useSettings, useTierList } from '../api/hooks';
 import type { TierRow } from '../api/types';
 import { Panel } from '../components/Glass';
-import { ErrorBox, fmtPct, HeroIcon, Segmented, Sparkline } from '../components/ui';
+import { ErrorBox, fmtPct, HeroIcon, Loading, Segmented, Sparkline } from '../components/ui';
 import { useUi } from '../state/ui';
 
 const RANKS = ['', 'Herald', 'Guardian', 'Crusader', 'Archon', 'Legend', 'Ancient', 'Divine', 'Immortal'];
@@ -45,12 +45,18 @@ export function MetaPage() {
       </div>
       {tl.error && <ErrorBox error={tl.error} />}
       {tl.data && (
-        <p className="muted">
-          {tl.data.matches.toLocaleString('ru')} ранговых матчей по {tl.data.until}
-          {pos && tl.data.bracket && ' · винрейт на позиции и баны — Stratz'}
-        </p>
+        <div className="meta__info">
+          <p className="muted">
+            {tl.data.matches.toLocaleString('ru')} ранговых матчей по {tl.data.until}
+            {pos && tl.data.bracket && ' · винрейт на позиции и баны — Stratz'}
+          </p>
+          {/* a new filter keeps the old list on screen until the new one arrives: say so */}
+          {tl.isFetching && !tl.isPending && <Loading inline>Обновляю…</Loading>}
+        </div>
       )}
-      {view === 'tiers' ? (
+      {tl.isPending ? (
+        <Loading>Считаю тир-лист…</Loading>
+      ) : view === 'tiers' ? (
         <div className="tiers">
           {(['S', 'A', 'B', 'C', 'D'] as const).map((t) => (
             <div key={t} className="tier glass glass--inset">

@@ -66,18 +66,23 @@ export function Dock() {
   const go = useUi((s) => s.go);
   return (
     <Glass as="nav" className="dock" refracting>
-      {NAV.map(({ page: p, label, Icon }, i) => (
+      {NAV.map(({ page: p, label, Icon }, i) => {
+        // the screen-reading wizard is opened from settings: keep settings lit there
+        const on = page === p || (p === 'settings' && page === 'vision');
+        return (
         <button
           key={p}
-          className={`dock__item ${page === p ? 'is-active' : ''}`}
+          className={`dock__item ${on ? 'is-active' : ''}`}
           onClick={() => go(p)}
           title={`${label} (Ctrl+${i + 1})`}
+          aria-current={on ? 'page' : undefined}
         >
-          {page === p && <motion.span layoutId="dock-pill" className="dock__pill" />}
+          {on && <motion.span layoutId="dock-pill" className="dock__pill" />}
           <Icon />
           <span>{label}</span>
         </button>
-      ))}
+        );
+      })}
     </Glass>
   );
 }

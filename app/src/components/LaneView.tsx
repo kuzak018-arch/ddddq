@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { useHeroes, useLane, useLaneOpponents } from '../api/hooks';
 import type { LaneEvent, LaneOutcome, LanePoint, LaneResponse, LaneWindow } from '../api/types';
-import { ErrorBox, fmtPct, HeroIcon, ItemIcon, plural, Segmented } from './ui';
+import { ErrorBox, fmtPct, HeroIcon, ItemIcon, Loading, plural, Segmented } from './ui';
 
 const POS_SHORT = ['', 'керри', 'мид', 'оффлейн', 'четвёрка', 'пятёрка'];
 const POS_ACC = ['', 'керри', 'мид', 'оффлейн', 'четвёрку', 'пятёрку'];
@@ -144,6 +144,7 @@ export function LaneView({ hero, pos, enemies }: { hero: number | null; pos: num
         </p>
       )}
       {lane.error && <ErrorBox error={lane.error} />}
+      {o && enemyPos && lane.isLoading && <Loading inline>Загружаю разбор линии…</Loading>}
       {lane.data && !lane.data.off_lane && o && enemyPos ? <LaneBody r={lane.data} /> : null}
     </div>
   );

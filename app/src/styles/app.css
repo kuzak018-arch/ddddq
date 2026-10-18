@@ -68,7 +68,38 @@ input {
 }
 .hint {
   font-size: 12px;
+  line-height: 1.45;
   color: var(--text-3);
+}
+.nowrap {
+  white-space: nowrap;
+}
+
+/* loading: a small spinner and a line of text, never an empty area */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 28px 10px;
+  font-size: 13px;
+  color: var(--text-2);
+  animation: fade-in 0.3s var(--ease-out) 0.12s both; /* a fast answer never flashes it */
+}
+.loading--inline {
+  justify-content: flex-start;
+  padding: 4px 0;
+}
+.spinner--sm {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+  flex: none;
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
 }
 .label {
   font-size: 12px;
@@ -475,6 +506,13 @@ input {
   padding: 4px 10px;
   font-size: 12px;
 }
+.segmented__opt:not(.is-on):hover {
+  color: var(--text);
+  background: var(--control-bg);
+}
+.segmented__opt:active {
+  transform: scale(0.96);
+}
 .segmented__opt.is-on {
   color: var(--chip-on-text);
 }
@@ -525,6 +563,12 @@ input {
   background: var(--control-bg-active);
   cursor: pointer;
   transition: background var(--dur) var(--ease-out);
+}
+.toggle__track:hover {
+  background: var(--control-bg-hover);
+}
+.toggle__track:active .toggle__knob {
+  transform: scaleX(1.12);
 }
 .toggle__track.is-on {
   background: #30c25a;
@@ -607,6 +651,16 @@ input {
 }
 .hero-icon.is-clickable {
   cursor: pointer;
+  transition:
+    transform 0.35s var(--ease-spring),
+    filter var(--dur) var(--ease-out);
+}
+.hero-icon.is-clickable:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.12);
+}
+.hero-icon.is-clickable:active {
+  transform: scale(0.95);
 }
 .item-icon {
   border-radius: 6px;
@@ -738,6 +792,9 @@ input {
   transition:
     box-shadow var(--dur) var(--ease-out),
     transform 0.45s var(--ease-spring);
+}
+.slot:hover {
+  box-shadow: inset 0 0 0 1px var(--glass-rim-2), 0 0 0 1px var(--control-bg-active);
 }
 .slot:active {
   transform: scale(0.95);
@@ -1634,19 +1691,36 @@ input {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--gutter);
-  overflow: auto;
+  overflow: hidden;
 }
 .settings__col {
   display: flex;
   flex-direction: column;
   gap: var(--gutter);
   min-height: 0;
+  /* seven cards don't fit in a normal window: the column scrolls instead of squashing the cards
+     (they used to shrink to their headers). Padding keeps the glass shadow and focus ring visible. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--control-bg-active) transparent;
+  margin: -6px;
+  padding: 6px;
+}
+.settings__col > .panel {
+  flex-shrink: 0;
 }
 .field {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.field > .hint,
+.field > p {
+  flex-basis: 100%;
+  margin: 0;
 }
 .bg-grid {
   display: grid;
@@ -2395,6 +2469,14 @@ input {
   background: none;
   cursor: pointer;
   flex-shrink: 0;
+  border-radius: 8px;
+  transition: transform 0.35s var(--ease-spring), filter var(--dur) var(--ease-out);
+}
+.mh__hero:hover {
+  filter: brightness(1.12);
+}
+.mh__hero:active {
+  transform: scale(0.95);
 }
 .mh__main {
   display: flex;
@@ -2454,6 +2536,13 @@ input {
   cursor: pointer;
   color: var(--text);
   background: color-mix(in srgb, var(--good) 35%, transparent);
+  transition: background-color var(--dur) var(--ease-out), transform 0.35s var(--ease-spring);
+}
+.titlebar__update:hover {
+  background: color-mix(in srgb, var(--good) 50%, transparent);
+}
+.titlebar__update:active {
+  transform: scale(0.95);
 }
 .update {
   display: flex;
@@ -2463,4 +2552,82 @@ input {
 .update__notes {
   white-space: pre-line;
   color: var(--text-2);
+}
+
+/* ---------- polish: pressed feedback for chips and tiles ---------- */
+.ban-chip:active,
+.suggest__main:active,
+.lane__opp:active,
+.bg-tile:active,
+.month__h:active,
+.form-strip__g:active,
+.tier__hero:active,
+.talent__body:active,
+.hero-picks__item:active {
+  transform: scale(0.97);
+}
+.ban {
+  cursor: pointer;
+  border-radius: 8px;
+  transition: filter var(--dur) var(--ease-out);
+}
+.ban:hover {
+  filter: brightness(1.15);
+}
+.btn {
+  white-space: nowrap;
+}
+.btn--ghost {
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-2);
+  padding: 0 10px;
+}
+.btn--ghost:hover {
+  color: var(--text);
+  background: var(--control-bg);
+}
+
+/* empty hero page: the user's heroes as shortcuts */
+.hero-picks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 6px 2px 2px;
+}
+.hero-picks__list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.hero-picks__item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px 4px 4px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--control-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--dur) var(--ease-out),
+    transform 0.35s var(--ease-spring);
+}
+.hero-picks__item:hover {
+  background: var(--control-bg-hover);
+}
+.meta__info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.meta__info .loading--inline {
+  padding: 0;
+  font-size: 12px;
 }

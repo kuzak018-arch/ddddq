@@ -3,7 +3,7 @@ import { BuildView } from '../components/BuildView';
 import { Panel } from '../components/Glass';
 import { HeroSearch } from '../components/HeroSearch';
 import { LaneView } from '../components/LaneView';
-import { Empty, ErrorBox, HeroIcon, Segmented } from '../components/ui';
+import { Empty, ErrorBox, HeroIcon, Loading, Segmented } from '../components/ui';
 import { picked, useDraft } from '../state/draft';
 import { useUi } from '../state/ui';
 import { useState } from 'react';
@@ -82,6 +82,7 @@ export function BuildsPage() {
           </div>
         )}
         {build.error && <ErrorBox error={build.error} />}
+        {buildHero && build.isPending && <Loading>Собираю билд…</Loading>}
         {build.data && <BuildView r={build.data.build} vs={build.data.vs} />}
       </Panel>
     </div>

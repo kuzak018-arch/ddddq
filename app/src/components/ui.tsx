@@ -180,6 +180,16 @@ export function plural(n: number, one: string, few: string, many: string): strin
   return many;
 }
 
+/** A small spinner with a line of text while something loads (instead of an empty area). */
+export function Loading({ children = 'Загрузка…', inline }: { children?: ReactNode; inline?: boolean }) {
+  return (
+    <div className={`loading ${inline ? 'loading--inline' : ''}`} role="status">
+      <span className="spinner spinner--sm" aria-hidden />
+      <span>{children}</span>
+    </div>
+  );
+}
+
 export function Empty({ children }: { children: ReactNode }) {
   return <div className="empty">{children}</div>;
 }

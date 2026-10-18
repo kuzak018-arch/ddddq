@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 
-import { useBuild, useHeroPage } from '../api/hooks';
+import { useBuild, useHeroes, useHeroPage, useProfile } from '../api/hooks';
 import type { Matchup } from '../api/types';
 import { BuildView } from '../components/BuildView';
 import { heroArt } from '../components/Chrome';
 import { Panel } from '../components/Glass';
 import { HeroSearch } from '../components/HeroSearch';
-import { Empty, ErrorBox, fmtPct, fmtSigned, HeroIcon, Segmented } from '../components/ui';
+import { Empty, ErrorBox, fmtPct, fmtSigned, HeroIcon, Loading, Segmented } from '../components/ui';
 import { useUi } from '../state/ui';
 
 export function HeroPage() {
@@ -24,8 +24,8 @@ export function HeroPage() {
     <div className="hero-page">
       <Panel className="hero-page__head" refracting>
         <HeroSearch placeholder="Найти героя…" onPick={(h) => openHero(h.id)} compact />
-        {!id && <Empty>Выбери героя: поиск выше или двойной клик по герою в драфте.</Empty>}
-        {id && page.isPending && <Empty>Загрузка…</Empty>}
+        {!id && <HeroPicks onPick={openHero} />}
+        {id && page.isPending && <Loading>Загружаю героя…</Loading>}
         {page.error && <ErrorBox error={page.error} />}
         {p && (
           <div className="hero-card">
@@ -112,5 +112,30 @@ function MatchupList({ title, rows }: { title: string; rows: Matchup[] }) {
         ))}
       </ul>
     </section>
+  );
+}
+
+/** Empty hero page: the user's most played heroes as one-click shortcuts. */
+function HeroPicks({ onPick }: { onPick: (id: number) => void }) {
+  const pool = useProfile().data?.heroes.slice(0, 8) ?? [];
+  const heroes = useHeroes().data;
+  return (
+    <div className="hero-picks">
+      <p className="muted">Найди героя поиском выше или дважды кликни по герою в драфте.</p>
+      {pool.length > 0 && (
+        <>
+          <h3 className="section-title">Твои герои</h3>
+          <div className="hero-picks__list">
+            {pool.map((h) => (
+              <button key={h.hero} className="hero-picks__item" onClick={() => onPick(h.hero)}>
+                <HeroIcon id={h.hero} size="sm" />
+                <span>{heroes?.byId.get(h.hero)?.name}</span>
+                <small className="muted">{h.games}</small>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
   );
 }
