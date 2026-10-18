@@ -1,13 +1,13 @@
-# Builds the Windows installer on GitHub's Windows machine and publishes it with latest.json, from
-# which installed copies of the app update themselves.
+# Builds the Windows installer on GitHub's Windows machine. Everything stays in this private
+# repository and there is no auto-update: the installer is downloaded by hand.
 #
-# Start: push a tag (git tag v0.2.0 && git push origin v0.2.0) or "Run workflow" with a version.
-# Needs (see PLAN.md, "Обновления через GitHub"):
-#   - variable RELEASES_REPO: owner/name of the public repository the installers go to (the source
-#     stays in this private one; a private repository's files can't be downloaded by the updater);
-#   - secret RELEASES_TOKEN: a fine-grained token with "Contents: read and write" on RELEASES_REPO;
-#   - secret TAURI_SIGNING_PRIVATE_KEY: the content of secrets/updater.key (the update signing key);
-#   - a release "seed-data" in this repository with seed-data.zip (scripts/publish-seed.ps1).
+#   - a tag vX.Y.Z (git tag v1.0.1 && git push origin v1.0.1): the installer is a build artifact
+#     and is also attached to the GitHub Release vX.Y.Z here (artifacts are deleted after 90 days,
+#     release files are not);
+#   - "Run workflow" (optionally with a version): only the build artifact, no release.
+#
+# Needs a release "seed-data" in this repository with seed-data.zip (scripts/publish-seed.ps1 on
+# the PC): the constants, icons, model and Stratz data the installer ships.
 name: Release
 
 on:
@@ -16,11 +16,11 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Версия, например 0.2.0"
-        required: true
+        description: "Версия, например 1.0.1 (пусто — из tauri.conf.json)"
+        required: false
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: release
@@ -33,26 +33,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Version and target repository
+      - name: Version
         id: meta
         shell: pwsh
         run: |
-          $v = "${{ github.event.inputs.version }}"
-          if (-not $v) { $v = "${{ github.ref_name }}".TrimStart('v') }
+          if ("${{ github.ref_type }}" -eq "tag") { $v = "${{ github.ref_name }}".TrimStart('v') }
+          else { $v = "${{ github.event.inputs.version }}" }
+          if (-not $v) { $v = (Get-Content app/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version }
           if ($v -notmatch '^\d+\.\d+\.\d+$') { throw "версия должна быть вида 1.2.3, а не '$v'" }
-          $repo = "${{ vars.RELEASES_REPO }}"
-          if ($repo -notmatch '^[\w.-]+/[\w.-]+$') { throw "задай переменную RELEASES_REPO (owner/name)" }
-          $owner, $name = $repo.Split('/')
           "version=$v" >> $env:GITHUB_OUTPUT
-          "owner=$owner" >> $env:GITHUB_OUTPUT
-          "name=$name" >> $env:GITHUB_OUTPUT
-          # release-only settings: the version, signed updater artifacts and where updates live
-          $conf = @{
-            version = $v
-            bundle  = @{ createUpdaterArtifacts = $true }
-            plugins = @{ updater = @{ endpoints = @("https://github.com/$repo/releases/latest/download/latest.json") } }
-          } | ConvertTo-Json -Depth 5
-          Set-Content -Path app/src-tauri/tauri.release.conf.json -Value $conf -Encoding utf8
+          # release-only settings: just the version of this build
+          @{ version = $v } | ConvertTo-Json | Set-Content -Path app/src-tauri/tauri.release.conf.json -Encoding utf8
+
+      - name: Seed data (constants, icons, model, Stratz) from the "seed-data" release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download seed-data --pattern seed-data.zip --repo "${{ github.repository }}"
+          if ($LASTEXITCODE -ne 0) { throw "нет релиза seed-data с seed-data.zip: на ПК выполни scripts/publish-seed.ps1" }
+          Expand-Archive seed-data.zip -DestinationPath data -Force
+          Get-ChildItem data | Format-Table Name
 
       - uses: actions/setup-python@v5
         with:
@@ -62,15 +63,6 @@ jobs:
 
       - name: Python packages
         run: python -m pip install -r backend/requirements.txt
-
-      - name: Seed data (constants, icons, model, Stratz) from the "seed-data" release
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release download seed-data --pattern seed-data.zip --repo "${{ github.repository }}"
-          Expand-Archive seed-data.zip -DestinationPath data -Force
-          Get-ChildItem data | Format-Table Name
 
       - name: Backend (PyInstaller)
         run: python -m PyInstaller backend/drafter-backend.spec --distpath build/backend/dist --workpath build/backend/work --noconfirm
@@ -91,24 +83,40 @@ jobs:
         with:
           workspaces: app/src-tauri
 
-      - name: Installer, signatures and latest.json → ${{ vars.RELEASES_REPO }}
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASES_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+      - name: Installer (NSIS)
+        working-directory: app
+        run: npm run tauri build -- --config src-tauri/tauri.release.conf.json
+
+      - name: Find the installer
+        id: exe
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem "app/src-tauri/target/release/bundle/nsis/*_${{ steps.meta.outputs.version }}_x64-setup.exe"
+          if (@($exe).Count -ne 1) { throw "ожидался один установщик версии ${{ steps.meta.outputs.version }}, найдено: $(@($exe).Count)" }
+          "path=$($exe.FullName)" >> $env:GITHUB_OUTPUT
+          "{0}: {1:N1} МБ" -f $exe.Name, ($exe.Length / 1MB)
+
+      - name: Build artifact
+        uses: actions/upload-artifact@v4
         with:
-          projectPath: app
-          tauriScript: npm run tauri
-          args: --config src-tauri/tauri.release.conf.json
-          owner: ${{ steps.meta.outputs.owner }}
-          repo: ${{ steps.meta.outputs.name }}
-          tagName: v${{ steps.meta.outputs.version }}
-          releaseName: Dota Drafter ${{ steps.meta.outputs.version }}
-          releaseBody: |
-            Обновление Dota Drafter ${{ steps.meta.outputs.version }}.
-            Установленное приложение обновится само (Настройки → Обновления) или скачай установщик ниже.
-          releaseDraft: false
-          prerelease: false
-          includeUpdaterJson: true
-          updaterJsonPreferNsis: true
+          name: Dota-Drafter-${{ steps.meta.outputs.version }}
+          path: ${{ steps.exe.outputs.path }}
+          if-no-files-found: error
+
+      - name: Attach to the GitHub Release (tags only)
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $exe = "${{ steps.exe.outputs.path }}"
+          gh release view $tag --repo "${{ github.repository }}" *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --repo "${{ github.repository }}" --verify-tag --latest `
+              --title "Dota Drafter ${{ steps.meta.outputs.version }}" `
+              --notes "Установщик Dota Drafter ${{ steps.meta.outputs.version }}. Закрой приложение и запусти установщик поверх старой версии: настройки и данные сохраняются."
+            if ($LASTEXITCODE -ne 0) { throw "не удалось создать релиз $tag" }
+          }
+          gh release upload $tag $exe --repo "${{ github.repository }}" --clobber
+          if ($LASTEXITCODE -ne 0) { throw "не удалось прикрепить установщик к релизу $tag" }

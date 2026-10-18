@@ -11,7 +11,7 @@ import { Panel } from '../components/Glass';
 import { HeroGridCard } from '../components/HeroGridCard';
 import { HeroSearch } from '../components/HeroSearch';
 import { LaneBulkCard } from '../components/LaneBulkCard';
-import { UpdatesCard } from '../components/UpdatesCard';
+import { VersionCard } from '../components/VersionCard';
 import { refractionSupported } from '../glass/refraction';
 import { ErrorBox, Segmented, Slider, Toggle } from '../components/ui';
 import { LOGO_KEY, useLogoUrl } from '../lib/appIcon';
@@ -30,7 +30,7 @@ export function SettingsPage() {
         <HeroGridCard />
         <DataCard />
         <LaneBulkCard />
-        <UpdatesCard />
+        <VersionCard />
       </div>
     </div>
   );

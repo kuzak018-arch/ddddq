@@ -45,10 +45,6 @@ pub fn run() {
                 .with_state_flags(StateFlags::all() & !StateFlags::VISIBLE)
                 .build(),
         )
-        // updates from GitHub releases; the endpoint is set by the release build (CI), signatures are
-        // checked against the public key in tauri.conf.json
-        .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_process::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_handler(|app, shortcut, event| overlay::on_shortcut(app, shortcut, event.state()))
