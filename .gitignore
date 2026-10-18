@@ -26,3 +26,27 @@ app/src-tauri/tauri.release.conf.json
 Thumbs.db
 .vscode/
 .idea/
+
+# more secret patterns, in case one lands in the tree by accident (.env.example stays tracked)
+.env.*
+!.env.example
+**/secrets/
+*.key
+*.pem
+*.pfx
+*.p12
+*.keystore
+*.jks
+id_rsa*
+*credentials*.json
+.claude/settings.local.json
+
+# logs and temporary files
+*.log
+logs/
+*.tmp
+*.temp
+*.drafter-tmp
+*.bak
+*.swp
+backups/
