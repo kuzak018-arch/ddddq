@@ -133,6 +133,9 @@ def refresh(icons: bool = True) -> None:
         print(f"  ✓ описания Valve на русском: {fetch_valve_heroes(http)}")
         if icons:
             print(f"  ✓ иконок скачано: {download_icons(http)}")
+            from . import abilities  # needs the constants saved above
+            abilities._hero.cache_clear()
+            print(f"  ✓ иконок способностей: {len(abilities.ensure_icons(abilities.all_ability_keys()))}")
     hero_index.cache_clear()
 
 

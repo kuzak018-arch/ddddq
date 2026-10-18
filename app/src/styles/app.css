@@ -1289,10 +1289,16 @@ input {
 }
 .build__skills {
   margin: 0;
-  padding-left: 20px;
+  padding: 0;
+  list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+}
+.build__skills li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 .build__vs {
   padding: 12px;
@@ -1344,24 +1350,50 @@ input {
 }
 .talent__opt {
   flex: 1;
+  min-width: 0;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
+}
+.talent__opt.is-left {
+  order: 0;
+}
+.talent__opt.is-right {
+  order: 2;
+}
+.talent__body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 6px 10px;
   border-radius: 10px;
   background: var(--glass-tint-inset);
   font-size: 12px;
   color: var(--text-2);
+  outline: none;
+  transition:
+    background-color var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out);
 }
-.talent__opt:first-child {
+.talent__opt.is-left .talent__body {
+  flex-direction: row-reverse;
   text-align: right;
-  align-items: flex-end;
 }
-.talent__opt small {
+.talent__body:hover {
+  background: var(--control-bg);
+}
+.talent__body:focus-visible {
+  box-shadow: 0 0 0 2px var(--focus);
+}
+.talent__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.talent__text small {
   color: var(--text-3);
   font-weight: 650;
 }
-.talent__opt.is-pop {
+.talent__opt.is-pop .talent__body {
   color: var(--text);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 60%, transparent);
 }
@@ -1896,49 +1928,163 @@ input {
 }
 .bv__skills {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  flex-direction: column;
+  gap: 10px;
 }
-.bv__skill {
-  width: 34px;
-  height: 34px;
-  border-radius: 8px;
+/* skill order: one icon per hero level, the level under it */
+.skill-strip {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 4px;
+}
+.skill-strip li {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1;
-  color: #111;
+  gap: 3px;
 }
-.bv__skill small {
-  font-size: 9px;
-  font-weight: 600;
-  opacity: 0.7;
+.skill-strip small {
+  font-size: 10px;
+  font-weight: 650;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
 }
-.bv__skill-legend {
-  width: 100%;
+.skill-strip__cell {
+  display: block;
+  border-radius: 8px;
+  outline: none;
+  /* the ability's colour from the legend as an underline: the order reads at a glance */
+  box-shadow: 0 2px 0 var(--k, transparent);
+  transition: transform 0.35s var(--ease-spring);
+}
+.skill-strip__cell:hover,
+.skill-strip__cell:focus-visible {
+  transform: translateY(-2px);
+}
+.skill-strip__cell:focus-visible {
+  box-shadow: 0 0 0 2px var(--focus);
+}
+.k0 { --k: #7cc4ff; }
+.k1 { --k: #ffb86b; }
+.k2 { --k: #8ee28e; }
+.k3 { --k: #ff8fa8; }
+.k4 { --k: #d1b3ff; }
+.skill-legend {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  margin-top: 4px;
-  font-size: 12px;
 }
-.bv__skill-legend span {
-  padding: 2px 8px;
+.skill-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px 3px 3px;
   border-radius: 99px;
-  color: #111;
+  background: var(--control-bg);
+  box-shadow: inset 0 -2px 0 var(--k, transparent);
+  font-size: 12px;
   font-weight: 600;
+  color: var(--text);
+  outline: none;
 }
-.a0 { background: #7cc4ff; }
-.a1 { background: #ffb86b; }
-.a2 { background: #8ee28e; }
-.a3 { background: #ff8fa8; }
-.a4 { background: #d1b3ff; }
-.bv__skill.is-talent {
-  background: color-mix(in srgb, var(--warn) 22%, transparent);
+.skill-legend__item .ability-icon {
+  border-radius: 50%;
+}
+.skill-legend__item:focus-visible {
+  box-shadow: 0 0 0 2px var(--focus);
+}
+.skill-order__icon {
+  display: inline-flex;
+  outline: none;
+}
+.ability-icon {
+  display: block;
+  flex: none;
+  border-radius: 7px;
+  object-fit: cover;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.25);
+  background: #1a1c22;
+}
+.ability-icon--badge {
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 750;
+  color: #e9ecf2;
+  background: linear-gradient(160deg, #3a3f4c, #20232b);
+}
+.ability-icon--badge.is-innate {
+  /* the game marks innate abilities with a hexagon */
+  clip-path: polygon(25% 3%, 75% 3%, 99% 50%, 75% 97%, 25% 97%, 1% 50%);
+  border-radius: 0;
+  background: linear-gradient(160deg, #6a5a2c, #2c2616);
+  color: #ffd98a;
+}
+.ability-icon--talent {
+  display: grid;
+  place-items: center;
   color: var(--warn);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--warn) 30%, #20232b), #1c1e25);
+}
+
+/* hover tooltip (rendered into <body>, see Tip.tsx) */
+.tip-anchor {
+  display: inline-flex;
+}
+.tip {
+  position: fixed;
+  z-index: 1000;
+  max-width: 280px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--glass-tint-strong);
+  backdrop-filter: blur(18px) saturate(1.4);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 0 0 1px var(--glass-rim-2),
+    0 10px 30px rgba(0, 0, 0, 0.45);
+  color: var(--text);
+  font-size: 12.5px;
+  line-height: 1.4;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(3px);
+  transition:
+    opacity 0.14s var(--ease-out),
+    transform 0.14s var(--ease-out);
+}
+.tip.is-below {
+  transform: translateY(-3px);
+}
+.tip.is-shown {
+  opacity: 1;
+  transform: none;
+}
+.tip p {
+  margin: 4px 0 0;
+  color: var(--text-2);
+}
+.tip__title {
+  font-weight: 700;
+}
+.tip__tag {
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 99px;
+  font-size: 10.5px;
+  color: #ffd98a;
+  background: rgba(255, 200, 90, 0.14);
+}
+.tip .tip__meta {
+  color: var(--text-3);
+  font-size: 11.5px;
+}
+:root.perf .tip {
+  backdrop-filter: none;
+  background: var(--page-bg);
 }
 
 /* ---------- lane matchup ---------- */

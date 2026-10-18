@@ -100,12 +100,22 @@ export interface Build {
     level: number;
     picks: number;
     enough: boolean;
-    options: { key: string; name: string; share: number; wr?: number | null }[];
+    options: { key: string; name: string; share: number; wr?: number | null; ability?: string | null }[];
   }[];
+}
+
+/** An ability shown in a build: Russian name, short description, cached icon (null: none on the CDN). */
+export interface AbilityInfo {
+  key: string;
+  name: string;
+  desc: string;
+  innate: boolean;
+  icon: string | null;
 }
 
 export interface BuildsResponse {
   hero: number;
+  abilities?: Record<string, AbilityInfo>;
   pos: number;
   requested_pos: number | null;
   mode: 'all' | 'specialists';

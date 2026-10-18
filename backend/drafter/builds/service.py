@@ -14,7 +14,7 @@ import time
 from collections import Counter
 
 from .. import config
-from ..data import constants, me, stratz, stratz_matches as sm
+from ..data import abilities, constants, me, stratz, stratz_matches as sm
 from . import sequences, standard
 
 TARGET = 200
@@ -112,17 +112,37 @@ def get(hero: int, pos: int, mode: str, bracket: str, pos_mat=None, fallback: bo
     if res["games"] < MIN_GAMES or not res["builds"]:
         old = standard.build(hero, pos, bracket)
         approx = standard.approximate(old) if old else None
+    shown = res["builds"] if res["games"] >= MIN_GAMES else []
     return {
         "hero": hero, "pos": pos, "requested_pos": requested if requested != pos else None, "mode": mode,
+        "abilities": _abilities(hero, shown + ([approx] if approx else []), download=load),
         "status": status, "games": res["games"], "target": target,
         "progress": {"have": res["games"], "target": target, "requests": job["requests"] if job else 0},
         "error": job.get("error") if job else None,
         "note": job.get("note") if job and res["games"] < target else None,
-        "builds": res["builds"] if res["games"] >= MIN_GAMES else [],
+        "builds": shown,
         "approximate": approx,
         "item_share": item_share(games) if games else (standard.build(hero, pos, bracket) or {}).get("item_share", {}),
         "min_games": MIN_GAMES, "reliable_games": sequences.RELIABLE_GAMES,
     }
+
+
+def _abilities(hero: int, builds: list[dict], download: bool = True) -> dict[str, dict]:
+    """Icons, Russian names and short descriptions of the abilities these builds show; every
+    talent option also gets the ability it upgrades (its icon in the talent tree)."""
+    keys: set[str] = set()
+    for b in builds:
+        keys |= {s["key"] for s in b.get("skills", []) if s["key"] != "talent"}
+        keys |= {s["key"] for s in b.get("skill_order") or []}
+        for t in b.get("talents", []):
+            for o in t["options"]:
+                o["ability"] = abilities.talent_ability(hero, o["key"])
+                if o["ability"]:
+                    keys.add(o["ability"])
+    try:
+        return abilities.hero_abilities(hero, keys, download=download)
+    except Exception:  # missing constants must not break the build itself
+        return {}
 
 
 # ---------- background prefetch of the user's pool ---------------------------------------------

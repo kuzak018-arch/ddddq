@@ -5,7 +5,9 @@
  */
 import { useEffect, useState } from 'react';
 
-import type { Build, BuildEntry, BuildsResponse, VsItem } from '../api/types';
+import type { AbilityInfo, Build, BuildEntry, BuildsResponse, VsItem } from '../api/types';
+import { AbilityIcon, TalentIcon } from './Ability';
+import { Tip } from './Tip';
 import { fmtPct, ItemIcon, Segmented } from './ui';
 
 const minute = (m: number | null | undefined) => (m == null ? '' : `${Math.round(m)}′`);
@@ -42,35 +44,55 @@ function Step({ e, index }: { e: BuildEntry; index?: number }) {
   );
 }
 
-/** "Mana Break" -> "MB", "Blink" -> "Bl": two abilities rarely share it. */
-const abbr = (name: string) => {
-  const w = name.split(/[\s-]+/).filter((x) => /^\p{L}/u.test(x));
-  return w.length >= 2 ? (w[0]![0]! + w[1]![0]!).toUpperCase() : name.slice(0, 2);
-};
+function AbilityTip({ info, name, extra }: { info?: AbilityInfo; name: string; extra?: string }) {
+  return (
+    <>
+      <b className="tip__title">{info?.name ?? name}</b>
+      {info?.innate && <span className="tip__tag">врождённая</span>}
+      {info?.desc && <p>{info.desc}</p>}
+      {extra && <p className="tip__meta">{extra}</p>}
+    </>
+  );
+}
 
-function Skills({ b }: { b: Build }) {
+/** Skill order by hero level as ability icons; talent levels marked with the talent glyph. */
+function Skills({ b, ab }: { b: Build; ab: Record<string, AbilityInfo> }) {
   if (b.skills.length) {
-    const names = [...new Set(b.skills.map((s) => s.key))].filter((k) => k !== 'talent');
+    const keys = [...new Set(b.skills.map((s) => s.key))].filter((k) => k !== 'talent');
     return (
       <div className="bv__skills">
-        {b.skills.map((s) =>
-          s.key === 'talent' ? (
-            <span key={s.level} className="bv__skill is-talent" title={`Уровень ${s.level}: талант (${fmtPct(s.share, 0)}) — какой, см. ниже`}>
-              <small>{s.level}</small>Т
-            </span>
-          ) : (
-            <span key={s.level} className={`bv__skill a${names.indexOf(s.key) % 5}`} title={`Уровень ${s.level}: ${s.name} (${fmtPct(s.share, 0)})`}>
+        <ol className="skill-strip">
+          {b.skills.map((s) => (
+            <li key={s.level}>
+              {s.key === 'talent' ? (
+                <Tip content={<AbilityTip name="Талант" extra={`Уровень ${s.level}: здесь берут талант (${fmtPct(s.share, 0)}). Какой — в «Талантах» ниже.`} />}>
+                  <span className="skill-strip__cell is-talent" tabIndex={0}>
+                    <TalentIcon size={30} />
+                  </span>
+                </Tip>
+              ) : (
+                <Tip content={<AbilityTip info={ab[s.key]} name={s.name} extra={`Уровень ${s.level} · так качают ${fmtPct(s.share, 0)} игр`} />}>
+                  <span className={`skill-strip__cell k${keys.indexOf(s.key) % 5}`} tabIndex={0}>
+                    <AbilityIcon info={ab[s.key]} name={s.name} size={30} />
+                  </span>
+                </Tip>
+              )}
               <small>{s.level}</small>
-              {abbr(s.name)}
-            </span>
-          ),
-        )}
-        <div className="bv__skill-legend">
-          {names.map((k, i) => (
-            <span key={k} className={`a${i % 5}`}>
-              {b.skills.find((s) => s.key === k)!.name}
-            </span>
+            </li>
           ))}
+        </ol>
+        <div className="skill-legend">
+          {keys.map((k, i) => {
+            const s = b.skills.find((x) => x.key === k)!;
+            return (
+              <Tip key={k} content={<AbilityTip info={ab[k]} name={s.name} />}>
+                <span className={`skill-legend__item k${i % 5}`} tabIndex={0}>
+                  <AbilityIcon info={ab[k]} name={s.name} size={20} />
+                  {ab[k]?.name ?? s.name}
+                </span>
+              </Tip>
+            );
+          })}
         </div>
       </div>
     );
@@ -79,14 +101,59 @@ function Skills({ b }: { b: Build }) {
     <ol className="build__skills">
       {(b.skill_order ?? []).map((s) => (
         <li key={s.key}>
-          <b>{s.name}</b> <span className="muted">первый уровень на {s.first_level}, максимум к {s.max_level}</span>
+          <Tip content={<AbilityTip info={ab[s.key]} name={s.name} />}>
+            <span className="skill-order__icon" tabIndex={0}>
+              <AbilityIcon info={ab[s.key]} name={s.name} size={26} />
+            </span>
+          </Tip>
+          <span>
+            <b>{ab[s.key]?.name ?? s.name}</b> <span className="muted">первый уровень на {s.first_level}, максимум к {s.max_level}</span>
+          </span>
         </li>
       ))}
     </ol>
   );
 }
 
-function BuildBody({ b, vs, reliableGames }: { b: Build; vs: VsItem[]; reliableGames: number }) {
+/** Talent tree: level in the middle, the two options on its sides with the ability they upgrade. */
+function Talents({ b, ab }: { b: Build; ab: Record<string, AbilityInfo> }) {
+  return (
+    <div className="talents">
+      {[...b.talents].reverse().map((t) => (
+        <div key={t.level} className="talent">
+          {t.options.map((o, i) => {
+            const target = o.ability ? ab[o.ability] : undefined;
+            const share = t.enough ? `Берут в ${fmtPct(o.share, 0)} игр` : `Мало данных: талант на ${t.level} уровне выбран всего в ${t.picks} играх`;
+            return (
+              <Tip
+                key={o.key}
+                className={`talent__opt ${i === 0 ? 'is-left' : 'is-right'} ${t.enough && o.share >= 0.5 ? 'is-pop' : ''}`}
+                content={
+                  <>
+                    <b className="tip__title">{o.name}</b>
+                    <p>{target ? `Усиливает «${target.name}».` : 'Общий талант: усиливает героя, а не способность.'}</p>
+                    <p className="tip__meta">{share}</p>
+                  </>
+                }
+              >
+                <span className="talent__body" tabIndex={0}>
+                  {target ? <AbilityIcon info={target} size={22} /> : <TalentIcon size={22} />}
+                  <span className="talent__text">
+                    {o.name}
+                    <small>{t.enough ? fmtPct(o.share, 0) : 'мало данных'}</small>
+                  </span>
+                </span>
+              </Tip>
+            );
+          })}
+          <span className="talent__lvl">{t.level}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BuildBody({ b, vs, reliableGames, ab }: { b: Build; vs: VsItem[]; reliableGames: number; ab: Record<string, AbilityInfo> }) {
   return (
     <div className="build">
       <div className="bv__head">
@@ -207,24 +274,12 @@ function BuildBody({ b, vs, reliableGames }: { b: Build; vs: VsItem[]; reliableG
 
       <section className="build__group">
         <h4>Прокачка</h4>
-        <Skills b={b} />
+        <Skills b={b} ab={ab} />
       </section>
 
       <section className="build__group">
         <h4>Таланты</h4>
-        <div className="talents">
-          {[...b.talents].reverse().map((t) => (
-            <div key={t.level} className="talent">
-              {t.options.map((o, i) => (
-                <span key={o.key} className={`talent__opt ${t.enough && o.share >= 0.5 ? 'is-pop' : ''}`} style={{ order: i === 0 ? 0 : 2 }}>
-                  {o.name}
-                  <small>{t.enough ? fmtPct(o.share, 0) : 'мало данных'}</small>
-                </span>
-              ))}
-              <span className="talent__lvl">{t.level}</span>
-            </div>
-          ))}
-        </div>
+        <Talents b={b} ab={ab} />
       </section>
     </div>
   );
@@ -267,7 +322,7 @@ export function BuildView({ r, vs }: { r: BuildsResponse; vs: VsItem[] }) {
           options={all.map((x, i) => ({ value: i, label: `Билд ${i + 1} · ${fmtPct(x.share, 0)}`, title: x.title }))}
         />
       )}
-      {b ? <BuildBody b={b} vs={vs} reliableGames={r.reliable_games} /> : <p className="muted">Пока нет данных.</p>}
+      {b ? <BuildBody b={b} vs={vs} reliableGames={r.reliable_games} ab={r.abilities ?? {}} /> : <p className="muted">Пока нет данных.</p>}
     </div>
   );
 }
