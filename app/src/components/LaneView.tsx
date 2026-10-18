@@ -5,27 +5,109 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { useHeroes, useLane, useLaneOpponents } from '../api/hooks';
-import type { LaneEvent, LanePoint, LaneResponse, LaneWindow } from '../api/types';
-import { ErrorBox, fmtPct, HeroIcon, ItemIcon, Segmented } from './ui';
+import type { LaneEvent, LaneOutcome, LanePoint, LaneResponse, LaneWindow } from '../api/types';
+import { ErrorBox, fmtPct, HeroIcon, ItemIcon, plural, Segmented } from './ui';
 
 const POS_SHORT = ['', 'керри', 'мид', 'оффлейн', 'четвёрка', 'пятёрка'];
 const POS_ACC = ['', 'керри', 'мид', 'оффлейн', 'четвёрку', 'пятёрку'];
 const POS_GEN = ['', 'керри', 'мида', 'оффлейна', 'четвёрки', 'пятёрки'];
 const BRACKET = (b: string) => (b === 'ALL' ? 'все ранги' : b.replace('_', '–').toLowerCase().replace(/(^|–)\w/g, (m) => m.toUpperCase()));
 
-/** Lane block for a draft: picks the lane opponent among the enemies (main one first). */
-export function LaneView({ hero, pos, enemies }: { hero: number | null; pos: number; enemies: number[] }) {
-  const heroes = useHeroes().data;
+/** Who is the lane favourite by Stratz outcomes: an edge (wins − losses) of 8 points or more. */
+export function laneLead(o: LaneOutcome): 'hero' | 'enemy' | null {
+  return o.edge >= 0.08 ? 'hero' : o.edge <= -0.08 ? 'enemy' : null;
+}
+
+/** The lane opponent the draft implies (main one first) and the positions to ask the lane for. */
+function useLaneMatchup(hero: number | null, pos: number, enemies: number[], chosen: number | null) {
   const opp = useLaneOpponents(pos, enemies, hero).data;
-  const [chosen, setChosen] = useState<number | null>(null);
   const list = opp?.opponents ?? [];
   const auto = list.find((o) => o.main)?.hero ?? list.find((o) => o.on_lane)?.hero ?? null;
   const enemy = chosen && enemies.includes(chosen) ? chosen : auto;
-  useEffect(() => setChosen(null), [pos, hero]);
   const o = list.find((x) => x.hero === enemy);
   const enemyPos = o ? (o.on_lane ? o.pos : o.lane_pos) : null;
   const lanePos = opp?.pos ?? pos;
   const lane = useLane(hero, lanePos, o && enemyPos ? enemy : null, enemyPos);
+  return { opp, list, enemy, o, enemyPos, lanePos, lane };
+}
+
+/**
+ * One line for the overlay: who is favoured on my lane and by how much (Stratz outcomes), with a
+ * mark when there are few rated lanes. Clicking the enemy cycles through the other lane candidates.
+ */
+export function LaneMini({ hero, pos, enemies }: { hero: number | null; pos: number; enemies: number[] }) {
+  const heroes = useHeroes().data;
+  const [chosen, setChosen] = useState<number | null>(null);
+  useEffect(() => setChosen(null), [pos, hero]);
+  const { list, enemy, o, enemyPos, lanePos, lane } = useLaneMatchup(hero, pos, enemies, chosen);
+  if (!hero || !enemies.length) return null;
+  const candidates = list.filter((x) => x.on_lane || x.lane_pos);
+  const next = () => {
+    if (candidates.length < 2) return;
+    const i = candidates.findIndex((x) => x.hero === enemy);
+    setChosen(candidates[(i + 1) % candidates.length]!.hero);
+  };
+  const r = lane.data && !lane.data.off_lane ? lane.data : null;
+  const oc = r?.outcome;
+  const them = enemy ? (heroes?.byId.get(enemy)?.name ?? '') : '';
+  let body;
+  if (!enemy || !o || !enemyPos) body = <span className="muted">из врагов на твоей линии обычно никто не стоит</span>;
+  else if (lane.isLoading) body = <span className="muted">загружаю…</span>;
+  else if (!oc) body = <span className="muted">нет данных о линии</span>;
+  else if (!oc.enough)
+    body = (
+      <span className="muted">
+        мало данных: {oc.rated} {plural(oc.rated, 'линия', 'линии', 'линий')} <span className="pill warn">мало</span>
+      </span>
+    );
+  else {
+    const lead = laneLead(oc);
+    const pts = Math.round(Math.abs(oc.edge) * 100);
+    body = (
+      <span className={lead === 'hero' ? 'c-good' : lead === 'enemy' ? 'c-bad' : ''}>
+        <b>{lead === 'hero' ? `ты фаворит, +${pts}` : lead === 'enemy' ? `фаворит ${them}, +${pts}` : 'примерно ровно'}</b>
+        {!oc.reliable && <span className="pill warn">мало данных</span>}
+      </span>
+    );
+  }
+  const title = oc?.enough
+    ? `Stratz: выигрыш ${fmtPct(oc.win_share, 0)}, ничья ${fmtPct(oc.draw_share, 0)}, проигрыш ${fmtPct(oc.loss_share, 0)} · ${oc.rated} ${plural(oc.rated, 'линия', 'линии', 'линий')} (${BRACKET(oc.bracket)}). «+N» — на сколько процентных пунктов чаще выигрывают линию, чем проигрывают.`
+    : undefined;
+  return (
+    <div className="ov-lane" title={title}>
+      <div className="ov-lane__row">
+        <span className="label">Линия{lanePos !== pos ? ` · ${POS_SHORT[lanePos]}` : ''}</span>
+        <HeroIcon id={hero} size="sm" />
+        <span className="muted">vs</span>
+        {enemy ? (
+          <button
+            className="ov-lane__enemy"
+            onClick={next}
+            title={candidates.length > 1 ? `${them} — нажми, чтобы выбрать другого соперника` : them}
+            disabled={candidates.length < 2}
+          >
+            <HeroIcon id={enemy} size="sm" />
+          </button>
+        ) : null}
+        <span className="ov-lane__verdict">{body}</span>
+      </div>
+      {oc?.enough && (
+        <div className="lane__bar lane__bar--thin">
+          <i className="is-win" style={{ flex: oc.win_share }} />
+          <i className="is-draw" style={{ flex: oc.draw_share }} />
+          <i className="is-loss" style={{ flex: oc.loss_share }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Lane block for a draft: picks the lane opponent among the enemies (main one first). */
+export function LaneView({ hero, pos, enemies }: { hero: number | null; pos: number; enemies: number[] }) {
+  const heroes = useHeroes().data;
+  const [chosen, setChosen] = useState<number | null>(null);
+  useEffect(() => setChosen(null), [pos, hero]);
+  const { opp, list, enemy, o, enemyPos, lanePos, lane } = useLaneMatchup(hero, pos, enemies, chosen);
 
   if (!hero) return <p className="muted small">Выбери своего героя, и здесь появится разбор линии.</p>;
   if (!enemies.length) return <p className="muted small">Добавь врагов: соперник по линии подставится сам.</p>;
@@ -140,14 +222,15 @@ function Outcome({ r, me, them }: { r: LaneResponse; me: string; them: string })
       <div className="lane__outcome">
         <div className="lane__verdict muted">Недостаточно данных</div>
         <p className="muted small">
-          У Stratz всего {o.rated} оценённых линий этой пары ({BRACKET(o.bracket)}, за неделю), для вывода нужно хотя бы {o.min_verdict}.
+          У Stratz оценённых линий этой пары всего {o.rated} ({BRACKET(o.bracket)}, за неделю), для вывода нужно хотя бы {o.min_verdict}.
         </p>
       </div>
     );
-  const verdict = o.edge >= 0.08 ? `Линию чаще выигрывает ${me}` : o.edge <= -0.08 ? `Линию чаще выигрывает ${them}` : 'Линия примерно ровная';
+  const lead = laneLead(o);
+  const verdict = lead === 'hero' ? `Линию чаще выигрывает ${me}` : lead === 'enemy' ? `Линию чаще выигрывает ${them}` : 'Линия примерно ровная';
   return (
     <div className="lane__outcome">
-      <div className={`lane__verdict ${o.edge >= 0.08 ? 'c-good' : o.edge <= -0.08 ? 'c-bad' : ''}`}>{verdict}</div>
+      <div className={`lane__verdict ${lead === 'hero' ? 'c-good' : lead === 'enemy' ? 'c-bad' : ''}`}>{verdict}</div>
       <div className="lane__bar" title="Исходы линии с твоей стороны">
         <i className="is-win" style={{ flex: o.win_share }} />
         <i className="is-draw" style={{ flex: o.draw_share }} />
@@ -159,7 +242,7 @@ function Outcome({ r, me, them }: { r: LaneResponse; me: string; them: string })
         <span className="c-bad">проигрыш {fmtPct(o.loss_share, 0)}</span>
       </div>
       <p className="muted small">
-        Разгромы: {o.stomp_win} в твою пользу, {o.stomp_loss} против. Stratz, {BRACKET(o.bracket)}, {o.rated} оценённых линий за неделю
+        Разгромы: {o.stomp_win} в твою пользу, {o.stomp_loss} против. Stratz, {BRACKET(o.bracket)}, оценённых линий за неделю: {o.rated}
         {!o.reliable && <span className="pill warn">мало</span>}
       </p>
     </div>

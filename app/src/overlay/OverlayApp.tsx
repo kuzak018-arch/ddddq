@@ -13,6 +13,7 @@ import { useBans, useBuild, useHeroes, useSettings, useSuggest } from '../api/ho
 import type { DraftRequest } from '../api/types';
 import { HeroSearch } from '../components/HeroSearch';
 import { IconClose } from '../components/Icons';
+import { LaneMini } from '../components/LaneView';
 import { AnimatedPercent, fmtPct, fmtSigned, HeroIcon, ItemIcon, Segmented, WinBar } from '../components/ui';
 import { useEvaluate } from '../api/hooks';
 import { onOverlayStatus, overlayStatus, setClickThrough, setOverlayEffect, showOverlay } from '../lib/overlay';
@@ -161,6 +162,9 @@ function DraftMode() {
   const heroes = useHeroes().data;
   const taken = new Set([...req.allies, ...req.enemies, ...req.bans]);
   const p = ev.data?.p_win ?? 0.5;
+  // my hero for the lane line: GSI knows it; otherwise the only ally, or the one I clicked
+  const [mine, setMine] = useState<number | null>(null);
+  const me = d.myHero ?? (mine && req.allies.includes(mine) ? mine : req.allies.length === 1 ? req.allies[0]! : null);
   return (
     <div className="ov__draft">
       <HeroSearch
@@ -173,8 +177,9 @@ function DraftMode() {
         <AnimatedPercent value={p} className={`ov__pct ${p >= 0.5 ? 'c-good' : 'c-bad'}`} />
         <WinBar p={p} />
       </div>
-      <MiniTeam heroes={d.allies} team="ally" />
+      <MiniTeam heroes={d.allies} team="ally" mine={me} onMine={setMine} />
       <MiniTeam heroes={d.enemies} team="enemy" />
+      <LaneMini hero={me} pos={req.pos!} enemies={req.enemies} />
       <div className="ov__row">
         <span className="label">Позиция</span>
         <Segmented
@@ -211,14 +216,22 @@ function DraftMode() {
   );
 }
 
-function MiniTeam({ heroes, team }: { heroes: (number | null)[]; team: 'ally' | 'enemy' }) {
+function MiniTeam({ heroes, team, mine, onMine }: {
+  heroes: (number | null)[];
+  team: 'ally' | 'enemy';
+  mine?: number | null;
+  onMine?: (hero: number) => void;
+}) {
   const clear = useDraft((s) => s.clear);
+  const myHero = useDraft((s) => s.myHero);
   return (
     <div className={`ov__team ov__team--${team}`}>
       {heroes.map((h, i) => (
         <span
           key={i}
-          className="ov__slot"
+          className={`ov__slot ${h && h === mine ? 'is-me' : ''}`}
+          title={onMine && h && !myHero ? 'Клик — это мой герой (для линии), правый клик — убрать' : undefined}
+          onClick={() => h && onMine && !myHero && onMine(h)}
           onContextMenu={(e) => {
             e.preventDefault();
             clear({ team, index: i });
