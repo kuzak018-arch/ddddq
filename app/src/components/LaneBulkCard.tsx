@@ -18,6 +18,10 @@ interface BulkStatus {
   target: number;
   resume_at?: number | null;
   error?: string | null;
+  /** the user's job is unfinished: it goes on by itself after the app restarts */
+  wanted?: boolean;
+  resumed?: boolean;
+  resume_scheduled?: number;
   limits: { minute?: number; hour?: number; day?: number };
 }
 
@@ -29,7 +33,7 @@ export function LaneBulkCard() {
   const st = useQuery({
     queryKey: ['lane-bulk'],
     queryFn: () => api<BulkStatus>('/lane/bulk'),
-    refetchInterval: (q) => (ACTIVE.has(q.state.data?.status ?? '') ? 3000 : false),
+    refetchInterval: (q) => (ACTIVE.has(q.state.data?.status ?? '') || q.state.data?.resume_scheduled ? 3000 : false),
   });
   const act = useMutation({
     mutationFn: (action: 'start' | 'stop') => api<BulkStatus>('/lane/bulk', { body: { action } }),
@@ -46,21 +50,30 @@ export function LaneBulkCard() {
         Кто выигрывает линию, Stratz отдаёт сразу. Графики по минутам строятся по матчам пары (по запросу на матч), поэтому их
         лучше скачать заранее: сначала герои твоего пула против их частых соперников, потом самые частые пары коров (мид против
         мида, керри против оффлейнера). Идёт в фоне, оставляет запас запросов для остального; всё скачивание займёт несколько
-        дней работы приложения. Редкие пары не качаются: для них данных нет.
+        дней работы приложения. Если закрыть приложение или выключить ПК, после следующего запуска скачивание продолжится само с
+        того же места. Редкие пары не качаются: для них данных нет.
       </p>
       <div className="row">
         <button className="btn btn--accent" onClick={() => act.mutate('start')} disabled={active || act.isPending}>
           {active ? 'Скачиваю…' : 'Скачать данные линий'}
         </button>
-        <button className="btn" onClick={() => act.mutate('stop')} disabled={!active || act.isPending}>
+        <button className="btn" onClick={() => act.mutate('stop')} disabled={!(active || s?.wanted) || act.isPending}>
           Остановить
         </button>
       </div>
       {act.error && <ErrorBox error={act.error} />}
       {s?.status === 'failed' && s.error && <ErrorBox error={s.error} />}
+      {s?.status === 'idle' && s.resume_scheduled && (
+        <p className="muted small">
+          Скачивание не закончено: продолжу в{' '}
+          {new Date(s.resume_scheduled * 1000).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}, сначала
+          пропущу уже скачанные пары.
+        </p>
+      )}
       {s && s.status && s.status !== 'idle' && (
         <div className="bulk">
           {s.status === 'planning' && <p className="muted small">Составляю список пар…</p>}
+          {s.resumed && active && <p className="muted small">Продолжаю после перезапуска: уже скачанные пары пропускаю.</p>}
           {s.total ? (
             <>
               <div className="lane__progress">

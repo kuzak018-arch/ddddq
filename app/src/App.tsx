@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { waitForBackend } from './api/client';
 import { Dock, TitleBar, Wallpaper } from './components/Chrome';
+import { Effects } from './components/Effects';
 import { Panel } from './components/Glass';
 import { Onboarding } from './components/Onboarding';
 import { refractionSupported } from './glass/refraction';
@@ -164,6 +165,8 @@ export default function App() {
           </main>
         </div>
       </div>
+      {/* over the panels, not under them: under the glass the effect only showed in the gaps */}
+      <Effects />
     </>
   );
 }

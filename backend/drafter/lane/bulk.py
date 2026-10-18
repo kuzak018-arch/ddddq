@@ -16,6 +16,11 @@ to have fewer than RARE matches are skipped: there is nothing to download for th
 The hourly budget is shared with everything else: the job keeps BACKGROUND_FLOOR requests per
 hour free, and when it reaches that floor it waits and tries again. A pair whose matches run out
 is remembered for a week, so a restart does not ask for it again.
+
+The job survives restarts of the app or the PC: whatever is downloaded stays in the pair caches,
+and the wish to download is kept in STATE_FILE until the job finishes or the user stops it. On the
+next start the backend picks the job up again after RESUME_DELAY_S (on-demand requests go first),
+and pairs that already have their matches are passed over without a request.
 """
 
 from __future__ import annotations
@@ -40,6 +45,7 @@ RARE = 30                   # expected matches of the lane in our base below thi
 COVER = 0.5                 # frequent core pairs: the top ones that make up this share of lane meetings
 WAIT_S = 600                # budget floor reached: wait this long, then try again
 EXHAUSTED_DAYS = 7
+RESUME_DELAY_S = 90         # after the app starts, wait this long before picking an unfinished job up
 
 STATE_FILE = pairs.CACHE / "bulk.json"
 COUNTS_FILE = pairs.CACHE / "pair_counts.npz"
@@ -48,6 +54,7 @@ _state: dict = {"status": "idle"}
 _stop = threading.Event()
 _thread: threading.Thread | None = None
 _guard = threading.Lock()
+_resume: threading.Timer | None = None
 
 
 # ---------- how often pairs meet ---------------------------------------------------------------
@@ -124,20 +131,35 @@ def plan(pos_mat, pool: list[tuple[int, int]]) -> list[dict]:
 
 # ---------- the job ----------------------------------------------------------------------------
 
-def _exhausted() -> dict[str, float]:
+def _saved() -> dict:
     if STATE_FILE.exists():
         try:
-            return json.loads(STATE_FILE.read_text(encoding="utf-8")).get("exhausted", {})
+            d = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+            return d if isinstance(d, dict) else {}
         except ValueError:
             return {}
     return {}
 
 
-def _save_exhausted(ex: dict[str, float]) -> None:
+def _save(**fields) -> None:
+    d = _saved() | fields
     STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
     tmp = STATE_FILE.with_suffix(".tmp")
-    tmp.write_text(json.dumps({"exhausted": ex}), encoding="utf-8")
+    tmp.write_text(json.dumps(d), encoding="utf-8")
     tmp.replace(STATE_FILE)
+
+
+def _exhausted() -> dict[str, float]:
+    return _saved().get("exhausted", {})
+
+
+def _save_exhausted(ex: dict[str, float]) -> None:
+    _save(exhausted=ex)
+
+
+def wanted() -> bool:
+    """The user started the job and it has neither finished nor been stopped by them."""
+    return bool(_saved().get("wanted"))
 
 
 def _have(p: dict) -> int:
@@ -183,33 +205,76 @@ def _run(pos_mat) -> None:
                 ex[key] = time.time()
                 _save_exhausted(ex)
             st["done"] += 1
+        if not _stop.is_set():
+            _save(wanted=False)  # everything is there: nothing to pick up after a restart
         st.update(status="stopped" if _stop.is_set() else "done", current=None)
     except Exception as e:  # keep the app alive, show what went wrong
         st.update(status="failed", error=f"{type(e).__name__}: {e}")
 
 
-def start(pos_mat) -> dict:
+def start(pos_mat, resumed: bool = False) -> dict:
     global _thread
     with _guard:
         if _thread and _thread.is_alive():
             return status()
         if not config.settings().stratz_token:
             raise RuntimeError("нет токена Stratz")
+        _save(wanted=True)
         _stop.clear()
         _state.clear()
-        _state.update(status="planning", started=time.time(), error=None)
+        _state.update(status="planning", started=time.time(), error=None, resumed=resumed)
         _thread = threading.Thread(target=_run, args=(pos_mat,), name="lane-bulk", daemon=True)
         _thread.start()
     return status()
 
 
 def stop() -> dict:
+    """The user stops the job: it is not picked up again after a restart."""
+    _save(wanted=False)
+    _cancel_resume()
     _stop.set()
     return status()
+
+
+def shutdown() -> None:
+    """The app exits: stop the job but keep the wish, so the next start continues it."""
+    _cancel_resume()
+    _stop.set()
+
+
+def resume_later(get_pos_mat, delay: float = RESUME_DELAY_S) -> bool:
+    """On app start: if the user's job was not finished, start it again after `delay` seconds.
+    Returns whether a resume is scheduled. Without a token or a model it quietly waits for the
+    next start; the wish stays."""
+    global _resume
+    if not wanted() or not config.settings().stratz_token:
+        return False
+
+    def go() -> None:
+        try:
+            start(get_pos_mat(), resumed=True)
+        except Exception as e:  # no model yet, token gone: try again on the next start
+            print(f"данные линий не продолжены: {type(e).__name__}: {e}", flush=True)
+
+    _cancel_resume()
+    _resume = threading.Timer(delay, go)
+    _resume.daemon = True
+    _resume.start()
+    _state.update(status="idle", resume_scheduled=time.time() + delay)
+    return True
+
+
+def _cancel_resume() -> None:
+    global _resume
+    if _resume is not None:
+        _resume.cancel()
+        _resume = None
+        _state.pop("resume_scheduled", None)
 
 
 def status() -> dict:
     out = {k: v for k, v in _state.items()}
     out["limits"] = dict(stratz.limits)
     out["target"] = BULK_TARGET
+    out["wanted"] = wanted()
     return out

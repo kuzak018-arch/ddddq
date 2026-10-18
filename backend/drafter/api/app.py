@@ -104,10 +104,11 @@ async def lifespan(app: FastAPI):
             build_service.start_prefetch(_pred().pos_mat)
         except HTTPException:
             pass  # no model yet
+        lane_bulk.resume_later(lambda: _pred().pos_mat)  # an unfinished lane download goes on by itself
     yield
     build_service.stop_all()
     lane_service.stop_all()
-    lane_bulk.stop()
+    lane_bulk.shutdown()
     vision_runner.set_enabled(False)
     vision_collector.stop()
     if server:
@@ -235,6 +236,7 @@ def hero_page(hero_id: int, rank_tier: int | None = None):
         "rank_tier": rank, "bracket": bracket,
         "positions": [round(float(x), 4) for x in pr.pos_mat[hero_id]],
         "meta_wr": float(explain.expit(pr.lw[group, hero_id])), "pick_rate": float(pr.pick_rate[group, hero_id]),
+        "bans": meta.ban_place(hero_id, bracket),
         "matchups": meta.matchups(hero_id, pr.S, pr.C, pr.pair_games, pr.cal_a),
         "builds_for_positions": builds,
         "me": None if not mine else {"games": mine["games"], "wins": mine["wins"], "edge": round(mine["edge"], 4),
@@ -568,7 +570,7 @@ def _grid_call(fn, *args):
 def hero_grids():
     """The grids we would write, built from the current data (for the preview)."""
     _, rank, bracket, days = _grid_args()
-    built = grid_builder.build(_pred(), list(grid_builder.GRIDS), rank, bracket, days)
+    built = _grid_call(grid_builder.build, _pred(), list(grid_builder.GRIDS), rank, bracket, days)
     out = []
     for gid, (name, desc) in grid_builder.GRIDS.items():
         cfg = built.get(gid)
@@ -592,7 +594,7 @@ def hero_grids_state():
 @app.post("/hero-grids/write")
 def hero_grids_write(body: GridWriteIn):
     account, rank, bracket, days = _grid_args()
-    built = grid_builder.build(_pred(), list(dict.fromkeys(body.grids)), rank, bracket, days)
+    built = _grid_call(grid_builder.build, _pred(), list(dict.fromkeys(body.grids)), rank, bracket, days)
     if not built:
         raise HTTPException(422, "по этим данным сетки получились пустыми: нечего записывать")
     return _grid_call(hero_grid.apply, account, list(built.values()))

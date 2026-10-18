@@ -170,12 +170,21 @@ export const MAKERS: Record<Exclude<Effect, 'none'>, { make: (n: number, w: numb
   particles: { make: makeParticles, max: 70 },
 };
 
-/** Whether effects may run here and now. */
-export function useEffectsAllowed(): boolean {
+/** Why effects are off right now, or null when they may run here and now. */
+export function useEffectsBlocked(): string | null {
   const performance = useUi((s) => s.performance);
   const phase = useDraft((s) => s.phase);
   const reduced = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-  return !isOverlayWindow() && !performance && phase !== 'game' && !reduced;
+  if (isOverlayWindow()) return 'не рисуется в оверлее';
+  if (performance) return 'сейчас выключен: включён режим производительности';
+  if (phase === 'game') return 'сейчас выключен: идёт матч';
+  if (reduced) return 'сейчас выключен: в Windows отключены эффекты анимации (Параметры → Специальные возможности → Визуальные эффекты)';
+  return null;
+}
+
+/** Whether effects may run here and now. */
+export function useEffectsAllowed(): boolean {
+  return useEffectsBlocked() === null;
 }
 
 export function Effects() {
