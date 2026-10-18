@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window and overlay: own window controls, dragging, the window icon, updates, backend info, overlay commands",
+  "description": "Main window and overlay: own window controls, dragging, the window icon, the app version, backend info, overlay commands",
   "windows": [
     "main",
     "overlay"
@@ -18,8 +18,6 @@
     "window-state:default",
     "core:window:allow-set-icon",
     "core:app:allow-default-window-icon",
-    "updater:default",
-    "process:allow-restart",
     "core:app:allow-version"
   ]
 }

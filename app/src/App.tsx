@@ -13,7 +13,6 @@ import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { VisionPage } from './pages/VisionPage';
 import { useWindowIcon } from './lib/appIcon';
-import { useUpdateChecks } from './lib/updates';
 import { applyHotkeys, showOverlay } from './lib/overlay';
 import { useDraft } from './state/draft';
 import { startSync } from './state/sync';
@@ -88,7 +87,6 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   useAppearance();
   useWindowIcon(true);
-  useUpdateChecks(true);
 
   useEffect(() => {
     waitForBackend()

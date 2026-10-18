@@ -1,4 +1,4 @@
-# secrets: the token file and the updater's signing key never go to git
+# secrets: the token file and keys never go to git
 .env
 /secrets/
 
