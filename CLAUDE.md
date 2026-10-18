@@ -32,6 +32,6 @@ npm run dev                            # из app/, http://localhost:1420
 1. Изменения в ветке → PR в `main` (проверка `check.yml`: тесты и `tsc`).
 2. После слияния — тег `vX.Y.Z` (больше предыдущего): `git tag v1.0.1 && git push origin v1.0.1`.
 3. `release.yml` на Windows собирает установщик `Dota Drafter_X.Y.Z_x64-setup.exe` и выкладывает его артефактом сборки (Actions → запуск Release → Artifacts, хранится 90 дней) и прикрепляет к GitHub Release `vX.Y.Z` в `ddddq` (хранится всегда). «Run workflow» без тега даёт только артефакт.
-- Скачать новую версию: github.com/kuzak018-arch/ddddq → Releases → `vX.Y.Z` → `Dota Drafter_X.Y.Z_x64-setup.exe` (нужен вход в GitHub: репозиторий приватный). Закрыть приложение и запустить установщик поверх старой версии: настройки и данные в `%LOCALAPPDATA%\DotaDrafter` сохраняются.
+- Скачать новую версию: github.com/kuzak018-arch/ddddq → Releases → `vX.Y.Z` → `Dota.Drafter_X.Y.Z_x64-setup.exe` (GitHub меняет пробел в имени на точку) (нужен вход в GitHub: репозиторий приватный). Закрыть приложение и запустить установщик поверх старой версии: настройки и данные в `%LOCALAPPDATA%\DotaDrafter` сохраняются.
 - Стартовые данные сборка берёт из релиза `seed-data` в `ddddq`. Без него сборка падает с подсказкой. Если менялись модель или данные Stratz, сначала на ПК пользователя: `scripts/publish-seed.ps1`.
 - Подпись обновлений не нужна: плагина updater в приложении нет, секреты `RELEASES_TOKEN`, `TAURI_SIGNING_PRIVATE_KEY` и переменная `RELEASES_REPO` не используются.

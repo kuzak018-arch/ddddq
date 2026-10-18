@@ -12,6 +12,7 @@ import { HeroGridCard } from '../components/HeroGridCard';
 import { HeroSearch } from '../components/HeroSearch';
 import { LaneBulkCard } from '../components/LaneBulkCard';
 import { VersionCard } from '../components/VersionCard';
+import { useEffectsBlocked } from '../components/Effects';
 import { refractionSupported } from '../glass/refraction';
 import { ErrorBox, Segmented, Slider, Toggle } from '../components/ui';
 import { LOGO_KEY, useLogoUrl } from '../lib/appIcon';
@@ -41,6 +42,7 @@ function AppearanceCard() {
   const file = useRef<HTMLInputElement>(null);
   const heroes = useHeroes().data;
   const bg = ui.background;
+  const fxBlocked = useEffectsBlocked();
   return (
     <Panel refracting>
       <h2>Оформление</h2>
@@ -120,7 +122,11 @@ function AppearanceCard() {
           format={(v) => `${Math.round(v * 100)}%`}
         />
       )}
-      <p className="hint">Лёгкая отрисовка; сама выключается в оверлее, во время матча и в режиме производительности.</p>
+      {ui.fx.kind !== 'none' && fxBlocked && <p className="small warn">Эффект {fxBlocked}.</p>}
+      <p className="hint">
+        Лёгкая отрисовка поверх окна; сама выключается в оверлее, во время матча, в режиме производительности и когда в Windows
+        отключены эффекты анимации.
+      </p>
       <Toggle
         on={ui.refraction && refractionSupported}
         onChange={(refraction) => ui.set({ refraction })}
@@ -498,7 +504,13 @@ function DataCard() {
           <dt>Патч</dt>
           <dd>{health.patch}</dd>
           <dt>Матчей в базе</dt>
-          <dd>{health.matches.toLocaleString('ru')}</dd>
+          <dd>
+            {health.matches
+              ? health.matches.toLocaleString('ru')
+              : health.model_trained
+                ? 'нет: база матчей не входит в установщик (модель уже обучена). «Обновить данные после патча» скачает её'
+                : 'нет: нажми «Обновить данные после патча»'}
+          </dd>
           <dt>Модель обучена</dt>
           <dd>{health.model_trained ?? 'нет'}</dd>
           <dt>Stratz</dt>

@@ -36,6 +36,17 @@ export function HeroPage() {
               <div className="stats">
                 <Stat label="Винрейт в мете" value={fmtPct(p.meta_wr)} good={p.meta_wr >= 0.5} />
                 <Stat label="Пикрейт" value={fmtPct(p.pick_rate)} />
+                {p.bans && (
+                  <Stat
+                    label="Доля банов"
+                    value={`${fmtPct(p.bans.share)}${p.bans.place ? ` · ${p.bans.place}-й` : ''}`}
+                    title={
+                      p.bans.place
+                        ? `${p.bans.place}-й по банам из ${p.bans.of} героев на твоём ранге (Stratz). Доля от всех банов, а не процент матчей.`
+                        : 'Этого героя на твоём ранге не банят (Stratz)'
+                    }
+                  />
+                )}
                 {p.me && (
                   <Stat
                     label="Мои игры"
@@ -89,9 +100,9 @@ export function HeroPage() {
   );
 }
 
-function Stat({ label, value, good }: { label: string; value: string; good?: boolean }) {
+function Stat({ label, value, good, title }: { label: string; value: string; good?: boolean; title?: string }) {
   return (
-    <div className="stat">
+    <div className="stat" title={title}>
       <span className="stat__label">{label}</span>
       <span className={`stat__value ${good === undefined ? '' : good ? 'c-good' : 'c-bad'}`}>{value}</span>
     </div>

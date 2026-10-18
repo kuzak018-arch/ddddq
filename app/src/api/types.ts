@@ -181,6 +181,8 @@ export interface HeroPage {
   positions: number[];
   meta_wr: number;
   pick_rate: number;
+  /** share of all bans in the bracket and the place by bans (1 = banned most); null: not downloaded */
+  bans: { share: number; place: number | null; of: number } | null;
   matchups: { counters: Matchup[]; countered_by: Matchup[]; synergy: Matchup[]; anti_synergy: Matchup[] };
   builds_for_positions: number[];
   me: { games: number; wins: number; edge: number; experience: number } | null;

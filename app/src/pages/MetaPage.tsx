@@ -91,7 +91,12 @@ export function MetaPage() {
                     ['trend_delta', 'Тренд 7 дн'],
                   ] as [SortKey, string][]
                 ).map(([k, label]) => (
-                  <th key={k} className={`is-sortable ${sort === k ? 'is-sorted' : ''}`} onClick={() => setSort(k)}>
+                  <th
+                    key={k}
+                    className={`is-sortable ${sort === k ? 'is-sorted' : ''}`}
+                    onClick={() => setSort(k)}
+                    title={k === 'ban_share' ? 'Доля героя среди всех банов на твоём ранге (Stratz). Сортировка — кого банят чаще всех.' : undefined}
+                  >
                     {label}
                   </th>
                 ))}

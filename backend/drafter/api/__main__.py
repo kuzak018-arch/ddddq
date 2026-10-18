@@ -31,7 +31,21 @@ def watch_parent() -> None:
     threading.Thread(target=wait, name="parent-watch", daemon=True).start()
 
 
+def utf8_streams() -> None:
+    """stdout and stderr in UTF-8 whatever Windows' code page is. The shell sets PYTHONIOENCODING, but
+    the bundled exe may run an isolated interpreter that ignores PYTHON* variables; then the log the
+    shell redirects to a file is cp1251, and a "✓" or "⚠" printed by a refresh step raises
+    UnicodeEncodeError and fails the whole job. Reconfiguring here does not depend on the env."""
+    for s in (sys.stdout, sys.stderr):
+        if s is not None and hasattr(s, "reconfigure"):
+            try:
+                s.reconfigure(encoding="utf-8", errors="replace")
+            except (ValueError, OSError):  # a stream that cannot be reconfigured: leave it as it is
+                pass
+
+
 def main():
+    utf8_streams()
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", type=int, default=47900)
     ap.add_argument("--token", default=os.environ.get("DRAFTER_TOKEN"))

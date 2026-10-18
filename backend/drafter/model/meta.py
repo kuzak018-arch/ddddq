@@ -17,12 +17,25 @@ POS_SHARE = 0.40       # hero belongs to a position in the tier list from this s
 
 
 def _ban_share(bracket: str) -> dict[int, float]:
+    """Each hero's share of all bans in the bracket (Stratz banDay). Shares sum to 1, so it ranks
+    heroes exactly like a ban rate would, but it is not "banned in x% of matches"."""
     p = stratz.DIR / bracket / "bans.json"
     if not p.exists():
         return {}
     rows = json.loads(p.read_text(encoding="utf-8"))
     total = sum(r["matchCount"] for r in rows) or 1
     return {r["heroId"]: r["matchCount"] / total for r in rows}
+
+
+def ban_place(hero: int, bracket: str | None) -> dict | None:
+    """The hero's share of bans and its place among all banned heroes (1 = banned most), or None
+    when the bracket's bans are not downloaded."""
+    bans = _ban_share(bracket) if bracket else {}
+    if not bans:
+        return None
+    order = sorted(bans, key=lambda h: -bans[h])
+    share = bans.get(hero, 0.0)
+    return {"share": share, "place": order.index(hero) + 1 if hero in bans else None, "of": len(order)}
 
 
 def _stratz_pos_wr(bracket: str) -> dict[tuple[int, int], tuple[int, int]]:

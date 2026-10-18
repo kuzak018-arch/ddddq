@@ -209,6 +209,51 @@ def test_layout_is_inside_the_canvas_never_overlaps_and_fits_the_heroes():
     assert hg.dumps({"version": 3, "configs": [{"config_name": "x", "categories": placed}]})  # the writer takes them
 
 
+def _no_overlap_and_fits(placed, cats):
+    for c, src in zip(placed, cats):
+        assert c["x_position"] >= 0 and c["x_position"] + c["width"] <= grids.CANVAS_W
+        rows = -(-max(1, len(src.heroes)) // grids.per_row(c["width"]))
+        assert c["height"] >= grids.HEAD_H + rows * grids.CELL_H
+    rects = [(c["x_position"], c["y_position"], c["x_position"] + c["width"], c["y_position"] + c["height"]) for c in placed]
+    for i, a in enumerate(rects):
+        for b in rects[i + 1:]:
+            assert a[2] <= b[0] or b[2] <= a[0] or a[3] <= b[1] or b[3] <= a[1]
+
+
+def test_meta_tiers_fit_under_470():
+    # tier sizes for 127 heroes by the tier list's quantiles (10/20/40/20/10%), and a few heroes more
+    for n in (127, 131):
+        ids = list(range(1, n + 1))
+        cut = lambda q: next(i for i in range(n + 1) if i == n or (i + 0.5) / n > q)
+        edges = [0, cut(0.10), cut(0.30), cut(0.70), cut(0.90), n]
+        cats = grids.tier_categories({t: ids[edges[i]:edges[i + 1]] for i, t in enumerate("SABCD")})
+        placed = grids.layout(cats)
+        _no_overlap_and_fits(placed, cats)
+        assert sorted(h for c in placed for h in c["hero_ids"]) == ids
+        assert grids.bottom(placed) <= grids.MAX_BOTTOM
+        assert placed[0]["y_position"] == placed[1]["y_position"] and placed[3]["y_position"] == placed[4]["y_position"]
+    assert grids.bottom(grids.layout(grids.tier_categories({"S": list(range(13)), "A": list(range(25)),
+            "B": list(range(51)), "C": list(range(25)), "D": list(range(13))}))) == 452
+
+
+def test_pool_worst_case_fits_and_short_roles_share_a_row():
+    full = [grids.Category(f"{p} · роль", list(range(grids.POOL_ROLE_TOP)), None) for p in range(5)]
+    worst = full + [grids.Category("Стоит попробовать · Мид", list(range(grids.TRY_COUNT)), None)]
+    placed = grids.layout(worst)
+    _no_overlap_and_fits(placed, worst)
+    assert grids.bottom(placed) <= grids.MAX_BOTTOM
+    short = [grids.Category(f"{p}", list(range(n)), None) for p, n in enumerate([3, 7, 2])]
+    placed = grids.layout(short)
+    _no_overlap_and_fits(placed, short)
+    assert len({c["y_position"] for c in placed}) == 1  # 4+7+4 cells: one row
+    assert all(c["width"] >= grids.cells_width(grids.MIN_CELLS) for c in placed)
+
+
+def test_a_grid_that_does_not_fit_is_never_written():
+    with pytest.raises(hg.GridError, match="не влезает"):
+        grids.config("meta", [grids.Category("Тир B", list(range(18 * 13)))])
+
+
 # ---------- real data (skipped where there is none) ---------------------------------------------
 
 needs_model = pytest.mark.skipif(not (constants.DIR / "heroes.json").exists(), reason="нужны константы и модель")
@@ -233,7 +278,7 @@ def test_build_all_four_grids_on_real_data():
     assert len(counters) == grids.COUNTER_HEROES and all(c["category_name"].startswith("Против ") and len(c["hero_ids"]) == grids.COUNTER_PER for c in counters)
     for cfg_ in built.values():
         assert cfg_["config_name"].startswith(hg.PREFIX)
-        assert all(c["y_position"] + c["height"] < 600 for c in cfg_["categories"])
+        assert grids.bottom(cfg_["categories"]) <= grids.MAX_BOTTOM
     assert copy.deepcopy(built) == built
 
 
