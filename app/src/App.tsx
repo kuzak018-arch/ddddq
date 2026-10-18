@@ -48,8 +48,41 @@ function useAppearance() {
   }, [performance, refraction]);
 }
 
+const LEAVE_MS = 220;
+
+/** Calm motion: the system's "reduce motion" or the app's performance mode. */
+function useCalmMotion(): boolean {
+  const perf = useUi((s) => s.performance);
+  const [reduced, setReduced] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const on = () => setReduced(mq.matches);
+    mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
+  return perf || reduced;
+}
+
+/**
+ * Crossfade between pages: the page being left stays mounted for LEAVE_MS as a layer under the
+ * new one while its panels fade out, and the new page's panels fade in over it. Both stay the
+ * same React elements (keyed by page), so nothing remounts or refetches mid-fade.
+ */
+function usePageStack(page: Page, calm: boolean) {
+  const [stack, setStack] = useState<{ cur: Page; prev: Page | null }>({ cur: page, prev: null });
+  if (stack.cur !== page) setStack({ cur: page, prev: calm ? null : stack.cur });
+  useEffect(() => {
+    if (!stack.prev) return;
+    const t = setTimeout(() => setStack((s) => ({ ...s, prev: null })), LEAVE_MS);
+    return () => clearTimeout(t);
+  }, [stack]);
+  return stack;
+}
+
 export default function App() {
   const page = useUi((s) => s.page);
+  const calm = useCalmMotion();
+  const stack = usePageStack(page, calm);
   const go = useUi((s) => s.go);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,7 +123,7 @@ export default function App() {
     prevPhase.current = phase;
   }, [phase]);
 
-  const Current = PAGES[page];
+  const pages = stack.prev ? [stack.prev, stack.cur] : [stack.cur];
   return (
     <>
       <Wallpaper />
@@ -119,10 +152,16 @@ export default function App() {
             ) : (
               // No opacity/filter on the page wrapper: in Chromium that turns it into a "backdrop root"
               // and every glass panel inside loses the wallpaper blur for the whole transition.
-              // Panels fade in themselves (CSS .panel animation, staggered).
-              <div key={page} className="page">
-                <Current />
-              </div>
+              // The panels fade themselves (CSS: .page--in / .page--out).
+              pages.map((p) => {
+                const Page = PAGES[p];
+                const leaving = p !== stack.cur;
+                return (
+                  <div key={p} className={`page ${leaving ? 'page--out' : 'page--in'}`} inert={leaving} aria-hidden={leaving || undefined}>
+                    <Page />
+                  </div>
+                );
+              })
             )}
           </main>
         </div>

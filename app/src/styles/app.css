@@ -241,33 +241,53 @@ input {
     box-shadow var(--dur) var(--ease-out);
 }
 
-/* panels glide in one after another when a page opens */
+/* page switch: a crossfade. The page being left stays for a moment as a layer underneath and its
+   panels fade out; the new page's panels fade in with a short rise, one after another. Opacity sits
+   on the panels, never on .page: an opacity on the wrapper would make it a backdrop root and the
+   glass would lose the wallpaper blur for the whole transition. No scale: rescaling blurred glass
+   every frame is what made the old animation stutter. */
+.app__main > .page--out {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
 @keyframes panel-in {
   from {
     opacity: 0;
-    transform: translateY(14px) scale(0.985);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
     transform: none;
   }
 }
-.page .panel {
-  animation: panel-in 0.55s var(--ease-out) both;
+@keyframes panel-out {
+  to {
+    opacity: 0;
+  }
 }
-.page :nth-child(2 of .panel) {
-  animation-delay: 0.05s;
+.page--in .panel {
+  animation: panel-in 0.34s var(--ease-out) both;
 }
-.page :nth-child(3 of .panel) {
-  animation-delay: 0.1s;
+.page--in :nth-child(2 of .panel) {
+  animation-delay: 0.03s;
 }
-.page :nth-child(4 of .panel) {
-  animation-delay: 0.15s;
+.page--in :nth-child(3 of .panel) {
+  animation-delay: 0.06s;
+}
+.page--in :nth-child(4 of .panel) {
+  animation-delay: 0.09s;
+}
+.page--out .panel {
+  animation: panel-out 0.2s var(--ease-out) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .page .panel {
+  .page--in .panel {
     animation: none;
+  }
+  .page--out {
+    display: none;
   }
 }
 

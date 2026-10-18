@@ -13,6 +13,7 @@ import App from './App';
 import { installButtonSheen } from './components/Glass';
 import { isOverlayWindow } from './lib/overlay';
 import { OverlayApp } from './overlay/OverlayApp';
+import { useUi } from './state/ui';
 import './overlay/overlay.css';
 
 const queryClient = new QueryClient({
@@ -36,16 +37,24 @@ window.addEventListener('unhandledrejection', (e) => showFatal(String(e.reason?.
 let started = false;
 setTimeout(() => !started && showFatal('Нет ответа от оболочки (backend_info) за 40 секунд.'), 40_000);
 
+/** One soft spring for every motion animation. It honours the OS "reduce motion" setting, and the
+ * app's performance mode turns motion off the same way (CSS animations stop via .perf). */
+function Motion({ children }: { children: React.ReactNode }) {
+  const perf = useUi((s) => s.performance);
+  return (
+    <MotionConfig reducedMotion={perf ? 'always' : 'user'} transition={{ type: 'spring', stiffness: 260, damping: 30, mass: 0.9 }}>
+      {children}
+    </MotionConfig>
+  );
+}
+
 // resolve the backend URL first so icon URLs are absolute from the first render
 backend().then(() => {
   started = true;
   ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
-        {/* one soft spring for every motion animation; honours the OS "reduce motion" setting */}
-        <MotionConfig reducedMotion="user" transition={{ type: 'spring', stiffness: 260, damping: 30, mass: 0.9 }}>
-          {isOverlayWindow() ? <OverlayApp /> : <App />}
-        </MotionConfig>
+        <Motion>{isOverlayWindow() ? <OverlayApp /> : <App />}</Motion>
       </QueryClientProvider>
     </React.StrictMode>,
   );
