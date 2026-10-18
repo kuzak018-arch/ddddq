@@ -8,6 +8,7 @@ import { useHealth, useHeroes, useSaveSettings, useSettings } from '../api/hooks
 import type { Job, Settings } from '../api/types';
 import { heroArt, PRESETS } from '../components/Chrome';
 import { Panel } from '../components/Glass';
+import { HeroGridCard } from '../components/HeroGridCard';
 import { HeroSearch } from '../components/HeroSearch';
 import { LaneBulkCard } from '../components/LaneBulkCard';
 import { UpdatesCard } from '../components/UpdatesCard';
@@ -26,6 +27,7 @@ export function SettingsPage() {
         <VisionCard />
         <OverlayCard />
         <AdviceCard />
+        <HeroGridCard />
         <DataCard />
         <LaneBulkCard />
         <UpdatesCard />
@@ -221,7 +223,7 @@ function GsiCard() {
         <>
           <p className="hint">
             Game State Integration — официальный способ Valve: игра сама присылает стадию матча, твою сторону и героя.
-            Память игры не читается, файлы игры не меняются — добавляется только конфиг в папку gamestate_integration.
+            Память игры не читается, файлы игры не меняются — добавляется только конфиг в папку gamestate_integration. (Сетки героев — отдельная карточка ниже: это твой файл в Steam, он пишется только по кнопке.)
           </p>
           {s.installed ? (
             <p className="muted">Конфиг установлен (порт {s.port}). После установки Доту нужно один раз перезапустить.</p>

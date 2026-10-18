@@ -190,3 +190,60 @@ def test_settings_put_changes_only_sent_fields(client, tmp_path, monkeypatch):
     client.put("/settings", json={"vision_collect": False, "vision_collect_mb": 800})
     s = client.put("/settings", json={"pos": 2}).json()     # an older client that knows only pos
     assert s["pos"] == 2 and s["vision_collect"] is False and s["vision_collect_mb"] == 800
+
+
+# ---------- hero grids ---------------------------------------------------------------------------
+
+@pytest.fixture()
+def grid_env(tmp_path, monkeypatch):
+    """The user's cfg folder in tmp, Dota closed, the file in the game's own layout."""
+    from drafter import hero_grid as hg
+    cfg_dir = tmp_path / "steam" / "userdata" / "42" / "570" / "remote" / "cfg"
+    cfg_dir.mkdir(parents=True)
+    path = cfg_dir / hg.FILE_NAME
+    original = '{\n\t"version": 3,\n\t"configs":\n\t[\n\t]\n}'
+    path.write_text(original, encoding="utf-8", newline="")
+    monkeypatch.setattr(hg.dota_paths, "steam_path", lambda: tmp_path / "steam")
+    monkeypatch.setattr(hg, "backup_dir", lambda: tmp_path / "backups")
+    state = {"running": False}
+    monkeypatch.setattr(hg, "dota_running", lambda: state["running"])
+    monkeypatch.setattr(api.config, "settings", lambda: type("S", (), {"account_id": 42, "stratz_token": None, "opendota_key": None})())
+    return path, state, original
+
+
+def test_hero_grids_preview_state_and_write(client, grid_env):
+    path, state, original = grid_env
+    prev = client.get("/hero-grids").json()
+    assert [g["id"] for g in prev["grids"]] == ["roles", "meta", "pool", "counters"]
+    roles = prev["grids"][0]
+    assert roles["config_name"] == "Драфтер · Роли" and len(roles["categories"]) == 5 and roles["heroes"] > 50
+    st = client.get("/hero-grids/state").json()
+    assert st["found"] and st["exists"] and st["dota_running"] is False and st["ours"] == [] and st["backups"] == []
+
+    state["running"] = True  # Dota open: no write, nothing changes
+    r = client.post("/hero-grids/write", json={"grids": ["roles", "meta"]})
+    assert r.status_code == 409 and "Дота запущена" in r.json()["detail"]
+    assert client.get("/hero-grids/state").json()["dota_running"] is True and path.read_text(encoding="utf-8") == original
+
+    state["running"] = False
+    done = client.post("/hero-grids/write", json={"grids": ["roles", "meta"]}).json()
+    assert done["written"] == ["Драфтер · Роли", "Драфтер · Мета"] and done["backup"]
+    st = client.get("/hero-grids/state").json()
+    assert st["ours"] == ["Драфтер · Роли", "Драфтер · Мета"] and len(st["backups"]) == 1
+
+    back = client.post("/hero-grids/restore", json={"name": done["backup"]}).json()
+    assert back["restored"] == done["backup"] and path.read_text(encoding="utf-8") == original
+    client.post("/hero-grids/write", json={"grids": ["meta"]})
+    assert client.post("/hero-grids/remove").json()["removed"] == ["Драфтер · Мета"]
+    assert path.read_text(encoding="utf-8") == original
+
+
+def test_hero_grids_validation_and_errors(client, grid_env):
+    path, _, _ = grid_env
+    assert client.post("/hero-grids/write", json={"grids": []}).status_code == 422
+    assert client.post("/hero-grids/write", json={"grids": ["nonsense"]}).status_code == 422
+    assert client.post("/hero-grids/restore", json={"name": "../x"}).status_code == 422
+    path.write_text('{"version": 9, "configs": []}', encoding="utf-8")
+    r = client.post("/hero-grids/write", json={"grids": ["meta"]})
+    assert r.status_code == 422 and "формат" in r.json()["detail"]
+    assert client.get("/hero-grids/state").json()["error"]

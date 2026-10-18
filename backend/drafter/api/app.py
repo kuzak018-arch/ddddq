@@ -19,7 +19,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, model_validator
 
-from .. import config, dota_paths, gsi, keybinds, search
+from .. import config, dota_paths, gsi, hero_grid, keybinds, search
 from .. import settings as user_settings
 from ..builds import counter, standard
 from ..builds import service as build_service
@@ -27,6 +27,7 @@ from ..data import constants, matches, me, my_matches, stratz
 from ..lane import bulk as lane_bulk
 from ..lane import service as lane_service
 from ..model import draft, explain, meta, predictor, train
+from ..model import grids as grid_builder
 from ..vision import auto as vauto
 from ..vision import autocal as vautocal
 from ..vision import calibration as vcal
@@ -532,6 +533,79 @@ def dota_display():
 def dota_keybinds():
     acc = config.settings().account_id
     return {"keys": sorted(keybinds.bound_keys(acc)) if acc else []}
+
+
+# ---------- Hero grids: the user's hero_grid_config.json ----------------------------------------
+# The one Dota file we write besides the GSI config: it is the user's own grid file in Steam's
+# userdata. Only with Dota closed, with a backup, and only our own "Драфтер · …" grids (hero_grid.py).
+
+GridId = Literal["roles", "meta", "pool", "counters"]
+
+
+class GridWriteIn(BaseModel):
+    grids: list[GridId] = Field(min_length=1)
+
+
+class GridRestoreIn(BaseModel):
+    name: str = Field(max_length=120)
+
+
+def _grid_args() -> tuple[int | None, int, str | None, int]:
+    rank = _rank(None)
+    return config.settings().account_id, rank, stratz.bracket_for(rank), user_settings.load().tier_days
+
+
+def _grid_call(fn, *args):
+    try:
+        return fn(*args)
+    except hero_grid.DotaRunning as e:
+        raise HTTPException(409, str(e))
+    except hero_grid.GridError as e:
+        raise HTTPException(422, str(e))
+
+
+@app.get("/hero-grids")
+def hero_grids():
+    """The grids we would write, built from the current data (for the preview)."""
+    _, rank, bracket, days = _grid_args()
+    built = grid_builder.build(_pred(), list(grid_builder.GRIDS), rank, bracket, days)
+    out = []
+    for gid, (name, desc) in grid_builder.GRIDS.items():
+        cfg = built.get(gid)
+        cats = [{"name": c["category_name"], "heroes": c["hero_ids"]} for c in cfg["categories"]] if cfg else []
+        out.append({"id": gid, "name": name, "description": desc, "config_name": hero_grid.PREFIX + name,
+                    "categories": cats, "heroes": sum(len(c["heroes"]) for c in cats)})
+    return {"rank_tier": rank, "bracket": bracket, "days": days, "prefix": hero_grid.PREFIX, "grids": out}
+
+
+@app.get("/hero-grids/state")
+def hero_grids_state():
+    """File, backups and whether Dota runs: cheap, the settings card polls it."""
+    account = config.settings().account_id
+    try:
+        running, check_error = hero_grid.dota_running(), None
+    except hero_grid.GridError as e:
+        running, check_error = None, str(e)
+    return {"account_id": account, "dota_running": running, "check_error": check_error, **hero_grid.status(account)}
+
+
+@app.post("/hero-grids/write")
+def hero_grids_write(body: GridWriteIn):
+    account, rank, bracket, days = _grid_args()
+    built = grid_builder.build(_pred(), list(dict.fromkeys(body.grids)), rank, bracket, days)
+    if not built:
+        raise HTTPException(422, "по этим данным сетки получились пустыми: нечего записывать")
+    return _grid_call(hero_grid.apply, account, list(built.values()))
+
+
+@app.post("/hero-grids/remove")
+def hero_grids_remove():
+    return _grid_call(hero_grid.remove_ours, config.settings().account_id)
+
+
+@app.post("/hero-grids/restore")
+def hero_grids_restore(body: GridRestoreIn):
+    return _grid_call(hero_grid.restore, config.settings().account_id, body.name)
 
 
 # ---------- Game State Integration ---------------------------------------------------------------
