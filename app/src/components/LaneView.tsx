@@ -102,6 +102,85 @@ export function LaneMini({ hero, pos, enemies }: { hero: number | null; pos: num
   );
 }
 
+/**
+ * The draft's lane card: who is favoured on my lane, a win/draw/loss bar and how many rated lanes
+ * of the pair it is based on. `when` names the pick it is for («если возьмёшь X»); «Подробнее»
+ * opens the full analysis (curves, windows, spikes).
+ */
+export function LaneCard({ hero, pos, enemies, when, onMore }: {
+  hero: number | null;
+  pos: number;
+  enemies: number[];
+  when?: string;
+  onMore?: () => void;
+}) {
+  const heroes = useHeroes().data;
+  const [chosen, setChosen] = useState<number | null>(null);
+  useEffect(() => setChosen(null), [pos, hero]);
+  const { list, enemy, o, enemyPos, lanePos, lane } = useLaneMatchup(hero, pos, enemies, chosen);
+  const name = (h: number | null) => (h ? (heroes?.byId.get(h)?.name ?? '') : '');
+  const candidates = list.filter((x) => x.on_lane || x.lane_pos);
+  const next = () => {
+    if (candidates.length < 2) return;
+    const i = candidates.findIndex((x) => x.hero === enemy);
+    setChosen(candidates[(i + 1) % candidates.length]!.hero);
+  };
+  const r = lane.data && !lane.data.off_lane ? lane.data : null;
+  const oc = r?.outcome;
+  let text: React.ReactNode;
+  if (!hero) text = 'Возьми своего героя — здесь появится, кто фаворит на линии.';
+  else if (!enemies.length) text = 'Добавь врагов: соперник по линии подставится сам.';
+  else if (!enemy || !o || !enemyPos) text = 'Из этих врагов на твоей линии обычно никто не стоит.';
+  else if (lane.isLoading) text = <Loading inline>Загружаю…</Loading>;
+  else if (lane.error) text = <ErrorBox error={lane.error} />;
+  else if (!oc) text = 'Нет данных о линии этой пары.';
+  else if (!oc.enough) text = `Мало данных: ${oc.rated} ${plural(oc.rated, 'оценённая линия', 'оценённые линии', 'оценённых линий')}.`;
+  else {
+    const lead = laneLead(oc);
+    const n = `${oc.rated.toLocaleString('ru')} ${plural(oc.rated, 'линия', 'линии', 'линий')} пары`;
+    text =
+      lead === 'enemy'
+        ? `${name(enemy)} выигрывает ${fmtPct(oc.loss_share, 0)} линий · ${n}`
+        : lead === 'hero'
+          ? `Ты выигрываешь ${fmtPct(oc.win_share, 0)} линий · ${n}`
+          : `Примерно ровно: ${fmtPct(oc.win_share, 0)} на ${fmtPct(oc.loss_share, 0)} · ${n}`;
+  }
+  const lead = oc?.enough ? laneLead(oc) : null;
+  return (
+    <div className={`lane-card ${lead === 'hero' ? 'is-good' : lead === 'enemy' ? 'is-bad' : ''}`}>
+      <div className="lane-card__head">
+        <span className="kicker">Линия{lanePos !== pos ? ` · ${POS_SHORT[lanePos]}` : ''}</span>
+        {when && <span className="muted small">{when}</span>}
+      </div>
+      {hero && enemy && o && enemyPos ? (
+        <div className="lane-card__title">
+          <HeroIcon id={hero} size="sm" />
+          <b>{name(hero)}</b>
+          <span className="muted">против</span>
+          <button className="lane-card__enemy" onClick={next} disabled={candidates.length < 2} title={candidates.length > 1 ? 'Другой соперник по линии' : undefined}>
+            <HeroIcon id={enemy} size="sm" />
+            <b>{name(enemy)}</b>
+          </button>
+        </div>
+      ) : null}
+      {oc?.enough && (
+        <div className="lane__bar lane-card__bar" title={`выигрыш ${fmtPct(oc.win_share, 0)} · ничья ${fmtPct(oc.draw_share, 0)} · проигрыш ${fmtPct(oc.loss_share, 0)} (Stratz, ${BRACKET(oc.bracket)})`}>
+          <i className="is-win" style={{ flex: oc.win_share }} />
+          <i className="is-draw" style={{ flex: oc.draw_share }} />
+          <i className="is-loss" style={{ flex: oc.loss_share }} />
+        </div>
+      )}
+      <div className="lane-card__text">{text}</div>
+      {oc?.enough && !oc.reliable && <span className="pill warn">мало данных</span>}
+      {onMore && hero && enemies.length > 0 && (
+        <button className="btn btn--sm lane-card__more" onClick={onMore}>
+          Подробнее: графики и окна
+        </button>
+      )}
+    </div>
+  );
+}
+
 /** Lane block for a draft: picks the lane opponent among the enemies (main one first). */
 export function LaneView({ hero, pos, enemies }: { hero: number | null; pos: number; enemies: number[] }) {
   const heroes = useHeroes().data;

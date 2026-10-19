@@ -8,7 +8,7 @@ import type { Term } from '../api/types';
 
 export function HeroIcon({ id, size = 'md', dim, onClick, title }: {
   id: number | null;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
   dim?: boolean;
   onClick?: () => void;
   title?: string;
@@ -125,9 +125,9 @@ export function WinBar({ p, big }: { p: number; big?: boolean }) {
 }
 
 /** A percentage that counts smoothly to its new value instead of jumping. */
-export function AnimatedPercent({ value, className }: { value: number; className?: string }) {
+export function AnimatedPercent({ value, className, digits = 1 }: { value: number; className?: string; digits?: number }) {
   const mv = useSpring(value, { stiffness: 90, damping: 20, mass: 1 });
-  const text = useTransform(mv, (v) => `${(v * 100).toFixed(1)}%`);
+  const text = useTransform(mv, (v) => `${(v * 100).toFixed(digits)}%`);
   useEffect(() => mv.set(value), [mv, value]);
   return <motion.div className={className}>{text}</motion.div>;
 }
