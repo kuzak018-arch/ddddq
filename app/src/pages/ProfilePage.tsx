@@ -5,6 +5,7 @@ import { api } from '../api/client';
 import { useAvatar, useHealth, useHeroes, useMeSummary, useProfile } from '../api/hooks';
 import type { MeSummary } from '../api/types';
 import { heroArt } from '../components/Chrome';
+import { useHeroModel } from '../components/HeroModel';
 import { Panel } from '../components/Glass';
 import { HeroSearch } from '../components/HeroSearch';
 import { MatchHistory } from '../components/MatchHistory';
@@ -221,6 +222,19 @@ function Summary({ s }: { s: MeSummary }) {
 
 const BANNER_KEY = 'banner';
 
+/** The hero's model standing in the banner over its blurred scene, with a glow in its colour. */
+function BannerModel({ heroKey, x }: { heroKey: string; x: number }) {
+  const m = useHeroModel(heroKey);
+  // dragging right lowers x (object-position semantics), so the model goes the other way
+  const left = Math.min(90, Math.max(10, 100 - x));
+  return (
+    <>
+      <div className="banner__glow" style={{ '--glow': m.color ?? 'var(--accent)', '--x': `${left}%` } as CSSProperties} />
+      {m.still && <img className="banner__fig" src={m.still} alt="" draggable={false} style={{ left: `${left}%` }} />}
+    </>
+  );
+}
+
 /** Header banner: the user's own image/GIF (IndexedDB) or a hero render; drag to pick the visible part. */
 function Banner({ children }: { children: ReactNode }) {
   const banner = useUi((s) => s.banner);
@@ -286,12 +300,14 @@ function Banner({ children }: { children: ReactNode }) {
             draggable={false}
             style={{
               objectPosition: `${pos.x}% ${pos.y}%`,
-              filter: banner.blur ? `blur(${banner.blur}px)` : undefined,
-              transform: banner.blur ? 'scale(1.08)' : undefined,
+              // a hero: its scene blurred behind the model, never sharp (that was the "own background")
+              filter: banner.kind === 'hero' ? `blur(${Math.max(12, banner.blur)}px) saturate(1.3)` : banner.blur ? `blur(${banner.blur}px)` : undefined,
+              transform: banner.kind === 'hero' || banner.blur ? 'scale(1.08)' : undefined,
             }}
           />
         )}
         {src && <div className="banner__dim" style={{ '--dim': banner.dim } as CSSProperties} />}
+        {banner.kind === 'hero' && banner.key && <BannerModel heroKey={banner.key} x={pos.x} />}
         <div className="banner__content">{children}</div>
         <button className="btn btn--sm banner__edit" onClick={() => setEditing((v) => !v)} onPointerDown={(e) => e.stopPropagation()}>
           {editing ? 'Готово' : 'Баннер'}
@@ -309,10 +325,14 @@ function Banner({ children }: { children: ReactNode }) {
               </button>
             )}
           </div>
-          <HeroSearch placeholder="Арт героя на баннер…" onPick={(h) => update({ kind: 'hero', key: h.key, x: 50, y: 20 })} compact />
+          <HeroSearch placeholder="Арт героя на баннер…" onPick={(h) => update({ kind: 'hero', key: h.key, x: 22, y: 20 })} compact />
           <Slider label="Размытие" value={banner.blur} min={0} max={20} step={1} onChange={(blur) => update({ blur })} format={(v) => `${v} px`} />
           <Slider label="Затемнение" value={banner.dim} min={0} max={0.85} step={0.05} onChange={(dim) => update({ dim })} format={(v) => `${Math.round(v * 100)}%`} />
-          {src && <p className="muted small">Перетащи картинку в шапке, чтобы выбрать видимую часть.</p>}
+          {src && (
+            <p className="muted small">
+              {banner.kind === 'hero' ? 'Перетащи героя в шапке влево или вправо.' : 'Перетащи картинку в шапке, чтобы выбрать видимую часть.'}
+            </p>
+          )}
           {err && <p className="c-bad small">{err}</p>}
           <input
             ref={input}

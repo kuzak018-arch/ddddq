@@ -4,7 +4,7 @@ import { asset } from '../api/client';
 import { useBuild, useHeroes, useHeroPage, useProfile } from '../api/hooks';
 import type { Matchup } from '../api/types';
 import { BuildView } from '../components/BuildView';
-import { heroArt } from '../components/Chrome';
+import { HeroModel } from '../components/HeroModel';
 import { Panel } from '../components/Glass';
 import { HeroModeSwitch } from '../components/HeroModeSwitch';
 import { HeroSearch } from '../components/HeroSearch';
@@ -34,8 +34,7 @@ export function HeroPage() {
         {page.error && <ErrorBox error={page.error} />}
         {p && (
           <div className="hero-card">
-            {/* the Steam render over the local portrait: offline (or while it loads) the portrait shows */}
-            <div className="hero-card__art" style={{ backgroundImage: `url("${heroArt(p.hero.key)}"), url("${asset(p.hero.icon)}")` }} />
+            <HeroModel className="hero-card__art" heroKey={p.hero.key} heroId={p.hero.id} fallback={asset(p.hero.icon)} animated />
             <div className="hero-card__info">
               <h1>{p.hero.name}</h1>
               <p className="muted">{p.hero.ru.slice(0, 3).join(' · ')}</p>

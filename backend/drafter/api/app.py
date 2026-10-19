@@ -13,6 +13,7 @@ import time
 from contextlib import asynccontextmanager
 from typing import Literal
 
+import httpx
 from fastapi import FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -25,7 +26,7 @@ from .. import config, dota_paths, gsi, hero_grid, keybinds, search
 from .. import settings as user_settings
 from ..builds import counter, standard
 from ..builds import service as build_service
-from ..data import constants, matches, me, my_matches, stratz
+from ..data import constants, matches, me, my_matches, renders, stratz
 from ..lane import bulk as lane_bulk
 from ..lane import service as lane_service
 from ..model import draft, explain, meta, predictor, train
@@ -467,6 +468,43 @@ def my_avatar():
     if not me.AVATAR.exists():
         raise HTTPException(404, "аватар ещё не загружен: обнови историю")
     return FileResponse(me.AVATAR, media_type="image/jpeg")
+
+
+# ---------- hero models on a transparent background (data/renders.py) -------------------------
+# The files themselves are served from /icons/renders/ (open, like every icon).
+
+def _render_call(fn, *a):
+    try:
+        return fn(*a)
+    except renders.RenderError as e:
+        raise HTTPException(422, str(e))
+    except httpx.HTTPError as e:
+        raise HTTPException(502, f"CDN Valve не ответил: {e}")
+
+
+@app.get("/hero-render/{key}")
+def hero_render_info(key: str):
+    return _render_call(renders.info, key)
+
+
+@app.post("/hero-render/{key}/video")
+def hero_render_video(key: str):
+    """Download the animated render once (about 5-10 MB); the app takes its first frame."""
+    _render_call(renders.video, key)
+    return renders.info(key)
+
+
+@app.post("/hero-render/{key}/still")
+async def hero_render_still(key: str, request: Request):
+    """The first frame of the render as PNG with alpha, drawn by the app (raw bytes in the body)."""
+    data = await request.body()
+    return await run_in_threadpool(_render_call, renders.save_still, key, data)
+
+
+@app.post("/hero-render/{key}/segment")
+def hero_render_segment(key: str):
+    """No transparent render: remove the background locally, once."""
+    return _render_call(renders.segment, key)
 
 
 @app.get("/me/summary")
