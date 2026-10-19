@@ -1,11 +1,12 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type Page = 'draft' | 'meta' | 'hero' | 'builds' | 'profile' | 'settings' | 'vision';
+export type Page = 'draft' | 'meta' | 'hero' | 'builds' | 'top' | 'grids' | 'profile' | 'settings' | 'vision';
 export type Theme = 'system' | 'light' | 'dark';
 export type Effect = 'none' | 'rain' | 'snow' | 'stars' | 'fog' | 'particles';
 
-/** Background: a built-in gradient, a hero render from the Steam CDN, or the user's own file. */
+/** Background: a built-in gradient, a hero render from the Steam CDN, or the user's own file
+ * (picture, GIF or video, in IndexedDB). */
 export type Background =
   | { kind: 'preset'; id: string }
   | { kind: 'hero'; key: string }
@@ -20,6 +21,8 @@ interface UiState {
   background: Background;
   bgBlur: number;      // px applied to the wallpaper itself
   bgDim: number;       // 0..0.8 dark overlay over the wallpaper
+  /** visible part of a picture, video or hero art (background-position, %) */
+  bgPos: { x: number; y: number };
   refraction: boolean; // SVG edge refraction (Chromium only)
   performance: boolean; // no blur, no refraction, no animations
   /** Background effect over the wallpaper and its intensity (0.1..1). */
@@ -51,9 +54,10 @@ export const useUi = create<UiState>()(
       buildHero: null,
       buildPos: 1,
       theme: 'dark',
-      background: { kind: 'preset', id: 'dire' },
+      background: { kind: 'preset', id: 'default' },
       bgBlur: 0,
       bgDim: 0.15,
+      bgPos: { x: 50, y: 30 },
       refraction: true,
       performance: false,
       logo: { kind: 'default' },
@@ -76,6 +80,7 @@ export const useUi = create<UiState>()(
         overlay: { ...current.overlay, ...((persisted as Partial<UiState>)?.overlay ?? {}) },
         banner: { ...current.banner, ...((persisted as Partial<UiState>)?.banner ?? {}) },
         fx: { ...current.fx, ...((persisted as Partial<UiState>)?.fx ?? {}) },
+        bgPos: { ...current.bgPos, ...((persisted as Partial<UiState>)?.bgPos ?? {}) },
       }),
     },
   ),

@@ -6,9 +6,8 @@ import { comboFromEvent, dotaKeyName, toggleOverlay, useHotkeyStatus } from '../
 import { api, subscribe } from '../api/client';
 import { useHealth, useHeroes, useSaveSettings, useSettings } from '../api/hooks';
 import type { Job, Settings } from '../api/types';
-import { heroArt, PRESETS } from '../components/Chrome';
+import { BrandMark, heroArt, PRESETS } from '../components/Chrome';
 import { Panel } from '../components/Glass';
-import { HeroGridCard } from '../components/HeroGridCard';
 import { HeroSearch } from '../components/HeroSearch';
 import { LaneBulkCard } from '../components/LaneBulkCard';
 import { VersionCard } from '../components/VersionCard';
@@ -28,7 +27,6 @@ export function SettingsPage() {
         <VisionCard />
         <OverlayCard />
         <AdviceCard />
-        <HeroGridCard />
         <DataCard />
         <LaneBulkCard />
         <VersionCard />
@@ -148,7 +146,7 @@ function LogoField() {
     <div className="field">
       <span className="label">Значок приложения</span>
       <div className="logo-field">
-        {url ? <img className="logo-field__preview" src={url} alt="" /> : <span className="titlebar__logo logo-field__preview" />}
+        {url ? <img className="logo-field__preview" src={url} alt="" /> : <span className="brand-logo logo-field__preview"><BrandMark /></span>}
         <button className="btn btn--sm" onClick={() => input.current?.click()}>
           Своя картинка…
         </button>

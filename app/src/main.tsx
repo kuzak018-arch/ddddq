@@ -1,4 +1,6 @@
-import '@fontsource-variable/inter';
+import '@fontsource-variable/onest';
+import '@fontsource-variable/unbounded';
+import '@fontsource-variable/jetbrains-mono';
 import './styles/tokens.css';
 import './styles/glass.css';
 import './styles/app.css';

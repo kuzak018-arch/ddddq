@@ -31,11 +31,19 @@ h4 {
   font-weight: 650;
   letter-spacing: -0.01em;
 }
+/* Unbounded for titles and big numbers, Onest for text, a monospace for numbers in tables */
+h1,
+h2,
+.display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
 h1 {
   font-size: 30px;
 }
 h2 {
-  font-size: 19px;
+  font-size: 18px;
 }
 h3 {
   font-size: 14px;
@@ -44,6 +52,22 @@ h4 {
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  color: var(--text-2);
+}
+.mono,
+.table td {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+.table td.table__hero {
+  font-family: var(--font);
+}
+/* small caps label over a block: МЫ, ВРАГИ, ЛИНИЯ */
+.kicker {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   color: var(--text-2);
 }
 p {
@@ -157,6 +181,8 @@ input {
 .wallpaper__dim {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
   transition:
     filter 0.4s var(--ease-out),
     background 0.4s;
@@ -170,64 +196,180 @@ input {
   flex-direction: column;
 }
 
-.titlebar {
+/* ---------- top bar: logo, tab pill, my position, settings, window buttons ---------- */
+.topbar {
   height: var(--titlebar-h);
   flex: none;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 16px;
+  padding: 0 14px 0 var(--gutter);
+}
+.topbar__brand {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 6px 0 var(--gutter);
+  gap: 12px;
+  min-width: 0;
 }
-/* sits directly on the wallpaper: its own glass pill keeps it readable on any image and theme */
-.titlebar__brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-weight: 650;
-  padding: 5px 14px 5px 8px;
-  border-radius: var(--radius-pill);
-  background: var(--glass-tint-strong);
-  -webkit-backdrop-filter: blur(14px) saturate(170%);
-  backdrop-filter: blur(14px) saturate(170%);
-  box-shadow: inset 0 0 0 1px var(--glass-rim-2);
+.brand-logo {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: linear-gradient(140deg, #4a8cff, #2f5be0 55%, #6a3fd0);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 8px 22px -8px rgba(40, 90, 255, 0.7);
 }
-.titlebar__logo {
-  width: 18px;
-  height: 18px;
-  border-radius: 6px;
-  background: linear-gradient(135deg, var(--radiant), var(--accent) 50%, var(--dire));
-  box-shadow: 0 0 14px rgba(255, 255, 255, 0.25);
+.brand-logo svg {
+  width: 24px;
+  height: 24px;
 }
-.titlebar__logo--img {
+.brand-logo--img {
   object-fit: cover;
   background: none;
 }
-.logo-field {
+.topbar__title {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  white-space: nowrap;
+  text-shadow: var(--text-on-wall-shadow);
 }
-.logo-field__preview {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  object-fit: cover;
-  flex-shrink: 0;
-}
-.titlebar__meta {
-  font-size: 12px;
+.topbar__title small {
+  font-family: var(--font);
+  font-size: 11px;
   font-weight: 500;
+  letter-spacing: 0;
   color: var(--text-2);
 }
-.titlebar__buttons {
+.topbar__right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* the tab pill: the active tab is a near-white pill that glides between tabs */
+.tabs {
   display: flex;
   gap: 2px;
+  padding: 5px;
+  border-radius: var(--radius-pill);
+}
+.tabs__item {
+  position: relative;
+  height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--dur) var(--ease-out),
+    color var(--dur) var(--ease-out),
+    transform 0.45s var(--ease-spring);
+}
+.tabs__item:hover {
+  background-color: var(--control-bg);
+}
+.tabs__item:active {
+  transform: scale(0.96);
+}
+.tabs__item.is-active {
+  color: var(--chip-on-text);
+}
+.tabs__item.is-active:hover {
+  background-color: transparent;
+}
+.tabs__pill,
+.posnav__pill {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-pill);
+  background: var(--chip-on);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 4px 14px -6px rgba(0, 0, 0, 0.45);
+}
+.tabs__label,
+.posnav__btn > span:not(.posnav__pill) {
+  position: relative;
+  z-index: 1;
+}
+
+/* my position: round buttons 1–5 */
+.posnav {
+  display: flex;
+  gap: 4px;
+  padding: 5px;
+  border-radius: var(--radius-pill);
+}
+.posnav__btn {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition:
+    background-color var(--dur) var(--ease-out),
+    color var(--dur) var(--ease-out),
+    transform 0.45s var(--ease-spring);
+}
+.posnav__btn:hover {
+  background-color: var(--control-bg);
+}
+.posnav__btn:active {
+  transform: scale(0.92);
+}
+.posnav__btn.is-on {
+  color: var(--chip-on-text);
+}
+.round-btn {
+  width: 48px;
+  height: 48px;
+  border: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--text);
+  cursor: pointer;
+  transition: transform 0.45s var(--ease-spring);
+}
+.round-btn:active {
+  transform: scale(0.94);
+}
+.round-btn.is-active {
+  background: var(--chip-on);
+  color: var(--chip-on-text);
+}
+.winbtns {
+  display: flex;
+  gap: 2px;
+  margin-left: 2px;
 }
 .winbtn {
-  width: 42px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 50%;
   background: transparent;
   display: grid;
   place-items: center;
@@ -242,13 +384,65 @@ input {
   background: #e81123;
   color: #fff;
 }
+/* a narrow window: the tabs take the whole middle, the title shrinks to the logo */
+@media (max-width: 1240px) {
+  .topbar__title {
+    display: none;
+  }
+  .tabs__item {
+    padding: 0 13px;
+  }
+}
 
+.logo-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.logo-field__preview {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.wallpaper__video {
+  object-fit: cover;
+}
 .app__body {
   flex: 1;
   min-height: 0;
   display: flex;
   gap: var(--gutter);
   padding: 0 var(--gutter) var(--gutter);
+}
+
+/* «скоро»: a page that comes in a later stage */
+.soon {
+  height: 100%;
+  display: grid;
+  place-items: center;
+}
+.soon__card {
+  max-width: 620px;
+}
+.soon__card .panel__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 36px 40px;
+}
+.grids-page {
+  height: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+.grids-page > .panel {
+  flex: 1;
+  min-height: 0;
 }
 .app__main {
   flex: 1;
@@ -325,66 +519,6 @@ input {
   .page--out {
     display: none;
   }
-}
-
-/* ---------- dock ---------- */
-.dock {
-  width: var(--dock-w);
-  flex: none;
-  border-radius: var(--radius-xl);
-  padding: 10px 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.dock__item {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 10px 0 8px;
-  border: 0;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--text-2);
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  transition:
-    background-color var(--dur) var(--ease-out),
-    color var(--dur) var(--ease-out),
-    transform 0.45s var(--ease-spring);
-}
-.dock__item > svg,
-.dock__item > span:not(.dock__pill) {
-  position: relative;
-  z-index: 1;
-}
-.dock__item:hover {
-  background-color: var(--control-bg);
-  color: var(--text);
-}
-.dock__item:active {
-  transform: scale(0.95);
-}
-.dock__item.is-active {
-  color: var(--text);
-}
-.dock__item.is-active:hover {
-  background-color: transparent;
-}
-/* the active highlight is one element that glides between items (motion layoutId) */
-.dock__pill {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background:
-    radial-gradient(120% 120% at 30% 0%, rgba(255, 255, 255, 0.22), transparent 60%),
-    var(--control-bg-active);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    inset 0 0 0 1px var(--glass-rim-2);
 }
 
 /* ---------- panels ---------- */

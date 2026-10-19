@@ -1,28 +1,31 @@
-/* Design tokens. Dark is the default look; light via [data-theme='light'] or the system setting. */
+/* Design tokens. Dark is the default look; light via [data-theme='light'] or the system setting.
+   Liquid Glass: panels are a thin white veil over the user's wallpaper (blur + saturation), with a
+   1px rim, a top highlight and a soft shadow; active controls are near-white pills with dark text. */
 :root {
-  --font: 'Inter Variable', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  --font: 'Onest Variable', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+  --font-display: 'Unbounded Variable', 'Onest Variable', 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono Variable', 'Cascadia Mono', Consolas, monospace;
 
-  --radius-xl: 28px;
-  --radius-lg: 22px;
-  --radius-md: 16px;
-  --radius-sm: 11px;
+  --radius-xl: 30px;
+  --radius-lg: 24px;
+  --radius-md: 18px;
+  --radius-sm: 12px;
   --radius-pill: 999px;
 
-  --titlebar-h: 44px;
-  --dock-w: 84px;
-  --gutter: 18px;
+  --titlebar-h: 72px;
+  --gutter: 20px;
 
   /* softer than before: a gentle overshoot instead of a snap */
   --ease-spring: cubic-bezier(0.32, 1.22, 0.56, 1);
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --dur: 0.32s;
 
-  --radiant: #5bd88a;
-  --dire: #ff5d4f;
-  --good: #4cd98a;
-  --bad: #ff6b5e;
-  --warn: #ffbf45;
-  --accent: #0a84ff;
+  --radiant: #5be39a;
+  --dire: #ff7a6b;
+  --good: #5be39a;
+  --bad: #ff7a6b;
+  --warn: #ffc95c;
+  --accent: #3d7bff;
 
   --tier-S: #ff6b6b;
   --tier-A: #ffa94d;
@@ -32,58 +35,68 @@
 
   /* dark */
   color-scheme: dark;
-  --text: #f5f5f7;
-  --text-2: rgba(245, 245, 247, 0.76);
-  --text-3: rgba(245, 245, 247, 0.56);
-  --hairline: rgba(255, 255, 255, 0.1);
-  --page-bg: #101114;
-  --focus: rgba(100, 170, 255, 0.7);
+  --text: #ffffff;
+  --text-2: rgba(255, 255, 255, 0.78);
+  --text-3: rgba(255, 255, 255, 0.58);
+  --hairline: rgba(255, 255, 255, 0.12);
+  --page-bg: #0b0b10;
+  --focus: rgba(140, 180, 255, 0.8);
 
-  --glass-tint: rgba(30, 31, 36, 0.66);
-  --glass-tint-strong: rgba(30, 31, 36, 0.84);
-  --glass-tint-inset: rgba(255, 255, 255, 0.05);
-  --glass-rim: rgba(255, 255, 255, 0.36);
-  --glass-rim-2: rgba(255, 255, 255, 0.07);
-  --glass-specular: rgba(255, 255, 255, 0.42);
-  --glass-shadow: 0 18px 50px -14px rgba(0, 0, 0, 0.65), 0 4px 14px rgba(0, 0, 0, 0.28);
+  /* --veil: extra darkening under the glass, set from the wallpaper's brightness so text stays
+     readable on a bright picture (0 on dark wallpapers) */
+  --veil: 0;
+  --glass-tint: rgba(255, 255, 255, 0.1);
+  --glass-tint-strong: rgba(255, 255, 255, 0.14);
+  --glass-tint-inset: rgba(255, 255, 255, 0.07);
+  --glass-solid: rgba(22, 23, 30, 0.9); /* performance mode and no backdrop-filter */
+  --glass-border: rgba(255, 255, 255, 0.22);
+  --glass-highlight: rgba(255, 255, 255, 0.4);
+  --glass-rim-2: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.55), 0 6px 18px rgba(0, 0, 0, 0.18);
   --glass-blur: 26px;
-  --glass-saturate: 175%;
+  --glass-saturate: 180%;
 
-  --control-bg: rgba(255, 255, 255, 0.09);
-  --control-bg-hover: rgba(255, 255, 255, 0.15);
-  --control-bg-active: rgba(255, 255, 255, 0.22);
-  --chip-on: rgba(255, 255, 255, 0.9);
-  --chip-on-text: #111216;
-  --slot-bg: rgba(0, 0, 0, 0.28);
+  --control-bg: rgba(255, 255, 255, 0.1);
+  --control-bg-hover: rgba(255, 255, 255, 0.17);
+  --control-bg-active: rgba(255, 255, 255, 0.24);
+  --chip-on: rgba(255, 255, 255, 0.94);
+  --chip-on-text: #12131a;
+  --slot-bg: rgba(255, 255, 255, 0.06);
+  --row-bg: rgba(255, 255, 255, 0.08);
+  --row-bg-hover: rgba(255, 255, 255, 0.14);
   --text-on-wall-shadow: 0 1px 2px rgba(0, 0, 0, 0.55), 0 0 18px rgba(0, 0, 0, 0.35);
 }
 
 :root[data-theme='light'] {
   color-scheme: light;
-  --text: #1d1d1f;
-  --text-2: rgba(29, 29, 31, 0.74);
-  --text-3: rgba(29, 29, 31, 0.56);
+  --text: #15161c;
+  --text-2: rgba(21, 22, 28, 0.76);
+  --text-3: rgba(21, 22, 28, 0.56);
   --hairline: rgba(0, 0, 0, 0.09);
   --page-bg: #eef0f4;
-  --focus: rgba(10, 132, 255, 0.6);
-  --good: #16a34a;
-  --bad: #e5392b;
-  --radiant: #16a34a;
-  --dire: #dc2626;
+  --focus: rgba(40, 100, 255, 0.6);
+  --good: #12924a;
+  --bad: #d93a2b;
+  --radiant: #12924a;
+  --dire: #d93a2b;
+  --warn: #b7791f;
 
-  --glass-tint: rgba(255, 255, 255, 0.62);
-  --glass-tint-strong: rgba(255, 255, 255, 0.86);
-  --glass-tint-inset: rgba(0, 0, 0, 0.04);
-  --glass-rim: rgba(255, 255, 255, 0.85);
-  --glass-rim-2: rgba(255, 255, 255, 0.2);
-  --glass-specular: rgba(255, 255, 255, 0.9);
-  --glass-shadow: 0 12px 36px -12px rgba(20, 24, 40, 0.28), 0 2px 8px rgba(20, 24, 40, 0.08);
+  --glass-tint: rgba(255, 255, 255, 0.52);
+  --glass-tint-strong: rgba(255, 255, 255, 0.7);
+  --glass-tint-inset: rgba(0, 0, 0, 0.045);
+  --glass-solid: rgba(248, 248, 251, 0.95);
+  --glass-border: rgba(255, 255, 255, 0.75);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --glass-rim-2: rgba(0, 0, 0, 0.06);
+  --glass-shadow: 0 18px 44px -18px rgba(20, 24, 40, 0.3), 0 2px 8px rgba(20, 24, 40, 0.08);
 
   --control-bg: rgba(0, 0, 0, 0.055);
   --control-bg-hover: rgba(0, 0, 0, 0.09);
   --control-bg-active: rgba(0, 0, 0, 0.13);
-  --chip-on: rgba(255, 255, 255, 0.95);
-  --chip-on-text: #1d1d1f;
-  --slot-bg: rgba(0, 0, 0, 0.08);
+  --chip-on: rgba(255, 255, 255, 0.98);
+  --chip-on-text: #15161c;
+  --slot-bg: rgba(0, 0, 0, 0.05);
+  --row-bg: rgba(255, 255, 255, 0.5);
+  --row-bg-hover: rgba(255, 255, 255, 0.75);
   --text-on-wall-shadow: 0 1px 2px rgba(255, 255, 255, 0.6), 0 0 18px rgba(255, 255, 255, 0.4);
 }

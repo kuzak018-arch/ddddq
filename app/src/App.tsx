@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { waitForBackend } from './api/client';
-import { Dock, TitleBar, Wallpaper } from './components/Chrome';
+import { TitleBar, useCalmBackground, Wallpaper } from './components/Chrome';
 import { Effects } from './components/Effects';
 import { Panel } from './components/Glass';
 import { Onboarding } from './components/Onboarding';
 import { refractionSupported } from './glass/refraction';
 import { BuildsPage } from './pages/BuildsPage';
 import { DraftPage } from './pages/DraftPage';
+import { GridsPage } from './pages/GridsPage';
 import { HeroPage } from './pages/HeroPage';
 import { MetaPage } from './pages/MetaPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
+import { TopGamesPage } from './pages/TopGamesPage';
 import { VisionPage } from './pages/VisionPage';
 import { useWindowIcon } from './lib/appIcon';
 import { applyHotkeys, showOverlay } from './lib/overlay';
@@ -24,14 +26,17 @@ const PAGES: Record<Page, () => React.JSX.Element> = {
   meta: MetaPage,
   hero: HeroPage,
   builds: BuildsPage,
+  top: TopGamesPage,
+  grids: GridsPage,
   profile: ProfilePage,
   settings: SettingsPage,
   vision: VisionPage,
 };
-const ORDER: Page[] = ['draft', 'meta', 'hero', 'builds', 'profile', 'settings'];
+const ORDER: Page[] = ['draft', 'meta', 'hero', 'top', 'grids', 'profile', 'settings'];
 
 function useAppearance() {
-  const { theme, performance, refraction } = useUi();
+  const { theme, refraction } = useUi();
+  const calm = useCalmBackground(); // performance mode or a running match: no blur, no animations
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: light)');
     const apply = () => {
@@ -43,9 +48,9 @@ function useAppearance() {
     return () => mq.removeEventListener('change', apply);
   }, [theme]);
   useEffect(() => {
-    document.documentElement.classList.toggle('perf', performance);
-    document.documentElement.classList.toggle('has-refraction', refractionSupported && refraction && !performance);
-  }, [performance, refraction]);
+    document.documentElement.classList.toggle('perf', calm);
+    document.documentElement.classList.toggle('has-refraction', refractionSupported && refraction && !calm);
+  }, [calm, refraction]);
 }
 
 const LEAVE_MS = 220;
@@ -98,7 +103,7 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const m = /^Digit([1-6])$/.exec(e.code);
+      const m = /^Digit([1-7])$/.exec(e.code);
       if (e.ctrlKey && m) {
         e.preventDefault();
         go(ORDER[Number(m[1]) - 1]!);
@@ -130,7 +135,6 @@ export default function App() {
       <div className="app">
         <TitleBar />
         <div className="app__body">
-          <Dock />
           <main className="app__main">
             {!ready ? (
               <Panel className="boot" refracting>
