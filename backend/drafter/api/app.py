@@ -921,6 +921,18 @@ class DebugLogIn(BaseModel):
 UI_DEBUG_MAX = 2_000_000
 
 
+# ---------- «Игры топов» ----------------------------------------------------------------------
+
+@app.get("/top-games/{hero_id}")
+def top_games(hero_id: int, source: Literal["immortal", "divine", "pro"] = "immortal", refresh: bool = False):
+    """Recent current-patch matches of the hero by Immortal / Divine+ players or pros; starts a
+    background load when needed (poll while `loading`)."""
+    from .. import topgames
+    if hero_id not in constants.hero_by_id():
+        raise HTTPException(404, "нет такого героя")
+    return topgames.get(hero_id, source, refresh)
+
+
 # ---------- «Оформление игры»: the menu background and fonts (off by default) -----------------
 
 MOD_BUNDLE_MAX = 80_000_000
