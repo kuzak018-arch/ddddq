@@ -3269,3 +3269,35 @@ label.field {
 :root[data-theme='light'] .dr-row.is-focus {
   box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.45);
 }
+
+/* screen-reading wizard: what the reader cuts out of the frame */
+.crops {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  background: var(--row-bg);
+}
+.crops__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.crops__group {
+  width: 64px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.crops__row img {
+  height: 44px;
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px var(--glass-border);
+  image-rendering: auto;
+}
+.crops__none {
+  width: 44px;
+  text-align: center;
+  color: var(--text-3);
+}

@@ -7,13 +7,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 
 import { api, backend } from '../api/client';
+import { moveRects, resizeRects, type Rect } from '../lib/calibrate';
 import { useHeroes } from '../api/hooks';
 import { Panel } from '../components/Glass';
 import { HeroSearch } from '../components/HeroSearch';
 import { useUi } from '../state/ui';
 import { Empty, ErrorBox, fmtPct, HeroIcon, Segmented, Slider, Toggle } from '../components/ui';
 
-type Rect = [number, number, number, number];
 type Group = 'radiant' | 'dire' | 'bans';
 interface Calibration {
   aspect: number;
@@ -461,10 +461,25 @@ function SnapshotEditor({ img, snap, cal, active, together, onChange, result, fi
   const W = snap.width;
   const H = snap.height;
   const drag = useRef<{ g: Group; i: number; mode: 'move' | 'size'; x: number; y: number; start: Rect[]; moved: boolean } | null>(null);
-  const [zoomMode, setZoom] = useState<'top' | 'all'>('top');
-  const zoom = zoomMode === 'top';
-  // most slots are in the top part of the screen: show that area bigger by default
-  const view = zoom ? { y: 0, h: Math.round(H * 0.3) } : { y: 0, h: H };
+  const [zoomMode, setZoom] = useState<'slots' | 'top' | 'all'>('slots');
+  // «Рамки»: the area around all slot rectangles, so portraits are big enough to place precisely
+  // even on a 2560×1440 frame; «Верх экрана»: the top 30%; «Весь кадр»: everything.
+  const all = [...cal.radiant, ...cal.dire, ...cal.bans];
+  const box = all.length
+    ? (() => {
+        const x0 = Math.min(...all.map((r) => r[0])), x1 = Math.max(...all.map((r) => r[0] + r[2]));
+        const y0 = Math.min(...all.map((r) => r[1])), y1 = Math.max(...all.map((r) => r[1] + r[3]));
+        const mx = (x1 - x0) * 0.08 + 0.01, my = Math.max((y1 - y0) * 0.6, 0.03);
+        const bx = Math.max(0, x0 - mx), by = Math.max(0, y0 - my);
+        return { x: bx * W, y: by * H, w: (Math.min(1, x1 + mx) - bx) * W, h: (Math.min(1, y1 + my * 2.2) - by) * H };
+      })()
+    : { x: 0, y: 0, w: W, h: H };
+  // the box follows the rectangles only between drags, so it does not run away under the cursor
+  const [slotsView, setSlotsView] = useState(box);
+  useEffect(() => {
+    if (!drag.current) setSlotsView(box);
+  }, [snap.id, zoomMode]);
+  const view = zoomMode === 'slots' ? slotsView : zoomMode === 'top' ? { x: 0, y: 0, w: W, h: Math.round(H * 0.3) } : { x: 0, y: 0, w: W, h: H };
 
   const toFrac = (e: React.PointerEvent) => {
     const pt = svg.current!.createSVGPoint();
@@ -487,13 +502,8 @@ function SnapshotEditor({ img, snap, cal, active, together, onChange, result, fi
     const dx = p.x - d.x;
     const dy = p.y - d.y;
     if (Math.abs(dx) + Math.abs(dy) > 0.001) d.moved = true;
-    const clamp = (v: number) => Math.min(1, Math.max(0, v));
-    const next = d.start.map((r, k) => {
-      if (k !== d.i && !together) return r;
-      if (d.mode === 'move') return [clamp(r[0] + dx), clamp(r[1] + dy), r[2], r[3]] as Rect;
-      return [r[0], r[1], Math.max(0.004, d.start[d.i]![2] + dx), Math.max(0.004, d.start[d.i]![3] + dy)] as Rect;
-    });
-    onChange(d.g, next);
+    // a group resize scales the whole group, so the rectangles keep their spacing (see calibrate.ts)
+    onChange(d.g, d.mode === 'move' ? moveRects(d.start, d.i, dx, dy, together) : resizeRects(d.start, d.i, dx, dy, together));
   };
   const onUp = () => {
     const d = drag.current;
@@ -504,12 +514,21 @@ function SnapshotEditor({ img, snap, cal, active, together, onChange, result, fi
   return (
     <div className="snap">
       <div className="row">
-        <Segmented small value={zoomMode} onChange={setZoom} options={[{ value: 'top', label: 'Верх экрана' }, { value: 'all', label: 'Весь кадр' }]} />
+        <Segmented
+          small
+          value={zoomMode}
+          onChange={setZoom}
+          options={[
+            { value: 'slots', label: 'Рамки крупно' },
+            { value: 'top', label: 'Верх экрана' },
+            { value: 'all', label: 'Весь кадр' },
+          ]}
+        />
         <span className="hint">
           {W}×{H}
         </span>
       </div>
-      <svg ref={svg} className="snap__svg" viewBox={`0 ${view.y} ${W} ${view.h}`} onPointerMove={onMove} onPointerUp={onUp}>
+      <svg ref={svg} className="snap__svg" viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} onPointerMove={onMove} onPointerUp={onUp}>
         <image href={img} x={0} y={0} width={W} height={H} />
         {(['radiant', 'dire', 'bans'] as Group[]).map((g) =>
           cal[g].map((r, i) => {
@@ -546,6 +565,50 @@ function SnapshotEditor({ img, snap, cal, active, together, onChange, result, fi
           }),
         )}
       </svg>
+      <CropStrip snap={snap} cal={cal} />
+    </div>
+  );
+}
+
+/**
+ * What the reader really cuts out with these rectangles: the backend crops the same frame with the
+ * same code, a moment after a rectangle stops moving. A portrait that looks cut or shifted here
+ * is read wrong in the game too.
+ */
+function CropStrip({ snap, cal }: { snap: Snapshot; cal: Calibration }) {
+  const [debounced, setDebounced] = useState(cal);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(cal), 250);
+    return () => clearTimeout(t);
+  }, [cal]);
+  const crops = useQuery({
+    queryKey: ['vision-crops', snap.id, debounced],
+    queryFn: () =>
+      api<Record<Group, (string | null)[]> & { width: number; height: number; warnings: string[] }>('/vision/crops', {
+        body: { snapshot: snap.id, calibration: debounced },
+      }),
+    placeholderData: (prev) => prev,
+  });
+  const d = crops.data;
+  return (
+    <div className="crops">
+      <span className="label">Что вырезается из кадра {d ? `${d.width}×${d.height}` : ''}</span>
+      {d?.warnings.map((w) => (
+        <p key={w} className="small warn">
+          {w}
+        </p>
+      ))}
+      {crops.error && <ErrorBox error={crops.error} />}
+      {(['radiant', 'dire', 'bans'] as Group[]).map((g) =>
+        d?.[g]?.length ? (
+          <div key={g} className="crops__row">
+            <span className="crops__group" style={{ color: GROUP_COLOR[g] }}>
+              {GROUP_LABEL[g]}
+            </span>
+            {d[g].map((src, i) => (src ? <img key={i} src={src} alt={`${GROUP_LABEL[g]} ${i + 1}`} /> : <span key={i} className="crops__none">—</span>))}
+          </div>
+        ) : null,
+      )}
     </div>
   );
 }

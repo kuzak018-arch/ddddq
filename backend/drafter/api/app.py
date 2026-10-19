@@ -767,6 +767,37 @@ def vision_read(body: ReadIn):
     return vread.as_json(vread.read(frame, body.calibration))
 
 
+class CropsIn(BaseModel):
+    snapshot: str
+    calibration: vcal.Calibration
+
+
+@app.post("/vision/crops")
+def vision_crops(body: CropsIn):
+    """Exactly what the reader cuts out of this frame with these rectangles (the same crop code),
+    as small PNGs: the wizard shows them under the frame right after a rectangle moves."""
+    import base64
+    import cv2
+    frame = vmatch._read(_snapshot_path(body.snapshot))
+    h, w = frame.shape[:2]
+    out: dict = {"width": w, "height": h, "warnings": []}
+    if abs(w / h - body.calibration.aspect) > 0.02:
+        out["warnings"].append(f"соотношение сторон кадра {w}×{h} не совпадает с калибровкой: "
+                               "сними кадр в режиме «Окно без рамки» и откалибруй заново")
+    for group, items in vread.crops(frame, body.calibration).items():
+        out[group] = []
+        for crop in items:
+            if crop.size == 0:
+                out[group].append(None)
+                continue
+            scale = min(1.0, 96 / max(crop.shape[1], 1))
+            small = cv2.resize(crop, (max(1, round(crop.shape[1] * scale)), max(1, round(crop.shape[0] * scale))),
+                               interpolation=cv2.INTER_AREA) if scale < 1 else crop
+            ok, buf = cv2.imencode(".png", small)
+            out[group].append("data:image/png;base64," + base64.b64encode(buf.tobytes()).decode() if ok else None)
+    return out
+
+
 class LabelIn(BaseModel):
     snapshot: str
     calibration: vcal.Calibration | None = None
