@@ -13,6 +13,7 @@ import ReactDOM from 'react-dom/client';
 import { backend } from './api/client';
 import App from './App';
 import { installButtonSheen } from './components/Glass';
+import { installWheel } from './lib/wheel';
 import { isOverlayWindow } from './lib/overlay';
 import { OverlayApp } from './overlay/OverlayApp';
 import { useUi } from './state/ui';
@@ -23,6 +24,7 @@ const queryClient = new QueryClient({
 });
 
 installButtonSheen();
+installWheel(); // wheel scrolling safety net + hidden debug log (Ctrl+Alt+Shift+W)
 
 // Never leave the user with a blank window: if the UI crashes or doesn't start, say why.
 function showFatal(message: string) {

@@ -871,6 +871,28 @@ def vision_enable(body: EnableIn):
 
 # ---------- jobs & events ----------------------------------------------------------------
 
+class DebugLogIn(BaseModel):
+    lines: list[str] = Field(..., max_length=500)
+
+
+UI_DEBUG_MAX = 2_000_000
+
+
+@app.post("/debug/log")
+def debug_log(body: DebugLogIn):
+    """The UI's hidden debug mode (wheel events and the like) appends here: logs/ui-debug.log in
+    the user's data folder. Kept under ~2 MB: the older half goes when it grows past that."""
+    path = config.ROOT / "logs" / "ui-debug.log"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists() and path.stat().st_size > UI_DEBUG_MAX:
+        data = path.read_bytes()
+        path.write_bytes(data[len(data) // 2:])
+    with path.open("a", encoding="utf-8") as f:
+        for line in body.lines:
+            f.write(line[:4000].replace("\n", " ") + "\n")
+    return {"ok": True, "path": str(path)}
+
+
 @app.post("/data/refresh")
 def data_refresh():
     return jobs.start("refresh", refresh.run).public()
