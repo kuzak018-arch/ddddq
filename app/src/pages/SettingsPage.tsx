@@ -15,6 +15,7 @@ import { useEffectsBlocked } from '../components/Effects';
 import { refractionSupported } from '../glass/refraction';
 import { ErrorBox, Segmented, Slider, Toggle } from '../components/ui';
 import { LOGO_KEY, useLogoUrl } from '../lib/appIcon';
+import { autostartEnabled, setAutostart } from '../lib/tray';
 import { loadBackgroundFile, saveBackgroundFile, saveFile } from '../state/bgstore';
 import { useUi } from '../state/ui';
 
@@ -28,6 +29,7 @@ export function SettingsPage() {
         <VisionCard />
         <OverlayCard />
         <AdviceCard />
+        <AppCard />
         <DataCard />
         <LaneBulkCard />
         <VersionCard />
@@ -592,6 +594,33 @@ function AdviceCard() {
       </p>
       <Slider label="Тир-лист за дней" value={draft.tier_days} min={3} max={30} step={1} onChange={(tier_days) => upd({ tier_days })} />
       {save.error && <ErrorBox error={save.error} />}
+    </Panel>
+  );
+}
+
+/** The window and Windows: tray on close, launch with Windows. */
+function AppCard() {
+  const ui = useUi();
+  const auto = useQuery({ queryKey: ['autostart'], queryFn: autostartEnabled });
+  const qc = useQueryClient();
+  const toggle = useMutation({
+    mutationFn: setAutostart,
+    onSettled: () => qc.invalidateQueries({ queryKey: ['autostart'] }),
+  });
+  return (
+    <Panel>
+      <h2>Приложение</h2>
+      <Toggle on={ui.closeToTray} onChange={(closeToTray) => ui.set({ closeToTray })} label="Сворачивать в трей при закрытии окна" />
+      <Toggle
+        on={!!auto.data}
+        onChange={(on) => toggle.mutate(on)}
+        label={auto.data === null ? 'Запускать вместе с Windows (только в установленном приложении)' : 'Запускать вместе с Windows (сразу в трей)'}
+      />
+      {toggle.error && <ErrorBox error={toggle.error} />}
+      <p className="hint">
+        Значок в трее: клик — показать окно, правый клик — меню (показать, оверлей вкл/выкл, выход). «Выход» в меню трея
+        закрывает приложение совсем.
+      </p>
     </Panel>
   );
 }

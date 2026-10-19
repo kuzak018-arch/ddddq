@@ -4,6 +4,7 @@
 
 mod backend;
 mod overlay;
+mod tray;
 
 use std::sync::Mutex;
 use tauri::{Manager, RunEvent, WindowEvent};
@@ -33,12 +34,12 @@ fn backend_info(state: tauri::State<'_, AppState>) -> Result<BackendInfo, String
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let app = tauri::Builder::default()
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            if let Some(w) = app.get_webview_window("main") {
-                let _ = w.unminimize();
-                let _ = w.set_focus();
-            }
-        }))
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| tray::show_main(app)))
+        // autostart with Windows (off until the user turns it on): such a launch starts in the tray
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            Some(vec![tray::MINIMIZED_ARG]),
+        ))
         // remember size and position of both windows, but never re-open the overlay by itself
         .plugin(
             tauri_plugin_window_state::Builder::default()
@@ -52,7 +53,14 @@ pub fn run() {
         )
         .manage(overlay::OverlayState::default())
         .manage(AppState::default())
+        .manage(tray::TrayState::default())
         .setup(|app| {
+            tray::create(app.handle())?;
+            if std::env::args().any(|a| a == tray::MINIMIZED_ARG) {
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.hide();
+                }
+            }
             let (info, child) = backend::start(app.path().resource_dir().ok())?;
             let state = app.state::<AppState>();
             *state.info.lock().unwrap() = Some(info);
@@ -60,10 +68,15 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            // closing the main window quits the app (the hidden overlay must not keep it alive)
+            // closing the main window quits the app (the hidden overlay must not keep it alive),
+            // or hides it into the tray when the user chose that
             if window.label() == "main" {
-                if let WindowEvent::CloseRequested { .. } = event {
-                    window.app_handle().exit(0);
+                if let WindowEvent::CloseRequested { api, .. } = event {
+                    if tray::on_close(window.app_handle()) {
+                        api.prevent_close();
+                    } else {
+                        window.app_handle().exit(0);
+                    }
                 }
             }
         })
@@ -75,6 +88,7 @@ pub fn run() {
             overlay::overlay_status,
             overlay::overlay_set_effect,
             overlay::overlay_set_hotkeys,
+            tray::set_close_to_tray,
         ])
         .build(tauri::generate_context!())
         .expect("не удалось запустить приложение");

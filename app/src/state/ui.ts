@@ -25,6 +25,8 @@ interface UiState {
   bgPos: { x: number; y: number };
   refraction: boolean; // SVG edge refraction (Chromium only)
   performance: boolean; // no blur, no refraction, no animations
+  /** closing the main window hides it into the tray instead of quitting */
+  closeToTray: boolean;
   /** Background effect over the wallpaper and its intensity (0.1..1). */
   fx: { kind: Effect; intensity: number };
   /** App icon next to the title and in the taskbar: built-in or the user's picture (IndexedDB). */
@@ -60,6 +62,7 @@ export const useUi = create<UiState>()(
       bgPos: { x: 50, y: 30 },
       refraction: true,
       performance: false,
+      closeToTray: false,
       logo: { kind: 'default' },
       fx: { kind: 'none', intensity: 0.5 },
       banner: { kind: 'none', x: 50, y: 30, blur: 0, dim: 0.35 },

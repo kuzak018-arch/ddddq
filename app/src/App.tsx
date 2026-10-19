@@ -16,6 +16,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { TopGamesPage } from './pages/TopGamesPage';
 import { VisionPage } from './pages/VisionPage';
 import { useWindowIcon } from './lib/appIcon';
+import { useCloseToTray } from './lib/tray';
 import { applyHotkeys, showOverlay } from './lib/overlay';
 import { useDraft } from './state/draft';
 import { startSync } from './state/sync';
@@ -93,6 +94,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   useAppearance();
   useWindowIcon(true);
+  useCloseToTray();
 
   useEffect(() => {
     waitForBackend()

@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window and overlay: own window controls, dragging, resizing the overlay to a pill, the window icon, the app version, backend info, overlay commands",
+  "description": "Main window and overlay: own window controls, dragging, resizing the overlay to a pill, the window icon, the app version, autostart, backend info, overlay commands",
   "windows": [
     "main",
     "overlay"
@@ -19,6 +19,9 @@
     "window-state:default",
     "core:window:allow-set-icon",
     "core:app:allow-default-window-icon",
-    "core:app:allow-version"
+    "core:app:allow-version",
+    "autostart:allow-enable",
+    "autostart:allow-disable",
+    "autostart:allow-is-enabled"
   ]
 }
