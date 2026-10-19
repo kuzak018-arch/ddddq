@@ -566,6 +566,11 @@ class GridRestoreIn(BaseModel):
     name: str = Field(max_length=120)
 
 
+class GridConfigsIn(BaseModel):
+    """Grids from the editor, in the file's own shape (config_name, categories)."""
+    configs: list[dict] = Field(min_length=1, max_length=hero_grid.MAX_CONFIGS)
+
+
 def _grid_args() -> tuple[int | None, int, str | None, int]:
     rank = _rank(None)
     return config.settings().account_id, rank, stratz.bracket_for(rank), user_settings.load().tier_days
@@ -612,6 +617,42 @@ def hero_grids_write(body: GridWriteIn):
     if not built:
         raise HTTPException(422, "по этим данным сетки получились пустыми: нечего записывать")
     return _grid_call(hero_grid.apply, account, list(built.values()))
+
+
+@app.get("/hero-grids/file")
+def hero_grids_file():
+    """Every grid of the user's file, for the editor's import (read only)."""
+    return {"prefix": hero_grid.PREFIX, **_grid_call(hero_grid.read_configs, config.settings().account_id)}
+
+
+@app.post("/hero-grids/write-configs")
+def hero_grids_write_configs(body: GridConfigsIn):
+    """The editor's grids into Dota: each gets our prefix, so only our grids are added or replaced;
+    our grids that are not among them leave the file. Same checks as /hero-grids/write."""
+    ours = _grid_call(hero_grid.clean_configs, body.configs)
+    return _grid_call(hero_grid.apply, config.settings().account_id, ours)
+
+
+@app.post("/hero-grids/export")
+def hero_grids_export(body: GridConfigsIn):
+    """A hero_grid_config.json of the editor's grids (names as they are), saved in exports/."""
+    configs = _grid_call(hero_grid.clean_configs, body.configs, False)
+    text = hero_grid.export_text(configs)
+    folder = config.ROOT / "exports"
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"hero_grid_config-{time.strftime('%Y%m%d-%H%M%S')}.json"
+    path.write_text(text, encoding="utf-8", newline="")
+    return {"path": str(path), "folder": str(folder), "text": text}
+
+
+@app.post("/hero-grids/open-exports")
+def hero_grids_open_exports():
+    folder = config.ROOT / "exports"
+    folder.mkdir(parents=True, exist_ok=True)
+    if not hasattr(os, "startfile"):
+        raise HTTPException(501, "открыть папку можно только в Windows")
+    os.startfile(folder)  # Explorer on our own folder
+    return {"folder": str(folder)}
 
 
 @app.post("/hero-grids/remove")

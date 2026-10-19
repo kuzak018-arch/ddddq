@@ -238,6 +238,71 @@ def apply(account_id: int | None, ours: list[dict]) -> dict:
             "others": sum(1 for c in new["configs"] if not is_ours(c))}
 
 
+# ---------- grids from the editor ------------------------------------------------------------
+
+MAX_CONFIGS = 100
+MAX_CATEGORIES = 10_000
+NUMBER_KEYS = ("x_position", "y_position", "width", "height")
+
+
+def clean_configs(configs: list, prefix: bool = True) -> list[dict]:
+    """The editor's grids in the file's exact shape: numbers as floats (written with six decimals
+    like the game does), hero ids as ints, names without markup. With `prefix` every name gets
+    PREFIX, so a write can only ever add or replace our own grids."""
+    if not isinstance(configs, list) or not configs:
+        raise GridError("нет сеток для записи")
+    if len(configs) > MAX_CONFIGS:
+        raise GridError(f"больше {MAX_CONFIGS} сеток в одном файле")
+    out, names = [], set()
+    for c in configs:
+        if not isinstance(c, dict) or not isinstance(c.get("config_name"), str) or not isinstance(c.get("categories"), list):
+            raise GridError("сетка в непонятном виде")
+        name = _clean_text(c["config_name"]).strip() or "Сетка"
+        if prefix and not name.startswith(PREFIX):
+            name = PREFIX + name
+        if name in names:
+            raise GridError(f"две сетки с одним именем «{name}»: переименуй одну")
+        names.add(name)
+        if len(c["categories"]) > MAX_CATEGORIES:
+            raise GridError(f"в сетке «{name}» больше {MAX_CATEGORIES} категорий")
+        cats = []
+        for cat in c["categories"]:
+            if not isinstance(cat, dict) or any(k not in cat for k in CATEGORY_KEYS):
+                raise GridError(f"категория в непонятном виде в сетке «{name}»")
+            try:
+                # six decimals, as written: the read-back check compares exactly
+                nums = {k: round(float(cat[k]), 6) for k in NUMBER_KEYS}
+                heroes = [int(h) for h in cat["hero_ids"]]
+            except (TypeError, ValueError):
+                raise GridError(f"неверные числа в категории сетки «{name}»") from None
+            if any(n != n or abs(n) > 100_000 for n in nums.values()):
+                raise GridError(f"неверные числа в категории сетки «{name}»")
+            cats.append({**cat, "category_name": _clean_text(str(cat["category_name"])), **nums, "hero_ids": heroes})
+        out.append({**{k: v for k, v in c.items() if k not in ("config_name", "categories")}, "config_name": name, "categories": cats})
+    return out
+
+
+def _clean_text(s: str) -> str:
+    """No markup characters, no line breaks, no leading # (a localisation key in Dota)."""
+    for ch in "<>&\r\n\t":
+        s = s.replace(ch, "")
+    return s.lstrip("#")
+
+
+def read_configs(account_id: int | None) -> dict:
+    """The file's grids as they are, for the editor's import. Read only."""
+    path = grid_path(account_id)
+    if path is None:
+        raise GridError("не нашёл папку сеток Доты в Steam (userdata → 570 → remote → cfg)")
+    data = _read(path)
+    return {"path": str(path), "exists": path.exists(),
+            "configs": [{**c, "ours": is_ours(c)} for c in data["configs"]]}
+
+
+def export_text(configs: list[dict]) -> str:
+    return dumps({"version": VERSION, "configs": configs})
+
+
 def remove_ours(account_id: int | None) -> dict:
     """Take our grids out again; the user's stay."""
     path = grid_path(account_id)

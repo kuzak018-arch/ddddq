@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 
 import { IconClose } from './Icons';
 
-export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: ReactNode; children: ReactNode }) {
+export function Sheet({ open, onClose, title, children, wide }: { open: boolean; onClose: () => void; title: ReactNode; children: ReactNode; wide?: boolean }) {
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -24,7 +24,7 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
           transition={{ duration: 0.18 }}
         >
           <motion.div
-            className="sheet__card glass glass--strong"
+            className={`sheet__card glass glass--strong ${wide ? 'sheet__card--wide' : ''}`}
             role="dialog"
             aria-modal
             initial={{ y: 14, opacity: 0 }}

@@ -20,6 +20,7 @@ app/src-tauri/tauri.release.conf.json
 
 # local data (matches, caches, models, icons, screenshots)
 /data/
+/exports/
 
 # os / editors
 .DS_Store

@@ -285,3 +285,53 @@ def test_build_all_four_grids_on_real_data():
 def test_unknown_grid_id():
     with pytest.raises(KeyError):
         grids.build(None, ["nope"], 61, None, 14)
+
+
+# ---------- grids from the editor -------------------------------------------------------------
+
+def editor_cfg(name="Моя арт-сетка"):
+    return {"config_name": name, "extra": 1, "categories": [
+        {"category_name": "<b>Керри</b>", "x_position": 10.1234567, "y_position": 20, "width": 300, "height": 90,
+         "hero_ids": [1, "2"]},
+        {"category_name": "#@@ @", "x_position": 5, "y_position": 400.5, "width": 30, "height": 30, "hero_ids": []},
+    ]}
+
+
+def test_clean_configs_prefixes_names_and_matches_the_files_shape():
+    [c] = hg.clean_configs([editor_cfg()])
+    assert c["config_name"] == hg.PREFIX + "Моя арт-сетка"
+    assert c["extra"] == 1
+    cat, art = c["categories"]
+    assert cat["category_name"] == "bКерри/b"
+    assert cat["x_position"] == 10.123457 and isinstance(cat["y_position"], float)
+    assert cat["hero_ids"] == [1, 2]
+    assert art["category_name"] == "@@ @"  # no leading #
+    assert hg.clean_configs([editor_cfg(hg.PREFIX + "X")])[0]["config_name"] == hg.PREFIX + "X"
+    assert hg.clean_configs([editor_cfg()], prefix=False)[0]["config_name"] == "Моя арт-сетка"
+
+
+def test_clean_configs_refuses_broken_input():
+    for bad in ([], [{"config_name": "a"}], [editor_cfg(), editor_cfg()],
+                [{"config_name": "a", "categories": [{"category_name": "x"}]}],
+                [{"config_name": "a", "categories": [{**editor_cfg()["categories"][0], "width": "wide"}]}]):
+        with pytest.raises(hg.GridError):
+            hg.clean_configs(bad)
+
+
+def test_editor_grids_are_written_safely_and_read_back(env):
+    path, _, _ = env
+    ours = hg.clean_configs([editor_cfg()])
+    res = hg.apply(42, ours)
+    assert res["written"] == [hg.PREFIX + "Моя арт-сетка"] and res["backup"]
+    data = hg.read_configs(42)
+    names = [(c["config_name"], c["ours"]) for c in data["configs"]]
+    assert names == [("Моя сетка", False), (hg.PREFIX + "Моя арт-сетка", True)]
+    # the user's grid is byte-identical to how the game wrote it
+    assert path.read_text(encoding="utf-8").startswith(USER_FILE[: USER_FILE.index("\t\t}")])
+
+
+def test_export_text_is_the_games_format():
+    text = hg.export_text(hg.clean_configs([editor_cfg()], prefix=False))
+    assert text.startswith('{\n\t"version": 3,\n\t"configs":\n\t[')
+    assert '"x_position": 10.123457' in text and not text.endswith("\n")
+    assert hg.loads(text)["configs"][0]["categories"][1]["hero_ids"] == []
