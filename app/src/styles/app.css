@@ -544,6 +544,13 @@ input {
   -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 14px, #000 calc(100% - 18px), transparent 100%);
   mask-image: linear-gradient(180deg, transparent 0, #000 14px, #000 calc(100% - 18px), transparent 100%);
 }
+/* every scrolling area of the app: the thin glass scrollbar of the panels, never the grey Windows one
+   (the settings column, lists in the editors, search results...). Standard properties: in
+   Chromium/WebView2 they win over ::-webkit-scrollbar, so this one rule covers everything. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--control-bg-active) transparent;
+}
 /* in a scrolling column nothing is squeezed: a button (overflow: hidden) used to shrink to a sliver */
 .panel__body > * {
   flex-shrink: 0;
