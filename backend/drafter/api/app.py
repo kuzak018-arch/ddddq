@@ -36,6 +36,7 @@ from ..vision import calibration as vcal
 from ..vision import capture as vcap
 from ..vision import collector as vcollect
 from ..vision import evaluate as veval
+from ..vision import layout as vlayout
 from ..vision import matcher as vmatch
 from ..vision import reader as vread
 from ..vision import runner
@@ -714,6 +715,7 @@ def vision_status():
     cal = vcal.load()
     auto_state = vauto.state()
     return {**vision_runner.status(), "calibrated": vcal.PATH.exists(), "calibration_auto": cal.auto,
+            "layout_base": vlayout.base()[1], "fits": sorted(vlayout._detected()),
             "labeled_frames": labeled, "required_precision": veval.REQUIRED_PRECISION, "report": report,
             "dota_window": vcap.find_window() is not None, "collect": vision_collector.status(),
             "auto": {"last": auto_state.get("last"), "auto_enabled": auto_state.get("auto_enabled", False),
@@ -785,18 +787,60 @@ def vision_autocal(body: AutocalIn):
 
 
 @app.get("/vision/calibration", response_model=vcal.Calibration)
-def vision_get_calibration():
+def vision_get_calibration(width: int | None = None, height: int | None = None):
+    """The rects the reader uses on a frame of this size (saved, detected or built-in)."""
+    if width and height:
+        return vlayout.for_frame(width, height)
     return vcal.load()
 
 
 @app.put("/vision/calibration", response_model=vcal.Calibration)
 def vision_put_calibration(c: vcal.Calibration):
-    return vcal.save(c.model_copy(update={"preset": False}))
+    """Rects the user placed or approved: they win over everything automatic for this aspect."""
+    return vcal.save(c.model_copy(update={"preset": False, "auto": False, "source": "manual"}))
+
+
+@app.delete("/vision/calibration")
+def vision_reset_calibration():
+    """Back to reading without calibration: the saved rects and the detected fits are dropped."""
+    had = vcal.PATH.exists()
+    vcal.PATH.unlink(missing_ok=True)
+    vlayout.forget_fits()
+    return {"removed": had}
 
 
 @app.get("/vision/calibration/preset", response_model=vcal.Calibration)
-def vision_preset():
-    return vcal.preset_16_9()
+def vision_preset(width: int = 1920, height: int = 1080):
+    return vlayout.profile(width, height)
+
+
+@app.get("/vision/layout")
+def vision_layout():
+    """What reading without calibration knows: the built-in resolutions, the fits found on frames."""
+    _, origin = vlayout.base()
+    fits = vlayout._detected()
+    return {"base": origin,
+            "profiles": [{"width": w, "height": h, "aspect": vlayout.aspect_label(w, h),
+                          "source": vlayout.for_frame(w, h).source} for w, h in vlayout.PROFILES],
+            "fits": [{"size": k, **{f: v.get(f) for f in ("scale", "score", "portraits", "at", "base")}} for k, v in fits.items()],
+            "last_fit": vision_runner.autofit.last_info}
+
+
+class DetectIn(BaseModel):
+    snapshot: str
+    save: bool = False
+
+
+@app.post("/vision/detect")
+def vision_detect(body: DetectIn):
+    """Fit the layout to this frame by the portraits on it (no heroes need to be known)."""
+    frame = vmatch._read(_snapshot_path(body.snapshot))
+    h, w = frame.shape[:2]
+    fit, info = vlayout.detect(frame)
+    if fit and body.save:
+        vlayout.save_fit(w, h, fit)
+    cal = vlayout._make(vlayout.base()[0], w, h, "detected", fit) if fit else None
+    return {"calibration": cal, "info": info, "saved": bool(fit and body.save)}
 
 
 class ReadIn(BaseModel):
@@ -825,8 +869,8 @@ def vision_crops(body: CropsIn):
     h, w = frame.shape[:2]
     out: dict = {"width": w, "height": h, "warnings": []}
     if abs(w / h - body.calibration.aspect) > 0.02:
-        out["warnings"].append(f"соотношение сторон кадра {w}×{h} не совпадает с калибровкой: "
-                               "сними кадр в режиме «Окно без рамки» и откалибруй заново")
+        out["warnings"].append(f"соотношение сторон кадра {w}×{h} не совпадает с этими рамками: "
+                               "нажми «Встроенный профиль» или «Найти рамки по кадру»")
     for group, items in vread.crops(frame, body.calibration).items():
         out[group] = []
         for crop in items:

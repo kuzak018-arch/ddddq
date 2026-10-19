@@ -435,6 +435,8 @@ function VisionCard() {
         enabled: boolean;
         calibrated: boolean;
         calibration_auto: boolean;
+        layout_base: 'default' | 'manual' | 'auto';
+        fits: string[];
         labeled_frames: number;
         error: string | null;
         collect: CollectStatus;
@@ -451,13 +453,14 @@ function VisionCard() {
         <span className="pill">{s?.enabled ? (s.auto.auto_enabled ? 'включено само' : 'включено') : 'выключено'}</span>
       </div>
       <p className="hint">
-        Экспериментально и отключаемо: захват только окна Доты и сравнение портретов с шаблонами. Включается само, когда точность
-        на кадрах из твоих матчей не ниже 98%.
+        Экспериментально и отключаемо: захват только окна Доты и сравнение портретов с шаблонами. Калибровка не нужна: рамки
+        берутся из встроенного профиля под разрешение окна и сами подгоняются по первым кадрам с героями. Включается само, когда
+        точность на кадрах из твоих матчей не ниже 98%.
       </p>
       <Toggle
         on={settings?.vision_collect ?? true}
         onChange={(vision_collect) => settings && save.mutate({ ...settings, vision_collect })}
-        label="Собирать кадры драфта для калибровки (во время выбора героев)"
+        label="Собирать кадры драфта для проверки точности (во время выбора героев)"
       />
       <Slider
         label="Место под кадры"
@@ -473,12 +476,13 @@ function VisionCard() {
         {c?.error ? ` Последняя ошибка: ${c.error}` : ''}
       </p>
       <p className="muted small">
-        Калибровка: {s?.calibrated ? (s.calibration_auto ? 'найдена автоматически' : 'сохранена вручную') : 'нет (пресет)'} · подтверждено в
-        мастере: {s?.labeled_frames ?? 0}
+        Рамки: {s?.layout_base === 'manual' ? 'твои ручные (пересчитываются под другие разрешения)' : s?.layout_base === 'auto' ? 'найдены по кадру с героями' : 'встроенный профиль'}
+        {s?.fits.length ? ` · подогнаны по кадру: ${s.fits.map((f) => f.replace('x', '×')).join(', ')}` : ''} · подтверждено в мастере:{' '}
+        {s?.labeled_frames ?? 0}
         {ev && ev.precision !== null ? ` · точность ${Math.round(ev.precision * 1000) / 10}% на ${ev.frames} кадрах` : ''}
       </p>
       <button className="btn btn--accent" onClick={() => go('vision')}>
-        Открыть мастер калибровки
+        Проверить чтение
       </button>
     </Section>
   );

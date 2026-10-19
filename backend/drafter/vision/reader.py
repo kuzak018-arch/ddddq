@@ -6,7 +6,7 @@ from dataclasses import asdict
 
 import numpy as np
 
-from . import calibration, matcher
+from . import calibration, layout, matcher
 
 
 def crops(frame: np.ndarray, cal: calibration.Calibration) -> dict[str, list[np.ndarray]]:
@@ -22,13 +22,14 @@ def crops(frame: np.ndarray, cal: calibration.Calibration) -> dict[str, list[np.
 
 def read(frame: np.ndarray, cal: calibration.Calibration | None = None, exclude: str | None = None) -> dict:
     """{radiant: [SlotResult x5], dire: [...], bans: [...], warnings: [...]}
-    `exclude`: leave out templates learned from that draft (fair accuracy on its own frames)."""
-    cal = cal or calibration.load()
+    `exclude`: leave out templates learned from that draft (fair accuracy on its own frames).
+    Without `cal` the rects are the ones for this frame's size (layout.for_frame)."""
     h, w = frame.shape[:2]
+    cal = cal or layout.for_frame(w, h)
     warnings = []
     if abs(w / h - cal.aspect) > 0.02:
-        warnings.append(f"соотношение сторон окна {w}×{h} отличается от калибровки — откалибруй заново")
-    result: dict = {"warnings": warnings}
+        warnings.append(f"соотношение сторон окна {w}×{h} отличается от этих рамок — для этого размера есть встроенный профиль")
+    result: dict = {"warnings": warnings, "source": cal.source}
     for group, items in crops(frame, cal).items():
         res = []
         for crop in items:
@@ -42,4 +43,4 @@ def read(frame: np.ndarray, cal: calibration.Calibration | None = None, exclude:
 
 
 def as_json(result: dict) -> dict:
-    return {k: (v if k == "warnings" else [asdict(r) for r in v]) for k, v in result.items()}
+    return {k: (v if k in ("warnings", "source") else [asdict(r) for r in v]) for k, v in result.items()}

@@ -1,8 +1,8 @@
 """Where the hero portraits are on the draft screen.
 
 Rects are stored as fractions of the window size [x, y, w, h], so one calibration works for any
-resolution with the same aspect ratio. The preset is a starting point only (the in-game top bar
-layout for 16:9); the calibration wizard lets the user drag the rects onto their own screenshot.
+resolution with the same aspect ratio. Without a calibration the rects come from the built-in
+layout for the frame's size (layout.py); the wizard lets the user drag them by hand as a fallback.
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ class Calibration(BaseModel):
     margin: float = Field(0.06, ge=0, le=0.5, description="отрыв от второго кандидата")
     preset: bool = False
     auto: bool = Field(False, description="рамки найдены автоматически по кадру с известными героями")
+    source: str = Field("manual", description="откуда рамки: manual, auto, detected, profile, from-manual, from-auto")
 
     @field_validator("radiant", "dire")
     @classmethod
@@ -44,15 +45,14 @@ class Calibration(BaseModel):
 
 
 def preset_16_9() -> Calibration:
-    """Approximate in-game top bar (portraits either side of the clock). Needs checking on a real
-    screenshot: Valve moves this UI between patches."""
-    w, h, step, y = 0.0300, 0.0300, 0.0326, 0.0035
-    radiant = [[0.2865 + i * step, y, w, h] for i in range(5)]
-    dire = [[1 - (r[0] + w), y, w, h] for r in reversed(radiant)]  # mirror around the centre
-    return Calibration(radiant=radiant, dire=dire, preset=True)
+    """The built-in rects for 16:9 (see layout.py: one layout for every resolution)."""
+    from . import layout
+    return layout.profile(1920, 1080)
 
 
 def load() -> Calibration:
+    """The saved rects, or the built-in 16:9 ones. The reader uses layout.for_frame instead, which
+    picks the rects for the frame's own size."""
     if PATH.exists():
         return Calibration.model_validate_json(PATH.read_text(encoding="utf-8"))
     return preset_16_9()

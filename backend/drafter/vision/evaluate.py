@@ -20,7 +20,7 @@ import numpy as np
 
 from .. import config
 from ..data import constants
-from . import calibration, matcher, reader
+from . import calibration, layout, matcher, reader
 
 LABELED = config.DATA / "vision" / "labeled"
 SYNTH = config.DATA / "vision" / "synthetic"
@@ -44,7 +44,7 @@ def _distort(img: np.ndarray, rng: np.random.Generator, ban: bool) -> np.ndarray
 def synthetic(n_frames: int = 20, size=(2560, 1440), seed: int = 0) -> Path:
     """Frames with random heroes in the calibrated slots, plus noise / blur / JPEG artefacts."""
     rng = np.random.default_rng(seed)
-    cal = calibration.load()
+    cal = layout.for_frame(*size)
     heroes = [h for h in constants.hero_index() if (matcher.ICONS / f"{h['key']}.png").exists()]
     SYNTH.mkdir(parents=True, exist_ok=True)
     W, H = size
@@ -74,8 +74,13 @@ def synthetic(n_frames: int = 20, size=(2560, 1440), seed: int = 0) -> Path:
     return SYNTH
 
 
+def _limits(cal: calibration.Calibration | None) -> dict:
+    c = cal or calibration.load()
+    return {"threshold": c.threshold, "margin": c.margin}
+
+
 def evaluate(folder: Path, cal: calibration.Calibration | None = None) -> dict:
-    cal = cal or calibration.load()
+    """Without `cal` every frame is read with the rects for its own size."""
     stats = {g: {"filled": 0, "correct": 0, "present": 0, "wrong": []} for g in ("radiant", "dire", "bans")}
     frames = sorted(folder.glob("*.png"))
     for png in frames:
@@ -100,7 +105,7 @@ def evaluate(folder: Path, cal: calibration.Calibration | None = None) -> dict:
     precision = tot["correct"] / tot["filled"] if tot["filled"] else None
     recall = tot["correct"] / tot["present"] if tot["present"] else None
     return {"folder": str(folder), "frames": len(frames), "precision": precision, "recall": recall,
-            "groups": stats, "threshold": cal.threshold, "margin": cal.margin}
+            "groups": stats, **_limits(cal)}
 
 
 def write_report(results: list[dict]) -> Path:
@@ -138,7 +143,6 @@ def evaluate_collected(cal: calibration.Calibration | None = None, draft_list: l
     frames (strategy time, all ten on screen) of drafts with full teams. Each draft is read
     without the templates learned from that same draft."""
     from . import collector
-    cal = cal or calibration.load()
     filled = correct = present = found = frames = 0
     used_drafts = 0
     wrong = []
@@ -176,4 +180,4 @@ def evaluate_collected(cal: calibration.Calibration | None = None, draft_list: l
         used_drafts += frames > before
     return {"folder": "collected", "drafts": used_drafts, "frames": frames, "filled": filled, "correct": correct,
             "precision": correct / filled if filled else None, "recall": found / present if present else None,
-            "wrong": wrong[:20], "threshold": cal.threshold, "margin": cal.margin}
+            "wrong": wrong[:20], **_limits(cal)}

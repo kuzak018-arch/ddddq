@@ -14,7 +14,7 @@ from __future__ import annotations
 import threading
 import time
 
-from . import calibration, capture, reader
+from . import calibration, capture, layout, reader
 
 INTERVAL = 0.7
 STABLE_FRAMES = 2
@@ -30,6 +30,7 @@ class Runner:
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
         self.on_frame = None   # the frame collector takes our frames instead of capturing the window twice
+        self.autofit = layout.AutoFit()   # no calibration: fit the built-in layout to the first good frames
         self._reset_match(None)
 
     def _reset_match(self, match_key):
@@ -40,7 +41,8 @@ class Runner:
 
     def status(self) -> dict:
         return {"enabled": self.enabled, "running": bool(self._thread and self._thread.is_alive()),
-                "error": self.error, "last_read": self.last_read, "locked": len(self.locked)}
+                "error": self.error, "last_read": self.last_read, "locked": len(self.locked),
+                "source": (self.last_result or {}).get("source"), "fit": self.autofit.last_info}
 
     def set_enabled(self, on: bool) -> None:
         self.enabled = on
@@ -83,6 +85,8 @@ class Runner:
     def step(self, frame, s: dict, cal: calibration.Calibration | None = None) -> dict | None:
         """Read one frame and apply stable, non-conflicting results. Returns the applied changes."""
         res = reader.read(frame, cal)
+        if cal is None and self.autofit.offer(frame, res["source"]) and self.autofit.last_info.get("saved"):
+            res = reader.read(frame)            # read again with the rects just found
         self.last_read, self.last_result = time.time(), reader.as_json(res)
         self.publish({"status": self.status(), "result": self.last_result})
         side = s.get("side")

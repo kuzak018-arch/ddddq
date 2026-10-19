@@ -19,7 +19,7 @@ import numpy as np
 from scipy.optimize import linear_sum_assignment
 
 from .. import config
-from . import autocal, calibration, collector, evaluate, matcher, reader
+from . import autocal, calibration, collector, evaluate, layout, matcher, reader
 
 STATE = config.DATA / "vision" / "auto.json"
 AUTO_MIN_DRAFTS = 2
@@ -85,7 +85,7 @@ def _team_scores(crop: np.ndarray, heroes: list[int], exclude: str) -> list[floa
     return [float(s[bank.ids == hero].max()) if (bank.ids == hero).any() else 0.0 for hero in heroes]
 
 
-def learn(d: dict, cal: calibration.Calibration) -> int:
+def learn(d: dict, cal: calibration.Calibration | None = None) -> int:
     """Teach the matcher how these heroes look on this screen (one-to-one per team)."""
     lab = d.get("labels") or {}
     f = complete_frame(d)
@@ -94,7 +94,7 @@ def learn(d: dict, cal: calibration.Calibration) -> int:
     img = matcher._read(collector.frame_path(f["id"]))
     if img is None:
         return 0
-    crops = reader.crops(img, cal)
+    crops = reader.crops(img, cal or layout.for_frame(img.shape[1], img.shape[0]))
     learned = 0
     for g in ("radiant", "dire"):
         heroes = [h for h in lab.get(g, []) if h]
@@ -143,7 +143,7 @@ def finalize(d: dict, set_enabled, is_enabled) -> dict:
     else:
         if not user_calibrated():
             out["calibration"] = calibrate(d)
-        out["learned"] = learn(d, calibration.load())
+        out["learned"] = learn(d)
     ev = evaluate_all()
     out["evaluation"] = {k: ev[k] for k in ("drafts", "frames", "filled", "correct", "precision")}
     if good_enough(ev) and not is_enabled() and not st.get("manual_off"):   # never against the user's choice

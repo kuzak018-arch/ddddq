@@ -48,4 +48,4 @@ def test_crops_warn_on_another_aspect(client):
     ok, png = cv2.imencode(".png", frame)
     snap = client.post("/vision/upload", content=png.tobytes()).json()
     r = client.post("/vision/crops", json={"snapshot": snap["id"], "calibration": calibration.preset_16_9().model_dump()}).json()
-    assert r["warnings"] and "Окно без рамки" in r["warnings"][0]
+    assert r["warnings"] and "Встроенный профиль" in r["warnings"][0]

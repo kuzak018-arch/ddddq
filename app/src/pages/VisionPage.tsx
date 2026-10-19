@@ -1,7 +1,8 @@
 /**
- * Screen reading setup: take (or upload) a screenshot of the draft, drag the slot rectangles onto
- * the hero portraits, check what the reader sees, correct mistakes (each correction teaches it how
- * that portrait looks in this game) and confirm frames, which also measures accuracy.
+ * Screen reading check: take (or upload) a screenshot of the draft, see the rects the reader uses on
+ * a frame of that size (built-in layout, fitted to the frame, or the user's own), check what it
+ * reads, correct mistakes (each correction teaches it how that portrait looks in this game) and
+ * confirm frames, which also measures accuracy. Dragging the rects by hand is the fallback.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
@@ -23,6 +24,24 @@ interface Calibration {
   threshold: number;
   margin: number;
   preset: boolean;
+  auto?: boolean;
+  source?: string;
+}
+
+const SOURCE_LABEL: Record<string, string> = {
+  manual: 'твои ручные рамки',
+  auto: 'найдены по кадру с известными героями',
+  detected: 'встроенный профиль, подогнанный по кадру',
+  profile: 'встроенный профиль для этого разрешения',
+  'from-manual': 'твои ручные рамки, пересчитанные под это разрешение',
+  'from-auto': 'найденные рамки, пересчитанные под это разрешение',
+  edited: 'изменены, ещё не сохранены',
+};
+interface DetectInfo {
+  portraits: number;
+  score: number;
+  scale: number;
+  reason?: string;
 }
 interface SlotResult {
   hero: number | null;
@@ -84,9 +103,15 @@ export function VisionPage() {
   const heroes = useHeroes().data;
   const status = useQuery({ queryKey: ['vision'], queryFn: () => api<VisionStatus>('/vision/status'), refetchInterval: 4000 });
   const saved = useQuery({ queryKey: ['vision-cal'], queryFn: () => api<Calibration>('/vision/calibration') });
-  const [cal, setCal] = useState<Calibration | null>(null);
+  const [cal, setCalState] = useState<Calibration | null>(null);
+  // the user changed the rects in the wizard: a new frame must not replace them
+  const [dirty, setDirty] = useState(false);
+  const setCal = (c: Calibration, edited = true) => {
+    setCalState(edited ? { ...c, source: 'edited' } : c);
+    setDirty(edited);
+  };
   useEffect(() => {
-    if (saved.data && !cal) setCal(saved.data);
+    if (saved.data && !cal) setCal(saved.data, false);
   }, [saved.data, cal]);
 
   const recent = useQuery({ queryKey: ['vision-snaps'], queryFn: () => api<string[]>('/vision/snapshots') });
@@ -101,6 +126,12 @@ export function VisionPage() {
   const [error, setError] = useState<string | null>(null);
   const file = useRef<HTMLInputElement>(null);
 
+  // the rects the reader itself would use on a frame of this size
+  useEffect(() => {
+    if (!snap || dirty) return;
+    api<Calibration>(`/vision/calibration?width=${snap.width}&height=${snap.height}`).then((c) => setCal(c, false), (e) => setError(String(e)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snap?.id]);
   useEffect(() => {
     if (!snap) return;
     let url: string | null = null;
@@ -133,7 +164,6 @@ export function VisionPage() {
     setResult(null);
     setFixes({});
     qc.invalidateQueries({ queryKey: ['vision-snaps'] });
-    if (cal && Math.abs(body.width / body.height - cal.aspect) > 0.02) setCal({ ...cal, aspect: body.width / body.height });
   };
   const read = useMutation({
     mutationFn: () => api<ReadResult>('/vision/read', { body: { snapshot: snap!.id, calibration: cal } }),
@@ -146,7 +176,7 @@ export function VisionPage() {
   const saveCal = useMutation({
     mutationFn: () => api<Calibration>('/vision/calibration', { method: 'PUT', body: cal }),
     onSuccess: (c) => {
-      setCal(c);
+      setCal(c, false);
       qc.invalidateQueries({ queryKey: ['vision'] });
     },
     onError: (e) => setError(String(e)),
@@ -187,6 +217,34 @@ export function VisionPage() {
     },
     onError: (e) => setError(String(e)),
   });
+  const [detectInfo, setDetectInfo] = useState<string | null>(null);
+  const detect = useMutation({
+    mutationFn: () => api<{ calibration: Calibration | null; info: DetectInfo; saved: boolean }>('/vision/detect', { body: { snapshot: snap!.id, save: true } }),
+    onSuccess: (r) => {
+      if (r.calibration) {
+        setCal(r.calibration, false);
+        setResult(null);
+        setDetectInfo(
+          `Нашёл ${r.info.portraits} портретов, совпадение ${Math.round(r.info.score * 100)}%, масштаб ${r.info.scale.toFixed(3)}. Рамки для ${snap!.width}×${snap!.height} сохранены — проверь распознавание.`,
+        );
+        qc.invalidateQueries({ queryKey: ['vision'] });
+      } else setDetectInfo(`Не получилось: ${r.info.reason ?? 'портреты не найдены'}.`);
+    },
+    onError: (e) => setError(String(e)),
+  });
+  const reset = useMutation({
+    mutationFn: () => api<{ removed: boolean }>('/vision/calibration', { method: 'DELETE' }),
+    onSuccess: async () => {
+      setDetectInfo(null);
+      setAutoInfo(null);
+      setResult(null);
+      const size = snap ? `?width=${snap.width}&height=${snap.height}` : '';
+      setCal(await api<Calibration>(`/vision/calibration${size}`), false);
+      qc.invalidateQueries({ queryKey: ['vision'] });
+      qc.invalidateQueries({ queryKey: ['vision-cal'] });
+    },
+    onError: (e) => setError(String(e)),
+  });
   const openSnapshot = (id: string) => {
     const im = new Image();
     snapshotUrl(id).then((u) => {
@@ -195,6 +253,7 @@ export function VisionPage() {
         setResult(null);
         setFixes({});
         setAutoInfo(null);
+        setDetectInfo(null);
         URL.revokeObjectURL(u);
       };
       im.src = u;
@@ -315,6 +374,21 @@ export function VisionPage() {
         )}
 
         <span className="label">Рамки</span>
+        {cal && (
+          <p className="small">
+            Сейчас: <b>{SOURCE_LABEL[cal.source ?? 'manual'] ?? cal.source}</b>
+            {snap ? <span className="muted"> · кадр {snap.width}×{snap.height}</span> : null}
+          </p>
+        )}
+        <div className="row">
+          <button className="btn btn--accent" onClick={() => detect.mutate()} disabled={!snap || detect.isPending} title="Подогнать встроенный профиль по портретам на этом кадре — герои не нужны">
+            {detect.isPending ? 'Ищу…' : 'Найти рамки по кадру'}
+          </button>
+          <button className="btn" onClick={() => reset.mutate()} disabled={reset.isPending} title="Забыть ручные и найденные рамки и читать по встроенному профилю">
+            Сбросить на автоматические
+          </button>
+        </div>
+        {detectInfo && <p className="small">{detectInfo}</p>}
         <Segmented value={group} onChange={setGroup} options={(['radiant', 'dire', 'bans'] as Group[]).map((g) => ({ value: g, label: `${GROUP_LABEL[g]} · ${cal?.[g].length ?? 0}` }))} />
         <Toggle on={together} onChange={setTogether} label="Двигать и менять размер группой" />
         <div className="row">
@@ -331,8 +405,12 @@ export function VisionPage() {
               </button>
             </>
           )}
-          <button className="btn" onClick={async () => setCal(await api<Calibration>('/vision/calibration/preset'))}>
-            Пресет 16:9
+          <button
+            className="btn"
+            title="Рамки встроенного профиля для размера этого кадра (без подгонки)"
+            onClick={async () => setCal(await api<Calibration>(`/vision/calibration/preset${snap ? `?width=${snap.width}&height=${snap.height}` : ''}`))}
+          >
+            Встроенный профиль
           </button>
         </div>
         {cal && (
@@ -357,8 +435,21 @@ export function VisionPage() {
         {result?.warnings.map((w) => <p key={w} className="warn">{w}</p>)}
         <p className="hint">
           Кликни по рамке, чтобы исправить героя (или правой кнопкой — «пусто»). Подтверждённый кадр учит распознавание и
-          проверяет точность.
+          проверяет точность. «Сохранить рамки» делает их ручными: они главнее автоматики и переносятся на другие разрешения.
         </p>
+        <details className="vision__how small">
+          <summary>Как проверить, что всё читается без калибровки</summary>
+          <ol>
+            <li>В Доте дойди до выбора героев (подойдёт и лобби с ботами), дождись, пока выберут 4–5 героев.</li>
+            <li>Здесь нажми «Снимок Доты», затем «Найти рамки по кадру» — рамки должны лечь на портреты в верхней полосе.</li>
+            <li>«Проверить распознавание»: под рамками появятся герои. Исправь ошибки кликом и нажми «Всё верно — подтвердить кадр».</li>
+            <li>Если рамки легли криво — потяни их мышью и «Сохранить рамки» (ручные). «Сбросить на автоматические» вернёт профиль.</li>
+          </ol>
+          <p className="muted">
+            Дальше ничего делать не нужно: во время драфта программа сама подгоняет профиль по первым кадрам с героями и сама
+            включает чтение, когда точность на твоих матчах дойдёт до 98%.
+          </p>
+        </details>
 
         <h3 className="section-title">Точность</h3>
         <dl className="kv">
