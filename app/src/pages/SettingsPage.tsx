@@ -667,7 +667,7 @@ function DataCard() {
           <dt>Модель обучена</dt>
           <dd>{health.model_trained ?? 'нет'}</dd>
           <dt>Stratz</dt>
-          <dd>{health.stratz ? 'токен есть' : 'нет токена в .env'}</dd>
+          <dd>{health.stratz ? 'токен есть' : 'нет токена (Настройки → Аккаунт)'}</dd>
           <dt>Аккаунт</dt>
           <dd>{health.account_id ?? 'не указан'}</dd>
         </dl>
