@@ -1256,10 +1256,11 @@ input {
   gap: var(--gutter);
 }
 .hero-page__head {
-  grid-column: 1;
+  grid-column: 1 / -1;
 }
 .hero-page__matchups {
   grid-column: 1;
+  grid-row: 2;
 }
 .hero-page__matchups > .panel__body {
   display: grid;
@@ -1269,17 +1270,135 @@ input {
 }
 .hero-page__build {
   grid-column: 2;
-  grid-row: 1 / span 2;
+  grid-row: 2;
 }
-.hero-card {
+/* the hero's header across the page (HeroHeader in pages/HeroPage.tsx): the model over its scene
+   blurred and tinted in the hero's colour. The model stays inside the header (see .hmodel__figs). */
+.hero-hdr {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 26px;
+  padding: 14px 22px 16px 16px;
+  border-radius: var(--radius-lg, 18px);
+  box-shadow: inset 0 0 0 1px var(--glass-rim-2);
+}
+.hero-hdr__scene {
+  position: absolute;
+  inset: -40px;
+  z-index: -2;
+  background-size: cover;
+  background-position: center 22%;
+  filter: blur(24px) saturate(1.3) brightness(0.5);
+}
+.hero-hdr__tint {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(55% 95% at 12% 70%, color-mix(in srgb, var(--glow) 50%, transparent), transparent 70%),
+    radial-gradient(40% 80% at 100% 0%, color-mix(in srgb, var(--glow) 22%, transparent), transparent 70%),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.05), rgba(0, 0, 0, 0.3));
+}
+.hero-hdr__art {
+  width: 210px;
+  height: 250px;
+}
+.hero-hdr__info {
   display: flex;
-  gap: 18px;
-  align-items: stretch;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding-bottom: 4px;
 }
-.hero-card__art {
-  width: 190px;
-  flex: none;
-  min-height: 240px;
+.hero-hdr__kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-2);
+}
+.hero-hdr__name {
+  font-size: clamp(28px, 3.4vw, 46px);
+  line-height: 1.02;
+  text-shadow: 0 4px 24px color-mix(in srgb, var(--glow) 55%, transparent);
+}
+.hero-hdr__info > p {
+  margin: 0;
+}
+.hero-hdr__roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.hero-hdr__role {
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  font-size: 12px;
+  font-weight: 600;
+}
+.hero-hdr__stats {
+  margin-top: 6px;
+  gap: 26px;
+}
+.hero-hdr__stats .stat__value {
+  font-size: 24px;
+}
+.hero-hdr__side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+.hero-hdr__side .posbars {
+  height: 104px;
+  margin-top: 0;
+}
+.hero-hdr__side .posbar {
+  width: 34px;
+}
+.hero-hdr__side .posbar small {
+  font-size: 10px;
+  color: var(--text-3);
+}
+.hero-hdr__side .posbar.is-best .posbar__fill {
+  background: linear-gradient(180deg, #fff, color-mix(in srgb, var(--glow) 70%, #fff));
+  box-shadow: 0 0 18px -2px color-mix(in srgb, var(--glow) 80%, transparent);
+}
+.hero-hdr__side .posbar.is-best {
+  color: var(--text);
+}
+.hero-hdr__actions {
+  display: flex;
+  gap: 8px;
+}
+@media (max-width: 1180px) {
+  .hero-hdr {
+    grid-template-columns: 170px minmax(0, 1fr);
+  }
+  .hero-hdr__art {
+    width: 170px;
+    height: 210px;
+  }
+  .hero-hdr__side {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+  .hero-hdr__side > .label {
+    display: none;
+  }
 }
 
 /* ---------- a big hero portrait: the model over a blurred portrait, glow in the hero's colour ---------- */
@@ -1380,12 +1499,6 @@ input {
     animation: none;
   }
 }
-.hero-card__info {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
 .stats {
   display: flex;
   gap: 18px;
@@ -1394,11 +1507,6 @@ input {
 .stat {
   display: flex;
   flex-direction: column;
-}
-.hero-card__sub {
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 .hero-card__name {
   display: flex;

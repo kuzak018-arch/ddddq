@@ -1,11 +1,13 @@
-import { Ban, Hammer, HeartHandshake, Percent, Shield, Star, Swords, ThumbsDown, TrendingUp, User, type LucideIcon } from 'lucide-react';
+import { Ban, Hammer, HeartHandshake, Percent, Shield, Star, Swords, ThumbsDown, Trophy, TrendingUp, User, type LucideIcon } from 'lucide-react';
+import type { CSSProperties } from 'react';
 import { useEffect, useState } from 'react';
 
 import { asset } from '../api/client';
 import { useBuild, useHeroes, useHeroPage, useProfile } from '../api/hooks';
-import type { Matchup } from '../api/types';
+import type { HeroPage as HeroPageData, Matchup } from '../api/types';
+import { heroArt } from '../components/Chrome';
 import { BuildView } from '../components/BuildView';
-import { HeroModel } from '../components/HeroModel';
+import { HeroModel, useHeroModel } from '../components/HeroModel';
 import { Panel } from '../components/Glass';
 import { AttrIcon, RoleIcon } from '../components/DotaIcons';
 import { HeroModeSwitch } from '../components/HeroModeSwitch';
@@ -27,7 +29,7 @@ export function HeroPage() {
 
   return (
     <div className={`hero-page ${id ? '' : 'is-empty'}`}>
-      <Panel className="hero-page__head" refracting>
+      <Panel className={`hero-page__head ${p ? 'has-hero' : ''}`} refracting>
         <div className="hero-page__bar">
           <HeroModeSwitch />
           <HeroSearch placeholder="Найти героя…" onPick={(h) => openHero(h.id)} compact />
@@ -35,52 +37,7 @@ export function HeroPage() {
         {!id && <HeroPicks onPick={openHero} />}
         {id && page.isPending && <Loading>Загружаю героя…</Loading>}
         {page.error && <ErrorBox error={page.error} />}
-        {p && (
-          <div className="hero-card">
-            <HeroModel className="hero-card__art" heroKey={p.hero.key} heroId={p.hero.id} fallback={asset(p.hero.icon)} animated />
-            <div className="hero-card__info">
-              <h1>{p.hero.name}</h1>
-              <p className="muted hero-card__sub">
-                <AttrIcon attr={p.hero.attr} size={18} />
-                {p.hero.ru.slice(0, 3).join(' · ')}
-              </p>
-              <div className="stats">
-                <Stat icon={Percent} label="Винрейт в мете" value={fmtPct(p.meta_wr)} good={p.meta_wr >= 0.5} />
-                <Stat icon={TrendingUp} label="Пикрейт" value={fmtPct(p.pick_rate)} />
-                {p.bans && (
-                  <Stat
-                    icon={Ban}
-                    label="Доля банов"
-                    value={`${fmtPct(p.bans.share)}${p.bans.place ? ` · ${p.bans.place}-й` : ''}`}
-                    title={
-                      p.bans.place
-                        ? `${p.bans.place}-й по банам из ${p.bans.of} героев на твоём ранге (Stratz). Доля от всех банов, а не процент матчей.`
-                        : 'Этого героя на твоём ранге не банят (Stratz)'
-                    }
-                  />
-                )}
-                {p.me && (
-                  <Stat
-                    icon={User}
-                    label="Мои игры"
-                    value={`${p.me.games} · ${fmtPct(p.me.wins / p.me.games, 0)}`}
-                    good={p.me.wins / p.me.games >= 0.5}
-                  />
-                )}
-              </div>
-              <div className="posbars">
-                {p.positions.map((s, i) => (
-                  <div key={i} className="posbar" title={`Позиция ${i + 1}: ${fmtPct(s)} игр`}>
-                    <div className="posbar__fill" style={{ height: `${Math.max(4, s * 100)}%` }} />
-                    <span>
-                      <RoleIcon pos={i + 1} size={14} />
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
+        {p && <HeroHeader p={p} />}
       </Panel>
 
       {p && (
@@ -119,6 +76,86 @@ export function HeroPage() {
           </Panel>
         </>
       )}
+    </div>
+  );
+}
+
+const ROLES_RU: Record<string, string> = {
+  Carry: 'Керри', Support: 'Саппорт', Nuker: 'Нюкер', Disabler: 'Контроль', Jungler: 'Лесник',
+  Durable: 'Живучий', Escape: 'Побег', Pusher: 'Пушер', Initiator: 'Инициатор',
+};
+const ATTR_RU: Record<string, string> = { str: 'Сила', agi: 'Ловкость', int: 'Интеллект', all: 'Универсальный' };
+
+/** The hero's header across the page: the model over its scene in the hero's colour, the name,
+ * the roles, the numbers and the positions, and shortcuts to its builds and top players' games. */
+function HeroHeader({ p }: { p: HeroPageData }) {
+  const color = useHeroModel(p.hero.key).color;
+  const openBuild = useUi((s) => s.openBuild);
+  const go = useUi((s) => s.go);
+  const best = p.positions.indexOf(Math.max(...p.positions)) + 1;
+  return (
+    <div className="hero-hdr" style={{ '--glow': color ?? 'var(--accent)' } as CSSProperties}>
+      <div className="hero-hdr__scene" style={{ backgroundImage: `url("${heroArt(p.hero.key)}")` }} aria-hidden />
+      <div className="hero-hdr__tint" aria-hidden />
+      <HeroModel className="hero-hdr__art" heroKey={p.hero.key} heroId={p.hero.id} fallback={asset(p.hero.icon)} animated />
+      <div className="hero-hdr__info">
+        <p className="hero-hdr__kicker">
+          <AttrIcon attr={p.hero.attr} size={18} />
+          {ATTR_RU[p.hero.attr]} · {p.hero.attack === 'Melee' ? 'ближний бой' : 'дальний бой'}
+        </p>
+        <h1 className="hero-hdr__name">{p.hero.name}</h1>
+        <p className="muted">{p.hero.ru.slice(0, 3).join(' · ')}</p>
+        <div className="hero-hdr__roles">
+          {p.hero.roles.map((r) => (
+            <span key={r} className="hero-hdr__role">
+              {ROLES_RU[r] ?? r}
+            </span>
+          ))}
+        </div>
+        <div className="stats hero-hdr__stats">
+          <Stat icon={Percent} label="Винрейт в мете" value={fmtPct(p.meta_wr)} good={p.meta_wr >= 0.5} />
+          <Stat icon={TrendingUp} label="Пикрейт" value={fmtPct(p.pick_rate)} />
+          {p.bans && (
+            <Stat
+              icon={Ban}
+              label="Доля банов"
+              value={`${fmtPct(p.bans.share)}${p.bans.place ? ` · ${p.bans.place}-й` : ''}`}
+              title={
+                p.bans.place
+                  ? `${p.bans.place}-й по банам из ${p.bans.of} героев на твоём ранге (Stratz). Доля от всех банов, а не процент матчей.`
+                  : 'Этого героя на твоём ранге не банят (Stratz)'
+              }
+            />
+          )}
+          {p.me && (
+            <Stat icon={User} label="Мои игры" value={`${p.me.games} · ${fmtPct(p.me.wins / p.me.games, 0)}`} good={p.me.wins / p.me.games >= 0.5} />
+          )}
+        </div>
+      </div>
+      <div className="hero-hdr__side">
+        <span className="label">Позиции</span>
+        <div className="posbars">
+          {p.positions.map((s, i) => (
+            <div key={i} className={`posbar ${i + 1 === best ? 'is-best' : ''}`} title={`Позиция ${i + 1}: ${fmtPct(s)} игр`}>
+              <small>{Math.round(s * 100)}%</small>
+              <div className="posbar__fill" style={{ height: `${Math.max(4, s * 100)}%` }} />
+              <span>
+                <RoleIcon pos={i + 1} size={15} />
+              </span>
+            </div>
+          ))}
+        </div>
+        <div className="hero-hdr__actions">
+          <button className="btn btn--sm" onClick={() => openBuild(p.hero.id, best)}>
+            <Ti icon={Hammer} />
+            Билды
+          </button>
+          <button className="btn btn--sm" onClick={() => go('top')}>
+            <Ti icon={Trophy} />
+            Игры топов
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
