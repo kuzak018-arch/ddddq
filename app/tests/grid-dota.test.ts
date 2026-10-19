@@ -1,3 +1,5 @@
+// Measured rows and the screenshot group: использовано из GridStudio — https://gridstudio.me,
+// https://github.com/linsisss/dota2-grid-toolkit (tests/dota-rendering.test.cjs, GPL-3.0-only).
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 

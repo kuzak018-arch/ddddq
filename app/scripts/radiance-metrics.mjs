@@ -5,7 +5,8 @@
  *
  *   node scripts/radiance-metrics.mjs path/to/radiance-semibold.otf
  *
- * (the font is game/dota/panorama/fonts/radiance-semibold.otf in a Dota install). Needs Playwright.
+ * (the font is game/dota/panorama/fonts/radiance-semibold.otf in a Dota install; the table in the repo
+ * was made from the copy in GridStudio's assets/fonts, see THIRD_PARTY_NOTICES.md). Needs Playwright.
  * Widths are measured with a canvas at 64× the label size, so hinting cannot round them, and are
  * given in grid units at the label size Dota uses (15.15).
  */
@@ -17,7 +18,8 @@ const SCALE = 64;
 const font = process.argv[2];
 if (!font) throw new Error('path to radiance-semibold.otf expected');
 
-// Radiance's own characters (its cmap), capitals only: the game draws names in capitals.
+// Radiance's own characters (its cmap, as listed in GridStudio's scripts/dota-rendering.mjs `RADIANCE`,
+// https://github.com/linsisss/dota2-grid-toolkit, GPL-3.0-only), capitals only: the game draws names in capitals.
 const RANGES = [
   [0x20, 0x5f], [0x7b, 0x7e], [0xa1, 0xa7], [0xa9, 0xac], [0xae, 0xb7], [0xb9, 0xbf], [0xd7, 0xd7], [0xf7, 0xf7],
   [0x401, 0x40c], [0x40e, 0x42f], [0x2013, 0x2015], [0x2018, 0x201a], [0x201c, 0x201e], [0x2020, 0x2022], [0x2026, 0x2026],

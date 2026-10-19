@@ -10,8 +10,10 @@
  *
  * Names are drawn in capitals with Radiance SemiBold at 15.15 units, 2 units of letter spacing, and
  * every glyph's advance (with kerning) snaps to whole screen pixels at 1.1497 px per unit (1080p).
- * These numbers are the in-game measurements published by GridStudio (gridstudio.me, GPL-3.0; the
- * code here is our own); radiance.json holds the font's advances, made by scripts/radiance-metrics.mjs.
+ * Использовано из GridStudio — https://gridstudio.me, https://github.com/linsisss/dota2-grid-toolkit
+ * (GPL-3.0-only): the measurements above, `heroLayout` (ported from scripts/core.mjs) and the advance
+ * formula of `snap` (scripts/dota-rendering.mjs). See THIRD_PARTY_NOTICES.md. radiance.json holds the
+ * font's advances, made by scripts/radiance-metrics.mjs.
  */
 import metrics from './radiance.json' with { type: 'json' };
 
@@ -49,7 +51,10 @@ export interface HeroLayout {
   stepY: number;
 }
 
-/** The game's fit of n cards into a w × h hero list: the biggest card scale, every column that fits. */
+/**
+ * The game's fit of n cards into a w × h hero list: the biggest card scale, every column that fits.
+ * Ported from GridStudio's `heroLayout` (scripts/core.mjs, GPL-3.0-only).
+ */
 export function heroLayout(w: number, h: number, n: number): HeroLayout {
   const aw = Math.max(1, w - PAD * 2);
   const ah = Math.max(1, h - PAD * 2);
@@ -113,7 +118,7 @@ function pairWidth(before: string, ch: string): number {
   return (ADV[ch] ?? ADV['W']) + (before ? (KERN[before + ch] ?? 0) : 0);
 }
 
-/** Where the game puts each glyph's pen step: kerned width snapped to screen pixels, plus spacing. */
+/** Where the game puts each glyph's pen step: kerned width snapped to screen pixels, plus spacing (GridStudio's `advanceAt`). */
 export const snap = (width: number) => Math.round(width * SCREEN_SCALE) / SCREEN_SCALE + LETTER_SPACING;
 
 /** The advance of every glyph of a line as the game draws it (capitals). */

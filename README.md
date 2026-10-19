@@ -68,4 +68,5 @@ PyInstaller собирает бэкенд в `build/backend/dist/drafter-backend
 - `app/` — Tauri 2 (Rust: запуск бэкенда, окно-оверлей, Acrylic, глобальные клавиши, свой значок окон, трея и ярлыков) и React + TypeScript (Liquid Glass).
   - `src/lib/grid/` — модель сетки Доты для редактора «Сетки»: холст 1193×593, раскладка карточек, ширины символов шрифта Radiance (`radiance.json`, делает `scripts/radiance-metrics.mjs`), арт из текста и картинок.
 - `shared/` — русские имена и сленг, теги героев, правила предметов.
+- Сторонние части (GridStudio, GPL-3.0; ресурсы Valve) и что откуда взято — [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 - Подробный план и журнал этапов — [PLAN.md](PLAN.md), исследование API — [RESEARCH.md](RESEARCH.md).

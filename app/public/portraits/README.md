@@ -3,3 +3,5 @@
 (github.com/linsisss/dota2-grid-toolkit, `assets/portraits`, оттуда же со Spectral.gg).
 Имя файла — id героя. Арт принадлежит Valve Corporation. Нового героя редактор показывает
 горизонтальной иконкой, пока сюда не добавлен его портрет.
+
+Подробно — в `THIRD_PARTY_NOTICES.md` в корне репозитория.
