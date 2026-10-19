@@ -3700,3 +3700,478 @@ label.field {
     grid-template-columns: minmax(0, 1fr) 250px;
   }
 }
+
+/* ---------- «Оформление»: tabs, the game-mods gate, background and font builders ---------- */
+.grids-page {
+  gap: 10px;
+}
+.look-tabs {
+  flex-shrink: 0;
+  display: flex;
+}
+.grids-page > .geditor,
+.grids-page > .looks {
+  flex: 1;
+  min-height: 0;
+}
+.looks .panel__body {
+  gap: 16px;
+}
+.mods-gate {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  grid-template-areas: 'warn state' 'toggle state';
+  gap: 10px 16px;
+  align-items: start;
+}
+.mods-gate__warn {
+  grid-area: warn;
+}
+.mods-gate__toggle {
+  grid-area: toggle;
+}
+.mods-gate__state {
+  grid-area: state;
+}
+.mods-gate__warn summary {
+  cursor: pointer;
+}
+.mods-gate.is-on .mods-gate__warn:not([open]) {
+  padding: 8px 14px;
+}
+.mods-gate__warn {
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 201, 92, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 201, 92, 0.28);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mods-gate__warn ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--text-2);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mods-gate__state {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+.mods-gate__state p {
+  margin: 0;
+}
+.mods-gate code,
+.bgb code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.bgb,
+.fontb {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 18px;
+  align-items: start;
+}
+.bgb-stage-wrap,
+.fontb-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.bgb-stage {
+  position: relative;
+  width: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 18px 40px -16px rgba(0, 0, 0, 0.6);
+  user-select: none;
+}
+.bgb-media,
+.bgb-black,
+.bgb-valve,
+.bgb-veil,
+.bgb-edges {
+  position: absolute;
+  inset: 0;
+}
+.bgb-media {
+  overflow: hidden;
+}
+.bgb-media.can-frame {
+  cursor: grab;
+  touch-action: none;
+}
+.bgb-media.can-frame:active {
+  cursor: grabbing;
+}
+.bgb-media img,
+.bgb-media video {
+  position: absolute;
+  display: block;
+  object-fit: fill;
+  pointer-events: none;
+}
+.bgb-black,
+.bgb-veil {
+  background: #000;
+}
+.bgb-valve {
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 13px;
+  background: radial-gradient(120% 90% at 50% 30%, #3a2a1c, #0c0a08 70%);
+}
+.bgb-edges {
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.7));
+  pointer-events: none;
+}
+.bgb-side,
+.fontb-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bgb-side h3,
+.fontb-side h3 {
+  margin: 0;
+  font-size: 15px;
+}
+.bgb-side p,
+.fontb-side p,
+.fontb-preview p,
+.bgb-stage-wrap p {
+  margin: 0;
+}
+.bgb-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bgb-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Dota's screens over the background (DotaScreens.tsx): 1080p pixels, scaled */
+.dscreen {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.dscreen__layer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1920px;
+  height: 1080px;
+  transform-origin: 0 0;
+}
+.dscreen__layer img {
+  position: absolute;
+  display: block;
+}
+.dm-bar-left,
+.dm-bar-mid,
+.dm-bar-right {
+  position: absolute;
+  top: 0;
+  background-repeat: no-repeat;
+}
+.dm-bar-left {
+  left: 0;
+  width: 1490px;
+  height: 73px;
+  background-size: 1920px 73px;
+}
+.dm-bar-mid {
+  left: 1488px;
+  right: 428px;
+  height: 61px;
+  background-size: 4px 61px;
+  background-repeat: repeat-x;
+}
+.dm-bar-right {
+  right: 0;
+  width: 432px;
+  height: 61px;
+  background-size: 1920px 73px;
+  background-position: -1488px 0;
+}
+.dm-bar-left.is-hero {
+  height: 61px;
+  background-size: 1920px 61px;
+}
+.dm-bar-right.is-hero {
+  background-size: 1920px 61px;
+}
+.dm-news {
+  right: 58px;
+  top: 100px;
+  width: 330px;
+  height: 484px;
+  transition: opacity 0.3s var(--ease-out);
+}
+.dm-season {
+  top: 600px;
+  height: 234px;
+}
+.dm-news.is-hidden {
+  opacity: 0;
+}
+.dm-chat {
+  left: 50%;
+  bottom: 21px;
+  width: 688px;
+  height: 34px;
+  transform: translateX(-50%);
+}
+.dm-play {
+  right: 58px;
+  bottom: 22px;
+  width: 330px;
+  height: 49px;
+}
+.dh-content {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: min(100%, 1920px);
+  transform: translateX(-50%);
+  --dh-margin: 90px;
+}
+.dh-content[data-aspect='16x10'] {
+  --dh-margin: 60px;
+}
+.dh-content[data-aspect='21x9'] {
+  --dh-margin: 0px;
+}
+.dh-left {
+  left: calc(var(--dh-margin) - 10px);
+  top: 200px;
+  width: 580px;
+  height: 460px;
+}
+.dh-right {
+  right: calc(var(--dh-margin) - 10px);
+  top: 196px;
+  width: 540px;
+  height: 470px;
+}
+.dh-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 61px;
+  height: 50px;
+  background: linear-gradient(#000d, #0009 12%, #0009);
+}
+.dh-prev {
+  left: 56px;
+  top: 72px;
+  width: 170px;
+  height: 28px;
+}
+.dh-tabs {
+  left: 50%;
+  top: 64px;
+  width: 1220px;
+  height: 44px;
+  margin-left: -610px;
+}
+.dh-next {
+  right: 54px;
+  top: 72px;
+  width: 186px;
+  height: 28px;
+}
+.dh-armory {
+  right: 60px;
+  top: 137px;
+  width: 229px;
+  height: 34px;
+}
+.dg-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 61px;
+  height: 52px;
+  background: linear-gradient(rgb(0 1 1 / 0.71), rgb(5 2 0 / 0.57) 48%, rgb(5 2 0 / 0));
+}
+.dg-box {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 1920px;
+  height: 100%;
+  margin-left: -960px;
+}
+.dg-subnav {
+  left: 420px;
+  top: 70px;
+  width: 470px;
+  height: 36px;
+}
+.dg-bans {
+  left: 1236px;
+  top: 120px;
+  width: 420px;
+  height: 52px;
+}
+.dg-grid {
+  position: absolute;
+  left: 269px;
+  top: 174px;
+  transform-origin: 0 0;
+}
+.dg-sort {
+  left: 250px;
+  top: 894px;
+  width: 392px;
+  height: 46px;
+}
+.dg-sort-name {
+  position: absolute;
+  left: 372px;
+  top: 899px;
+  width: 166px;
+  height: 38px;
+  overflow: hidden;
+  color: #dfe4ea;
+  font: 600 16px/38px var(--font);
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.dg-filters {
+  left: 950px;
+  top: 884px;
+  width: 700px;
+  height: 68px;
+}
+.gpic {
+  position: relative;
+}
+.gpic__group {
+  position: absolute;
+}
+
+/* the font preview (FontScene.tsx) and the grid under it */
+.fscene {
+  position: relative;
+  width: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #0b0c10;
+  user-select: none;
+  touch-action: none;
+}
+.fscene__part,
+.fscene__layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.fscene__text text {
+  white-space: pre;
+  filter: drop-shadow(0 1px 1.2px #000000d9);
+}
+.fscene__split {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  filter: drop-shadow(0 0 4px #000a);
+}
+.fscene__split i {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+}
+.fscene__handle {
+  position: absolute;
+  top: 50%;
+  width: 30px;
+  height: 30px;
+  margin: -15px 0 0 -15px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  pointer-events: auto;
+  cursor: ew-resize;
+}
+.fontb-grid {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1193 / 593;
+  border-radius: 10px;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 50% -10%, rgba(120, 140, 170, 0.16), transparent 60%),
+    linear-gradient(180deg, #1b2129 0%, #12161c 100%);
+}
+.fitw {
+  position: absolute;
+  inset: 0;
+}
+.fitw__inner {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
+}
+.fontb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 330px;
+  overflow-y: auto;
+}
+.fontb-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--control-bg);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.fontb-item:hover {
+  background: var(--control-bg-hover);
+}
+.fontb-item.is-on {
+  background: var(--chip-on);
+  color: var(--chip-on-text);
+}
+.fontb-item.is-on .muted {
+  color: inherit;
+  opacity: 0.7;
+}
+@media (max-width: 1250px) {
+  .mods-gate {
+    grid-template-columns: 1fr;
+    grid-template-areas: 'warn' 'toggle' 'state';
+  }
+  .bgb,
+  .fontb {
+    grid-template-columns: minmax(0, 1fr) 270px;
+  }
+}

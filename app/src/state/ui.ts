@@ -33,6 +33,10 @@ interface UiState {
   logo: { kind: 'default' | 'file'; key?: string };
   /** Profile banner: own file (image or GIF, in IndexedDB) or a hero render; x/y = visible part in %. */
   banner: { kind: 'none' | 'file' | 'hero'; key?: string; x: number; y: number; blur: number; dim: number };
+  /** «Оформление игры» (menu background, fonts) is unlocked: off until the user reads the warning. */
+  gameMods: boolean;
+  /** «Оформление»: which tool is open. */
+  lookTab: 'grids' | 'background' | 'font';
   overlay: {
     toggle: string;      // global hotkey: show/hide
     interact: string;    // global hotkey: click-through on/off
@@ -66,6 +70,8 @@ export const useUi = create<UiState>()(
       logo: { kind: 'default' },
       fx: { kind: 'none', intensity: 0.5 },
       banner: { kind: 'none', x: 50, y: 30, blur: 0, dim: 0.35 },
+      gameMods: false,
+      lookTab: 'grids',
       overlay: { toggle: 'Ctrl+Shift+M', interact: 'Ctrl+Shift+N', opacity: 0.94, effect: 'acrylic', mode: 'auto', autoPerf: true, autoShow: true },
       go: (page) => set({ page }),
       openHero: (id) => set({ page: 'hero', heroPageId: id }),

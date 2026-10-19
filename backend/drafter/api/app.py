@@ -44,7 +44,7 @@ from .events import bus, jobs
 
 ORIGINS = ["tauri://localhost", "http://tauri.localhost", "https://tauri.localhost",
            "http://localhost:1420", "http://127.0.0.1:1420"]
-OPEN_PATHS = ("/health", "/icons/", "/docs", "/openapi.json")
+OPEN_PATHS = ("/health", "/icons/", "/mod-fonts/", "/docs", "/openapi.json")
 
 
 def token() -> str | None:
@@ -145,6 +145,8 @@ class IconFiles(StaticFiles):
 
 (config.DATA / "icons").mkdir(parents=True, exist_ok=True)
 app.mount("/icons", IconFiles(directory=config.DATA / "icons"), name="icons")
+# the free fonts of «Оформление игры» (SIL OFL), for the preview in the UI
+app.mount("/mod-fonts", StaticFiles(directory=config.SHARED / "dota-fonts", check_dir=False), name="mod-fonts")
 
 
 # ---------- context ----------------------------------------------------------------------
@@ -917,6 +919,119 @@ class DebugLogIn(BaseModel):
 
 
 UI_DEBUG_MAX = 2_000_000
+
+
+# ---------- «Оформление игры»: the menu background and fonts (off by default) -----------------
+
+MOD_BUNDLE_MAX = 80_000_000
+
+
+def _unbundle(body: bytes) -> tuple[dict, list[bytes]]:
+    """The UI's upload: 4-byte length + JSON, then 4-byte length + data for each file (no
+    multipart parser in the bundled backend)."""
+    import struct as _struct
+    if len(body) > MOD_BUNDLE_MAX:
+        raise HTTPException(413, "слишком большой файл")
+    try:
+        n = _struct.unpack_from("<I", body, 0)[0]
+        meta = json.loads(body[4:4 + n].decode("utf-8"))
+        at, blobs = 4 + n, []
+        while at < len(body):
+            size = _struct.unpack_from("<I", body, at)[0]
+            blobs.append(body[at + 4:at + 4 + size])
+            at += 4 + size
+    except (ValueError, _struct.error, UnicodeDecodeError):
+        raise HTTPException(400, "повреждённая отправка") from None
+    if not isinstance(meta, dict):
+        raise HTTPException(400, "повреждённая отправка")
+    return meta, blobs
+
+
+def _mods_call(fn, *args):
+    from ..game_mods import fonts as mod_fonts, install as mod_install, menu as mod_menu
+    try:
+        return fn(*args)
+    except (mod_install.ModError, mod_menu.PackError, mod_fonts.FontError) as e:
+        raise HTTPException(422, str(e))
+    except hero_grid.GridError as e:
+        raise HTTPException(422, str(e))
+
+
+@app.get("/game-mods/status")
+def game_mods_status():
+    from ..game_mods import install as mod_install
+    return mod_install.status(config.settings().account_id)
+
+
+@app.get("/game-mods/fonts")
+def game_mods_fonts():
+    from ..game_mods import fonts as mod_fonts
+    return {"fonts": mod_fonts.catalog(), "families": mod_fonts.FAMILIES, "base": "/mod-fonts"}
+
+
+@app.post("/game-mods/font-check")
+async def game_mods_font_check(request: Request):
+    """A font of the user's: can Dota use it, which letters it lacks."""
+    from ..game_mods import fonts as mod_fonts
+    data = await request.body()
+    if len(data) > 30_000_000:
+        raise HTTPException(413, "файл шрифта больше 30 МБ")
+    font = _mods_call(mod_fonts.read_font, data)
+    return {"family": font.names.get(16) or font.names.get(1) or "", "style": font.names.get(17) or font.names.get(2) or "",
+            "weight": font.weight, "italic": font.italic, "missing": font.missing()}
+
+
+@app.post("/game-mods/background")
+async def game_mods_background(request: Request):
+    """meta: {clean, hero: off|menu|own, grid: menu|dim|own, grid_dim, has_menu, accept: true};
+    files in order: the menu video (if has_menu), the hero's (hero=own), the grid's (grid=own)."""
+    from ..game_mods import install as mod_install, menu as mod_menu
+    meta, blobs = _unbundle(await request.body())
+    if meta.get("accept") is not True:
+        raise HTTPException(422, "сначала включи «Оформление игры» и прочитай предупреждение")
+    queue = list(blobs)
+    take = lambda: queue.pop(0) if queue else None  # noqa: E731
+    video = take() if meta.get("has_menu") else None
+    hero, grid = str(meta.get("hero", "off")), str(meta.get("grid", "menu"))
+    hero_video = take() if hero == "own" else None
+    grid_video = take() if grid == "own" else None
+    pack = _mods_call(lambda: mod_menu.build_pack(video, clean=bool(meta.get("clean")), hero=hero, hero_video=hero_video,
+                                                  grid=grid, grid_dim=float(meta.get("grid_dim", 0.5)), grid_video=grid_video))
+    info = {"clean": bool(meta.get("clean")), "hero": hero, "grid": grid, "menu": video is not None, "label": str(meta.get("label", ""))[:120]}
+    return await run_in_threadpool(_mods_call, mod_install.install_background, config.settings().account_id, pack, info)
+
+
+@app.post("/game-mods/fonts")
+async def game_mods_install_fonts(request: Request):
+    """meta: {catalog: id | null, families: [...], keep_grid, accept: true}; files: the user's own fonts."""
+    from ..game_mods import fonts as mod_fonts, install as mod_install
+    meta, blobs = _unbundle(await request.body())
+    if meta.get("accept") is not True:
+        raise HTTPException(422, "сначала включи «Оформление игры» и прочитай предупреждение")
+    families = [f for f in meta.get("families", []) if f in mod_fonts.FAMILIES]
+    if not families:
+        raise HTTPException(422, "выбери, какой текст Доты заменить")
+    if meta.get("catalog"):
+        faces = _mods_call(mod_fonts.catalog_fonts, str(meta["catalog"]))
+        label = str(meta["catalog"])
+    else:
+        if not blobs:
+            raise HTTPException(422, "нет файла шрифта")
+        faces = [_mods_call(mod_fonts.read_font, b) for b in blobs]
+        label = "свой шрифт"
+    keep = [mod_fonts.GRID_FONT_FILE] if meta.get("keep_grid") else []
+    files = _mods_call(mod_fonts.font_pack, faces, families, keep)
+    return await run_in_threadpool(_mods_call, mod_install.install_fonts, files, {"font": label, "families": families, "keep_grid": bool(keep)})
+
+
+@app.post("/game-mods/remove")
+def game_mods_remove(body: dict):
+    from ..game_mods import install as mod_install
+    what = body.get("what", "all")
+    fn = {"all": mod_install.remove_all, "background": mod_install.remove_background, "fonts": mod_install.remove_fonts}.get(what)
+    if fn is None:
+        raise HTTPException(422, "непонятно, что убрать")
+    return {"removed": _mods_call(fn)}
 
 
 @app.post("/debug/log")

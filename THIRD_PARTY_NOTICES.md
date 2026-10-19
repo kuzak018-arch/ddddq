@@ -19,10 +19,40 @@
 | `app/src/lib/grid/radiance.json` | Ширины 176 символов и 79 пар кернинга. Сделаны нашим скриптом из файла шрифта `assets/fonts/radiance-semibold.otf` их репозитория; сам шрифт в проект не положен | `assets/fonts/radiance-semibold.otf` | шрифт © Valve Corporation |
 | `app/tests/grid-dota.test.ts` | 11 строк, измеренных в игре (текст и ширина), группа со скриншота (488,695648 × 132,17392, 5 героев, 74×129, шаг 88) и случай 250×340 / 36 героев → 7 столбцов | `tests/dota-rendering.test.cjs` | тестовые данные GridStudio |
 | `app/public/portraits/*.webp` (127 файлов) | Вертикальные портреты героев, файлы скопированы без изменений | `assets/portraits/*.webp` (они взяли их со Spectral.gg, `portraits_vert_lg`, автор выгрузки leamare) | арт © Valve Corporation |
+| `backend/drafter/game_mods/vpk.py` | Перенос записи VPK v2 и компиляции ресурсов Panorama (REDI + текст в DATA), побайтно совпадает с файлами Valve | `scripts/vpk.mjs` | код GridStudio, GPL-3.0 |
+| `backend/drafter/game_mods/menu.py` | Перенос сборки пака фона меню: подмена `dashboard`, разметка с `MoviePanel`, страница без новостей, фон за героем, фон под сеткой, проверки ASCII и обработчиков | `scripts/menu-background.mjs` | код GridStudio, GPL-3.0 |
+| `backend/drafter/game_mods/fonts.py` | Перенос переименования шрифта под 29 файлов Valve (таблицы name, OS/2, head), побайтно совпадает с оригиналом | `scripts/dota-font.mjs` | код GridStudio, GPL-3.0 |
+| `backend/drafter/game_mods/install.py` | Шаги установки (папка языка озвучки, pak02, копии, кэш fontconfig) — по их проверенному установщику, код свой | `scripts/installer.mjs` | идеи GridStudio |
+| `app/src/lib/mods/frame.ts` | Перенос расчётов кадра: размеры экранов, `framePlacement`, `menuLook`, `fitPiece`, `mediaKind` | `scripts/menu-background.mjs` | код GridStudio, GPL-3.0 |
+| `app/src/lib/mods/video.ts` | Перенос кодирования фона в WebM (VP9/VP8 через WebCodecs и Mediabunny, склейка, повторная сборка по размеру) | `src/customize/menu-video.js` | код GridStudio, GPL-3.0 |
+| `app/src/components/mods/FontScene.tsx`, `app/src/data/font-scene.json` | Перенос превью шрифта и его разметка надписей (ники друзей заменены выдуманными) | `src/customize/FontScene.jsx`, `src/customize/font-scene.json` | код и данные GridStudio, GPL-3.0 |
+| `app/src/components/mods/DotaScreens.tsx` | Координаты частей меню, страницы героя и страницы «Герои» | `src/customize/DotaMenu.jsx`, `DotaHeroPage.jsx`, `DotaGridPage.jsx`, `customize.css` | код GridStudio, GPL-3.0 |
+| `shared/dota-menu/*.xml`, `meta.json` | Разметка меню Доты (декомпилирована из клиента 6951) | `assets/dota-menu` (оттуда же github.com/spirit-bear-productions/dota_vpk_updates) | © Valve Corporation |
+| `shared/dota-fonts/` | 10 свободных шрифтов с кириллицей, каждый со своим `OFL.txt` (авторы — в этих файлах) и список `fonts.json` | `assets/dota-fonts`, `data/dota-fonts.json` | SIL Open Font License 1.1, авторы шрифтов |
+| `app/public/dota-ui/*.webp` (17 файлов) | Части интерфейса Доты для превью фона (без аватаров и ников людей) | `assets/dota-menu/ui` | © Valve Corporation |
+| `app/public/font-scene/*.webp` | Сцены меню и матча без надписей и слои надписей для превью шрифта | `assets/font-scene` | © Valve Corporation |
+| `backend/tests/fixtures/valve/*` | Три скомпилированных ресурса Panorama для побайтной проверки | `tests/fixtures/valve` (из набора тестов Source 2 Viewer) | © Valve Corporation |
 
 Идеи без кода (описаны в их `docs/ascii-rows.md`, `docs/import-and-export.md` и комментариях): арт как пустые категории, имя которых — строка символов; строка как одна категория с пробелами между символами; размер 30×30 для категорий без героев; запрет `#` в начале имени и символов `< > &`; предел ~2000 категорий; выбор, что рисовать символами, по краю картинки.
 
 Остальной код редактора сеток (`app/src/components/grid/*`, `app/src/lib/grid/{doc,art,artRender,layout}.ts`, `app/src/state/grids.ts`, функция `typesetRow`, бэкенд `backend/drafter/hero_grid.py`) написан в этом проекте.
+
+## Шрифты «Оформления игры» (SIL Open Font License 1.1)
+
+Лежат в `shared/dota-fonts/<шрифт>/` вместе со своим `OFL.txt`; программа переписывает в них только внутренние имена (под файлы Доты) и ставит на ПК пользователя, не распространяя изменённые файлы. Зарезервированные имена шрифтов (Reserved Font Name) в изменённых файлах не используются.
+
+- Playfair Display — © 2017 The Playfair Display Project Authors
+- Audex, Correction Tape, Divagon — © 2023–2024 GGBotNet (ggbot.net)
+- Bebas Neue — © 2010 Dharma Type
+- Comic Relief — © 2013 The Comic Relief Project Authors
+- Cormorant Unicase — © 2015 the Cormorant Project Authors
+- Libre Franklin — © 2020 The Libre Franklin Project Authors
+- Monocraft — © 2022 Idrees Hassan
+- Oswald — © 2016 The Oswald Project Authors
+
+## Mediabunny
+
+Кодирование видео фона меню — библиотека Mediabunny (https://mediabunny.dev, npm `mediabunny`), лицензия Mozilla Public License 2.0; используется без изменений как зависимость.
 
 ## Valve
 

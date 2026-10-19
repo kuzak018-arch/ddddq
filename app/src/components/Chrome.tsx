@@ -19,7 +19,7 @@ export const NAV: { page: Page; label: string; also?: Page[] }[] = [
   { page: 'meta', label: 'Мета' },
   { page: 'hero', label: 'Герои', also: ['builds'] },
   { page: 'top', label: 'Игры топов' },
-  { page: 'grids', label: 'Сетки' },
+  { page: 'grids', label: 'Оформление' },
   { page: 'profile', label: 'Профиль' },
 ];
 

@@ -1,5 +1,7 @@
 /**
- * «Сетки»: an editor of Dota hero grids. The canvas is the game's grid (same size, same card fit,
+ * «Оформление»: the hero-grid editor, and Dota's menu background and fonts («Оформление игры»).
+ *
+ * The grid editor: an editor of Dota hero grids. The canvas is the game's grid (same size, same card fit,
  * names at the game's glyph widths), several grids in one file, art from text and pictures, import
  * of the file in Steam, export to a file and the safe write into Dota.
  */
@@ -13,7 +15,11 @@ import { GridCanvas } from '../components/grid/GridCanvas';
 import { GridFileBar } from '../components/grid/GridFile';
 import { GridSide } from '../components/grid/GridSide';
 import { Sheet } from '../components/Sheet';
-import { ErrorBox, Loading, plural, Toggle } from '../components/ui';
+import { ErrorBox, Loading, plural, Segmented, Toggle } from '../components/ui';
+import { BackgroundBuilder } from '../components/mods/BackgroundBuilder';
+import { FontBuilder } from '../components/mods/FontBuilder';
+import { ModsGate } from '../components/mods/ModsGate';
+import { useUi } from '../state/ui';
 import { CANVAS_W, SLOW_CATEGORIES } from '../lib/grid/dota';
 import { categoryCount, emptyGrid, newGroup, newId, type ArtItem, type Grid, type TextItem } from '../lib/grid/doc';
 import { layoutGroups } from '../lib/grid/layout';
@@ -27,7 +33,7 @@ interface TemplatePreview {
   heroes: number;
 }
 
-export function GridsPage() {
+function GridEditor() {
   const grid = useGrids(activeGrid);
   const grids = useGrids((s) => s.grids);
   const canUndo = useGrids((s) => s.past.length > 0);
@@ -57,7 +63,7 @@ export function GridsPage() {
   const duplicate = () => addGrids([{ ...structuredClone(grid), name: `${grid.name} (копия)` }]);
 
   return (
-    <div className="grids-page">
+    <>
       <Panel className="geditor">
         <div className="gtabs">
           {grids.map((g) =>
@@ -145,6 +151,34 @@ export function GridsPage() {
 
       <ArtSheet open={!!art} kind={art?.kind ?? 'text'} editing={art?.editing ?? null} onClose={() => setArt(null)} />
       <NewGridSheet open={adding} onClose={() => setAdding(false)} />
+    </>
+  );
+}
+
+export function GridsPage() {
+  const tab = useUi((s) => s.lookTab);
+  const set = useUi((s) => s.set);
+  return (
+    <div className="grids-page">
+      <div className="look-tabs">
+        <Segmented
+          value={tab}
+          onChange={(lookTab) => set({ lookTab })}
+          options={[
+            { value: 'grids', label: 'Сетки героев' },
+            { value: 'background', label: 'Фон меню' },
+            { value: 'font', label: 'Шрифт' },
+          ]}
+        />
+      </div>
+      {tab === 'grids' ? (
+        <GridEditor />
+      ) : (
+        <Panel className="looks">
+          <ModsGate />
+          {tab === 'background' ? <BackgroundBuilder /> : <FontBuilder />}
+        </Panel>
+      )}
     </div>
   );
 }
