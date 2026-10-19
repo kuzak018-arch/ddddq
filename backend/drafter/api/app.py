@@ -11,6 +11,7 @@ import os
 import re
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Literal
 
 import httpx
@@ -658,6 +659,80 @@ def put_setup(body: SetupIn):
     if values:
         config.write_env(**values)
     return get_setup()
+
+
+@app.get("/setup/dota")
+def get_setup_dota():
+    """The Dota folder in use: picked by hand in the setup, or found through Steam."""
+    manual = user_settings.load().dota_dir
+    auto = dota_paths.auto_dota_path()
+    used = dota_paths.dota_path()
+    return {"path": str(used) if used else None, "auto": str(auto) if auto else None, "manual": manual,
+            "manual_ok": bool(manual) and dota_paths.is_dota_dir(Path(manual))}
+
+
+class DotaDirIn(BaseModel):
+    path: str | None = Field(None, max_length=1000)
+
+
+@app.put("/setup/dota")
+def put_setup_dota(body: DotaDirIn):
+    """A folder picked by hand (anything inside «dota 2 beta» will do); null goes back to Steam's."""
+    root = None
+    if body.path and body.path.strip():
+        root = dota_paths.find_dota_root(Path(body.path.strip().strip('"')))
+        if root is None:
+            raise HTTPException(422, "в этой папке нет Доты: нужна «dota 2 beta» (Steam → steamapps → common)")
+    s = user_settings.load()
+    user_settings.save(s.model_copy(update={"dota_dir": str(root) if root else None}))
+    return get_setup_dota()
+
+
+@app.post("/setup/dota/browse")
+def browse_dota_dir():
+    """Windows' own folder picker (the app window has no file dialog of its own); null if cancelled."""
+    import subprocess
+    script = ("Add-Type -AssemblyName System.Windows.Forms;"
+              "$d=New-Object System.Windows.Forms.FolderBrowserDialog;"
+              "$d.Description='Папка Доты: dota 2 beta';$d.ShowNewFolderButton=$false;"
+              "if($d.ShowDialog() -eq 'OK'){[Console]::OutputEncoding=[Text.Encoding]::UTF8;$d.SelectedPath}")
+    try:
+        r = subprocess.run(["powershell", "-NoProfile", "-STA", "-Command", script], capture_output=True,
+                           timeout=600, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise HTTPException(503, f"окно выбора папки не открылось: {e}")
+    picked = r.stdout.decode("utf-8", errors="replace").strip()
+    return {"path": picked or None}
+
+
+@app.get("/setup/accounts")
+def setup_accounts():
+    """Steam accounts that signed in on this PC, the last one first (to fill the Friend ID)."""
+    return {"accounts": dota_paths.steam_accounts()}
+
+
+class StratzCheckIn(BaseModel):
+    token: str = Field(..., max_length=2000)
+
+
+@app.post("/setup/stratz-check")
+def stratz_check(body: StratzCheckIn):
+    """Whether a Stratz token works, before it is saved: one tiny query with it."""
+    token = body.token.strip()
+    if not token or not re.fullmatch(r"[A-Za-z0-9._\-]+", token):
+        return {"ok": False, "error": "токен выглядит неправильно: это длинная строка с сайта stratz.com/api"}
+    try:
+        r = httpx.post(config.STRATZ, json={"query": "{ player(steamAccountId: 86745912) { steamAccountId } }"}, timeout=20,
+                       headers={"Authorization": f"Bearer {token}", "User-Agent": "STRATZ_API"})
+    except httpx.HTTPError as e:
+        return {"ok": False, "error": f"Stratz не ответил: {e}"}
+    if r.status_code in (401, 403):
+        return {"ok": False, "error": "Stratz не принял токен: скопируй его заново (stratz.com/api → API Token)"}
+    if r.status_code == 429:
+        return {"ok": True, "error": None, "note": "токен верный, но Stratz просит подождать: лимит запросов"}
+    if r.status_code >= 400:
+        return {"ok": False, "error": f"Stratz ответил {r.status_code}"}
+    return {"ok": True, "error": None}
 
 
 # ---------- shared live draft ----------------------------------------------------------------

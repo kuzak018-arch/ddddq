@@ -23,6 +23,7 @@ class Settings(BaseModel):
     vision_off: bool = Field(False, description="чтение драфта с экрана выключено вручную")
     vision_collect: bool = Field(True, description="сохранять кадры драфта для калибровки и проверки точности")
     vision_collect_mb: int = Field(500, ge=50, le=5000, description="сколько места на кадры драфта, МБ")
+    dota_dir: str | None = Field(None, max_length=1000, description="папка Доты, выбранная вручную (иначе ищется через Steam)")
 
 
 def load() -> Settings:

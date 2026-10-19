@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AppWindow, Database, KeyRound, Lightbulb, Monitor, Palette, Plug, ScanEye } from 'lucide-react';
+import { AppWindow, Database, KeyRound, Lightbulb, Monitor, Palette, Plug, ScanEye, Wand } from 'lucide-react';
 
 import { comboFromEvent, dotaKeyName, toggleOverlay, useHotkeyStatus } from '../lib/overlay';
 
@@ -13,6 +13,7 @@ import { Ti } from '../components/Icons';
 import { Section } from '../components/Section';
 import { HeroSearch } from '../components/HeroSearch';
 import { LaneBulkCard } from '../components/LaneBulkCard';
+import { openWizard } from '../components/Onboarding';
 import { VersionCard } from '../components/VersionCard';
 import { useEffectsBlocked } from '../components/Effects';
 import { refractionSupported } from '../glass/refraction';
@@ -717,6 +718,10 @@ function AppCard() {
         Значок в трее: клик — показать окно, правый клик — меню (показать, оверлей вкл/выкл, выход). «Выход» в меню трея
         закрывает приложение совсем.
       </p>
+      <button className="btn btn--sm" onClick={openWizard}>
+        <Ti icon={Wand} />
+        Пройти первую настройку заново
+      </button>
     </Section>
   );
 }

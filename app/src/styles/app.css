@@ -2131,6 +2131,211 @@ input {
   flex-direction: column;
   gap: 14px;
 }
+/* the first-run setup (components/Onboarding.tsx) */
+.wiz {
+  width: min(600px, 94vw);
+  min-height: min(560px, 90vh);
+  max-height: 92vh;
+  padding: 22px 26px;
+}
+.wiz__steps {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+.wiz__dot {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
+  background: var(--control-bg);
+  cursor: pointer;
+  transition:
+    background-color var(--dur) var(--ease-out),
+    color var(--dur) var(--ease-out),
+    transform 0.45s var(--ease-spring);
+}
+.wiz__dot.is-done {
+  color: var(--good);
+}
+.wiz__dot.is-on {
+  background: var(--chip-on);
+  color: var(--chip-on-text);
+  transform: scale(1.12);
+}
+.wiz__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.wiz__page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 2px;
+}
+.wiz__nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.wiz__hello {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  padding-top: 12px;
+}
+.wiz__hello h2 {
+  font-size: 22px;
+}
+.wiz__logo {
+  width: 96px;
+  height: 96px;
+  border-radius: 26px;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 18px 40px -16px rgba(40, 90, 255, 0.8);
+  animation: wiz-float 4s ease-in-out infinite alternate;
+}
+.wiz__logo.is-done {
+  background: linear-gradient(150deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.06)), color-mix(in srgb, var(--good) 70%, #0b2a1c);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 18px 40px -16px color-mix(in srgb, var(--good) 80%, transparent);
+  color: #fff;
+}
+@keyframes wiz-float {
+  to {
+    transform: translateY(-6px);
+  }
+}
+.wiz__feats {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+.wiz__feats li {
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--control-bg);
+}
+.wiz__found {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--control-bg);
+}
+.wiz__found > div {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.wiz__found code {
+  font-size: 12px;
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+.wiz__found.is-ok > svg {
+  color: var(--good);
+}
+.wiz__found.is-warn > svg {
+  color: var(--warn, #f0b54a);
+}
+.wiz__inline {
+  display: flex;
+  gap: 8px;
+}
+.wiz__inline .input {
+  flex: 1;
+  min-width: 0;
+}
+.wiz__accounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.wiz__accounts .label {
+  width: 100%;
+}
+.wiz__acc {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--control-bg);
+  color: var(--text);
+  cursor: pointer;
+}
+.wiz__acc:hover {
+  background: var(--control-bg-hover);
+}
+.wiz__acc.is-on {
+  box-shadow: inset 0 0 0 2px var(--chip-on);
+}
+.wiz__preview {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+}
+.wiz__preview > img,
+.wiz__avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: var(--control-bg);
+}
+.wiz__preview > div {
+  display: flex;
+  flex-direction: column;
+}
+.wiz__how {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wiz__bgs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.wiz__bg {
+  height: 54px;
+  border: 0;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: flex-end;
+  padding: 6px 8px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px var(--glass-rim-2);
+}
+.wiz__bg.is-on {
+  box-shadow: inset 0 0 0 2px #fff;
+}
 .onboard__field {
   display: flex;
   flex-direction: column;
