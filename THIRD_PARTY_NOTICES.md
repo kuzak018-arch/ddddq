@@ -56,7 +56,7 @@
 
 ## Valve
 
-Портреты героев, шрифт Radiance (через `radiance.json`), названия и иконки — ресурсы Dota 2 © Valve Corporation. Dota 2 — товарный знак Valve. Проект не связан с Valve.
+Портреты героев, шрифт Radiance (через `radiance.json`), названия и иконки — ресурсы Dota 2 © Valve Corporation. Шаблоны для чтения драфта `shared/hero-templates/*.jpg` (127 файлов) — уменьшенные до 192×108 горизонтальные портреты героев с CDN Steam (`/apps/dota2/images/dota_react/heroes/`). Dota 2 — товарный знак Valve. Проект не связан с Valve.
 
 ---
 

@@ -7,7 +7,7 @@ import pytest
 from drafter.data import constants
 from drafter.vision import calibration, evaluate, matcher, reader, runner
 
-pytestmark = pytest.mark.skipif(not matcher.ICONS.exists(), reason="нужны иконки героев")
+pytestmark = pytest.mark.skipif(not matcher.has_templates(), reason="нужны иконки героев")
 
 AM, AXE, PUDGE, LION = 1, 2, 14, 26
 
@@ -20,7 +20,7 @@ def frame_with(heroes_r, heroes_d, cal, size=(1920, 1080)):
         for rect, hid in zip(getattr(cal, group), heroes):
             if hid:
                 x, y, w, h = calibration.to_pixels(rect, W, H)
-                art = matcher._read(matcher.ICONS / f"{keys[hid]}.png")
+                art = matcher._read(matcher.template_path(keys[hid]))
                 frame[y:y + h, x:x + w] = cv2.resize(art, (w, h), interpolation=cv2.INTER_AREA)
     return frame
 

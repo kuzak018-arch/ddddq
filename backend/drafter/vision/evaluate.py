@@ -45,7 +45,7 @@ def synthetic(n_frames: int = 20, size=(2560, 1440), seed: int = 0) -> Path:
     """Frames with random heroes in the calibrated slots, plus noise / blur / JPEG artefacts."""
     rng = np.random.default_rng(seed)
     cal = layout.for_frame(*size)
-    heroes = [h for h in constants.hero_index() if (matcher.ICONS / f"{h['key']}.png").exists()]
+    heroes = [h for h in constants.hero_index() if matcher.template_path(h["key"])]
     SYNTH.mkdir(parents=True, exist_ok=True)
     W, H = size
     for f in range(n_frames):
@@ -63,7 +63,7 @@ def synthetic(n_frames: int = 20, size=(2560, 1440), seed: int = 0) -> Path:
                     labels[group].append(None)
                     continue
                 x, y, w, h = calibration.to_pixels(rect, W, H)
-                art = _distort(matcher._read(matcher.ICONS / f"{hero['key']}.png"), rng, group == "bans")
+                art = _distort(matcher._read(matcher.template_path(hero["key"])), rng, group == "bans")
                 frame[y:y + h, x:x + w] = cv2.resize(art, (w, h), interpolation=cv2.INTER_AREA)
                 labels[group].append(hero["id"])
         frame = cv2.GaussianBlur(frame, (0, 0), rng.uniform(0.3, 0.9))

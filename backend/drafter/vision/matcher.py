@@ -4,7 +4,8 @@ Every slot crop and every template is brought to the same small size and compare
   - normalised cross-correlation of blurred grey images (insensitive to brightness/contrast, so
     greyed-out ban portraits still match), and
   - hue/saturation histogram correlation (colour; skipped for bans, which are grey).
-Templates: hero art from the Steam CDN, plus "learned" crops from the user's own game, saved
+Templates: hero art shipped with the program (shared/hero-templates, the same for everyone; the
+Steam CDN copy in the user's data only for heroes newer than the program), plus "learned" crops from the user's own game, saved
 whenever they correct a slot. A learned crop is the strongest evidence, because it is literally
 how that portrait looks on their screen.
 
@@ -25,7 +26,8 @@ import numpy as np
 from .. import config
 from ..data import constants
 
-ICONS = config.DATA / "icons" / "heroes"
+ICONS = config.DATA / "icons" / "heroes"        # downloaded hero art: heroes newer than the program
+TEMPLATES = config.SHARED / "hero-templates"   # the same art shipped with the program (192x108)
 LEARNED = config.DATA / "vision" / "learned"
 CANON_W = 48           # canonical width; height follows the slot's aspect ratio
 W_NCC, W_HIST = 0.75, 0.25
@@ -80,6 +82,18 @@ def _read(path: Path) -> np.ndarray | None:
     return img
 
 
+def template_path(key: str) -> Path | None:
+    """The hero's art: the copy shipped with the program, else the downloaded one."""
+    for p in (TEMPLATES / f"{key}.jpg", ICONS / f"{key}.png"):
+        if p.exists():
+            return p
+    return None
+
+
+def has_templates() -> bool:
+    return TEMPLATES.exists() or ICONS.exists()
+
+
 class TemplateBank:
     """Feature matrices for all heroes at one slot aspect ratio. `exclude`: skip templates learned
     automatically from that draft (its frames must not be judged by crops taken from them)."""
@@ -91,9 +105,9 @@ class TemplateBank:
             learned = sorted((LEARNED / str(h["id"])).glob("*.png"))
             if exclude:
                 learned = [p for p in learned if not p.name.startswith(f"{exclude}__")]
-            sources = [ICONS / f"{h['key']}.png", *learned]
+            sources = [template_path(h["key"]), *learned]
             for p in sources:
-                img = _read(p) if p.exists() else None
+                img = _read(p) if p else None
                 if img is None:
                     continue
                 g, hh = _features(img, aspect)

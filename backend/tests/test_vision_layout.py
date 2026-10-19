@@ -8,7 +8,7 @@ import pytest
 from drafter.data import constants
 from drafter.vision import calibration, capture, layout, matcher, reader, runner
 
-pytestmark = pytest.mark.skipif(not matcher.ICONS.exists(), reason="нужны иконки героев")
+pytestmark = pytest.mark.skipif(not matcher.has_templates(), reason="нужны иконки героев")
 
 HEROES = [1, 2, 14, 26, 8, 74, 35, 11, 17, 106]
 
@@ -31,7 +31,7 @@ def draw(size, heroes_r, heroes_d, scale=1.0, dx=0.0, dy=0.0, seed=0, lay=None):
         for r, hid in zip(rects[g], heroes):
             if hid:
                 x, y, w, h = calibration.to_pixels(r, W, H)
-                frame[y:y + h, x:x + w] = cv2.resize(matcher._read(matcher.ICONS / f"{keys[hid]}.png"), (w, h),
+                frame[y:y + h, x:x + w] = cv2.resize(matcher._read(matcher.template_path(keys[hid])), (w, h),
                                                      interpolation=cv2.INTER_AREA)
     frame = cv2.GaussianBlur(frame, (0, 0), 0.6)
     return cv2.imdecode(cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])[1], cv2.IMREAD_COLOR)

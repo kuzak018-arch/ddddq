@@ -10,7 +10,7 @@ import pytest
 from drafter.data import constants
 from drafter.vision import auto, autocal, calibration, collector, evaluate, matcher
 
-pytestmark = pytest.mark.skipif(not (constants.DIR / "items.json").exists() or not matcher.ICONS.exists(),
+pytestmark = pytest.mark.skipif(not (constants.DIR / "items.json").exists() or not matcher.has_templates(),
                                 reason="нужны константы и иконки героев")
 
 W, H = 1920, 1080
@@ -20,7 +20,7 @@ DIRE = [[1 - r[0] - r[2], Y, SW, SH] for r in reversed(RAD)]
 
 
 def heroes_with_icons(n, seed):
-    hs = [h["id"] for h in constants.hero_index() if (matcher.ICONS / f"{h['key']}.png").exists()]
+    hs = [h["id"] for h in constants.hero_index() if matcher.template_path(h["key"])]
     return [int(h) for h in np.random.default_rng(seed).choice(hs, n, replace=False)]
 
 
@@ -34,7 +34,7 @@ def frame_with(radiant, dire, rng):
                 continue
             x, y, w, hh = calibration.to_pixels(r, W, H)
             key = constants.hero_by_id()[h]["key"]
-            art = evaluate._distort(matcher._read(matcher.ICONS / f"{key}.png"), rng, False)
+            art = evaluate._distort(matcher._read(matcher.template_path(key)), rng, False)
             art = matcher._center_crop(art, w / hh)
             img[y:y + hh, x:x + w] = cv2.resize(art, (w, hh), interpolation=cv2.INTER_AREA)
     return img
