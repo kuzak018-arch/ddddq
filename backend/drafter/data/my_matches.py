@@ -110,7 +110,7 @@ def _refresh(force: bool) -> None:
     data = load()
     try:
         if not acc:
-            raise RuntimeError("нет DOTA_ACCOUNT_ID")
+            raise RuntimeError("не указан аккаунт: укажи Steam ID в «Настройки → Аккаунт»")
         sz = stratz.Stratz()
         try:
             _job.update(status="loading", step="list")

@@ -146,7 +146,7 @@ export function HeroGridCard() {
         </>
       )}
 
-      {s && !s.found && <p className="warn small">Не нашёл папку сеток Доты в Steam (нужен DOTA_ACCOUNT_ID в настройках и установленный Steam).</p>}
+      {s && !s.found && <p className="warn small">Не нашёл папку сеток Доты в Steam: укажи Steam ID в «Настройки → Аккаунт» и проверь, что Steam установлен.</p>}
       {s?.error && <ErrorBox error={s.error} />}
       {s?.check_error && <ErrorBox error={s.check_error} />}
       {running && <p className="warn small">Закрой Доту полностью (в том числе из трея Steam), и кнопка станет доступна.</p>}

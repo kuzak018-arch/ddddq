@@ -462,7 +462,7 @@ def my_matches_list(refresh: bool = False):
     """Recent ranked matches with an estimate of how I played. Answers from the cache at once and
     refreshes from Stratz in the background when it is stale: poll while job.status == "loading"."""
     if not config.settings().account_id:
-        raise HTTPException(409, "не указан аккаунт: введи Steam ID в первом запуске или в настройках")
+        raise HTTPException(409, "не указан аккаунт: укажи Steam ID в «Настройки → Аккаунт»")
     if os.environ.get("DRAFTER_NO_BUILD_LOAD") != "1":   # tests: never hit the network
         my_matches.ensure_fresh(force=refresh)
     return my_matches.history()
@@ -471,7 +471,7 @@ def my_matches_list(refresh: bool = False):
 @app.post("/me/refresh")
 def my_refresh():
     if not config.settings().account_id:
-        raise HTTPException(409, "не указан аккаунт: введи Steam ID в первом запуске или в настройках")
+        raise HTTPException(409, "не указан аккаунт: укажи Steam ID в «Настройки → Аккаунт»")
     d = me.refresh()
     my_matches.ensure_fresh(force=True)
     return {"matches": len(d["matches"]), "rank_tier": me.rank_tier(d)}
