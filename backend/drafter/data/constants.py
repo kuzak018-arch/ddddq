@@ -89,6 +89,50 @@ def download_icons(http: httpx.Client, force: bool = False) -> int:
     return n
 
 
+_icon_failed: set[str] = set()
+
+
+def fetch_icon(rel: str, http: httpx.Client | None = None) -> bool:
+    """Download one missing hero or item icon on first request ("heroes/<key>.png",
+    "items/<key>.png"): a hero or item added by a patch shows its picture before the next full
+    refresh. Returns whether the file is there now; a failed key is not asked for again."""
+    parts = rel.strip("/").split("/")
+    if len(parts) != 2 or parts[0] not in ("heroes", "items") or not parts[1].endswith(".png"):
+        return False
+    kind, key = parts[0], parts[1][:-4]
+    if not key.replace("_", "").isalnum() or rel in _icon_failed:
+        return False
+    dest = ICONS / kind / f"{key}.png"
+    if dest.exists():
+        return True
+    if kind == "heroes":
+        if key not in {h["name"].removeprefix("npc_dota_hero_") for h in _load("heroes").values()}:
+            return False
+        path = f"/apps/dota2/images/dota_react/heroes/{key}.png"
+    else:
+        img = (_load("items").get(key) or {}).get("img")
+        if not img:
+            return False
+        path = img.split("?")[0]
+    own = http is None
+    http = http or httpx.Client(timeout=6, headers={"User-Agent": config.USER_AGENT})
+    try:
+        r = http.get(CDN + path)
+        if r.is_success and r.headers.get("content-type", "").startswith("image"):
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            tmp = dest.with_suffix(".tmp")
+            tmp.write_bytes(r.content)
+            tmp.replace(dest)
+            return True
+    except httpx.HTTPError:
+        pass
+    finally:
+        if own:
+            http.close()
+    _icon_failed.add(rel)
+    return False
+
+
 VALVE_HERO = "https://www.dota2.com/datafeed/herodata?language=russian&hero_id={}"
 
 

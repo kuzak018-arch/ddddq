@@ -17,6 +17,8 @@ from fastapi import FastAPI, HTTPException, Query, Request, WebSocket, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel, Field, model_validator
 
 from .. import config, dota_paths, gsi, hero_grid, keybinds, search
@@ -129,8 +131,20 @@ async def auth(request: Request, call_next):
     return await call_next(request)
 
 
+class IconFiles(StaticFiles):
+    """Icons from the local cache; a hero or item icon that is not there yet is downloaded once."""
+
+    async def get_response(self, path, scope):
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as e:
+            if e.status_code != 404 or not await run_in_threadpool(constants.fetch_icon, path):
+                raise
+            return await super().get_response(path, scope)
+
+
 (config.DATA / "icons").mkdir(parents=True, exist_ok=True)
-app.mount("/icons", StaticFiles(directory=config.DATA / "icons"), name="icons")
+app.mount("/icons", IconFiles(directory=config.DATA / "icons"), name="icons")
 
 
 # ---------- context ----------------------------------------------------------------------
