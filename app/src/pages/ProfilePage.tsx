@@ -1,11 +1,28 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Activity, CalendarDays, Gamepad2, LayoutGrid, ChartLine, Percent, User, UserSearch } from 'lucide-react';
+import {
+  Activity,
+  CalendarDays,
+  ChartLine,
+  CircleUser,
+  Droplet,
+  Gamepad2,
+  Image,
+  LayoutGrid,
+  MessageSquareText,
+  Paintbrush,
+  Percent,
+  RefreshCw,
+  Star,
+  Upload,
+  User,
+  UserSearch,
+} from 'lucide-react';
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
 
 import { api } from '../api/client';
 import { useAvatar, useHealth, useHeroes, useMeSummary, useProfile } from '../api/hooks';
-import type { MeSummary } from '../api/types';
-import { heroArt } from '../components/Chrome';
+import type { MeSummary, Profile } from '../api/types';
+import { heroArt, PRESETS } from '../components/Chrome';
 import { useHeroModel } from '../components/HeroModel';
 import { Panel } from '../components/Glass';
 import { AttrIcon, PlusBadge, RankMedal, RoleIcon } from '../components/DotaIcons';
@@ -13,12 +30,24 @@ import { HeroSearch } from '../components/HeroSearch';
 import { Ti } from '../components/Icons';
 import { MatchHistory } from '../components/MatchHistory';
 import { PlayerSearch } from '../components/PlayerSearch';
-import { Empty, ErrorBox, fmtPct, fmtSigned, HeroIcon, Segmented, Slider } from '../components/ui';
+import { Sheet } from '../components/Sheet';
+import { Empty, ErrorBox, fmtPct, fmtSigned, HeroIcon, Segmented, Slider, Toggle } from '../components/ui';
 import { rankName } from '../lib/ranks';
 import { loadFile, saveFile } from '../state/bgstore';
 import { useUi } from '../state/ui';
 
 const pp = (logit: number) => (1 / (1 + Math.exp(-logit)) - 0.5) * 100;
+
+const ACCENTS: { value: string; name: string }[] = [
+  { value: 'auto', name: 'Под героя на баннере' },
+  { value: '#5ee6a0', name: 'Radiant' },
+  { value: '#ff6b5e', name: 'Dire' },
+  { value: '#6aa8ff', name: 'Синий' },
+  { value: '#ffc95c', name: 'Золото' },
+  { value: '#c48bff', name: 'Фиолетовый' },
+  { value: '#ff7ab8', name: 'Розовый' },
+  { value: '#ffffff', name: 'Белый' },
+];
 
 export function ProfilePage() {
   const prof = useProfile();
@@ -31,9 +60,9 @@ export function ProfilePage() {
   });
   const p = prof.data;
   const exp = p?.experience;
-  const avatar = useAvatar(p?.avatar, p?.fetched);
   const summary = useMeSummary().data;
   const [tab, setTab] = useState<'matches' | 'pool' | 'search'>('matches');
+  const [look, setLook] = useState(false);
   const health = useHealth().data;
   const go = useUi((s) => s.go);
 
@@ -46,25 +75,16 @@ export function ProfilePage() {
               <Ti icon={User} />
               Профиль
             </h2>
-            <button className="btn" onClick={() => refresh.mutate()} disabled={refresh.isPending}>
+            <button className="btn btn--sm" onClick={() => setLook(true)}>
+              <Ti icon={Paintbrush} />
+              Оформить
+            </button>
+            <button className="btn btn--sm" onClick={() => refresh.mutate()} disabled={refresh.isPending}>
+              <Ti icon={RefreshCw} />
               {refresh.isPending ? 'Загружаю…' : 'Обновить историю'}
             </button>
           </div>
-          {p && (
-            <div className="me">
-              {avatar && <img className="me__avatar" src={avatar} alt="" />}
-              <RankMedal tier={p.rank_tier} leaderboard={p.leaderboard} size={64} />
-              <div>
-                <h1>
-                  {p.name ?? p.account_id}
-                  {p.plus && <PlusBadge size={24} />}
-                </h1>
-                <p className="me__sub">
-                  {rankName(p.rank_tier)} · рейтинговый All Pick: {p.overall?.games ?? 0} игр, {fmtPct(p.overall?.wr)} побед
-                </p>
-              </div>
-            </div>
-          )}
+          {p && <ProfileCard p={p} summary={summary} />}
         </Banner>
         {prof.error && !health?.account_id ? (
           <div className="empty-cta">
@@ -77,6 +97,8 @@ export function ProfilePage() {
           prof.error && <ErrorBox error={prof.error} />
         )}
         {refresh.error && <ErrorBox error={refresh.error} />}
+      </Panel>
+      <Panel className="profile__side">
         {exp && (
           <div className="exp">
             <h3 className="section-title">
@@ -90,6 +112,7 @@ export function ProfilePage() {
           </div>
         )}
         {summary && <Summary s={summary} />}
+        {!exp && !(summary && (summary.form.length || summary.positions.length || summary.month_heroes.length)) && <Empty>Здесь будут форма, винрейт по позициям и главные герои месяца.</Empty>}
       </Panel>
       <Panel className="profile__pool">
         <div className="panel__head">
@@ -133,7 +156,224 @@ export function ProfilePage() {
           </table>
         )}
       </Panel>
+      <ProfileLook open={look} onClose={() => setLook(false)} />
     </div>
+  );
+}
+
+/** The header card: avatar in its frame, rank medal, name, Dota Plus, status, tiles and the showcase. */
+function ProfileCard({ p, summary }: { p: Profile; summary?: MeSummary }) {
+  const b = useUi((s) => s.banner);
+  const openHero = useUi((s) => s.openHero);
+  const avatar = useAvatar(p.avatar, p.fetched);
+  const main = summary?.positions.length ? [...summary.positions].sort((x, y) => y.games - x.games)[0]! : null;
+  const month = summary?.month_heroes[0];
+  return (
+    <div className="pro">
+      <div className={`pro__avatar pro__avatar--${b.avatar}`}>{avatar ? <img src={avatar} alt="" /> : <span />}</div>
+      <RankMedal tier={p.rank_tier} leaderboard={p.leaderboard} size={92} className="pro__medal" />
+      <div className="pro__who">
+        <h1>
+          {p.name ?? p.account_id}
+          {p.plus && <PlusBadge size={26} />}
+        </h1>
+        {b.status && <p className="pro__status">{b.status}</p>}
+        <p className="me__sub">
+          {rankName(p.rank_tier)}
+          {p.leaderboard ? ` · #${p.leaderboard} в таблице лидеров` : ''} · ID {p.account_id}
+        </p>
+        <div className="pro__tiles">
+          {b.tiles.games && (
+            <div className="pro__tile">
+              <b>{(p.overall?.games ?? 0).toLocaleString('ru')}</b>
+              <span>игр в рейтинге</span>
+            </div>
+          )}
+          {b.tiles.winrate && (
+            <div className="pro__tile">
+              <b className={(p.overall?.wr ?? 0) >= 0.5 ? 'c-good' : 'c-bad'}>{fmtPct(p.overall?.wr)}</b>
+              <span>побед</span>
+            </div>
+          )}
+          {b.tiles.pos && main && (
+            <div className="pro__tile">
+              <b>
+                <RoleIcon pos={main.pos} size={20} /> {POS_NAMES[main.pos]}
+              </b>
+              <span>
+                главная роль · {fmtPct(main.wr, 0)}
+              </span>
+            </div>
+          )}
+          {b.tiles.month && month && (
+            <button className="pro__tile pro__tile--hero" onClick={() => openHero(month.hero)}>
+              <HeroIcon id={month.hero} size="sm" />
+              <span>
+                <b>{month.games}</b> игр за месяц
+              </span>
+            </button>
+          )}
+        </div>
+      </div>
+      {b.showcase.length > 0 && (
+        <div className="pro__showcase">
+          <span className="label">Витрина</span>
+          <div>
+            {b.showcase.map((h) => (
+              <button key={h} className="pro__show" onClick={() => openHero(h)}>
+                <img src={`/portraits/${h}.webp`} alt="" draggable={false} />
+                <HeroName id={h} />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HeroName({ id }: { id: number }) {
+  const name = useHeroes().data?.byId.get(id)?.name;
+  return <span>{name}</span>;
+}
+
+/** «Оформить»: the header's background, accent, avatar frame, status, tiles and showcase. */
+function ProfileLook({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const b = useUi((s) => s.banner);
+  const set = useUi((s) => s.set);
+  const update = (patch: Partial<typeof b>) => set({ banner: { ...b, ...patch } });
+  const [err, setErr] = useState<string | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+  return (
+    <Sheet open={open} onClose={onClose} title={<><Ti icon={Paintbrush} />Оформление профиля</>}>
+      <div className="plook">
+        <section>
+          <h3 className="section-title">
+            <Ti icon={Image} />
+            Фон шапки
+          </h3>
+          <div className="plook__bgs">
+            <button className={`plook__bg ${b.kind === 'none' ? 'is-on' : ''}`} onClick={() => update({ kind: 'none' })}>
+              <span>Без фона</span>
+            </button>
+            {PRESETS.map((x) => (
+              <button
+                key={x.id}
+                className={`plook__bg ${b.kind === 'preset' && b.key === x.id ? 'is-on' : ''}`}
+                style={{ background: x.css }}
+                onClick={() => update({ kind: 'preset', key: x.id })}
+              >
+                <span>{x.name}</span>
+              </button>
+            ))}
+          </div>
+          <div className="row">
+            <button className="btn btn--sm" onClick={() => input.current?.click()}>
+              <Ti icon={Upload} />
+              Свой файл (картинка или GIF)
+            </button>
+          </div>
+          <HeroSearch placeholder="Арт героя на фон…" onPick={(h) => update({ kind: 'hero', key: h.key, x: 22, y: 20 })} compact />
+          {b.kind !== 'none' && b.kind !== 'preset' && (
+            <>
+              <Slider label="Размытие" value={b.blur} min={0} max={20} step={1} onChange={(blur) => update({ blur })} format={(v) => `${v} px`} />
+              <Slider label="Затемнение" value={b.dim} min={0} max={0.85} step={0.05} onChange={(dim) => update({ dim })} format={(v) => `${Math.round(v * 100)}%`} />
+              <p className="muted small">Видимую часть картинки (или место героя) выбирают перетаскиванием в шапке: кнопка «Баннер» на ней.</p>
+            </>
+          )}
+          {err && <p className="c-bad small">{err}</p>}
+          <input
+            ref={input}
+            type="file"
+            accept="image/*"
+            hidden
+            onChange={async (e) => {
+              const f = e.target.files?.[0];
+              e.target.value = '';
+              if (!f) return;
+              if (f.size > 40 * 1024 * 1024) return setErr('Файл больше 40 МБ — возьми поменьше.');
+              setErr(null);
+              await saveFile(BANNER_KEY, f);
+              update({ kind: 'file', key: `${f.name}:${f.size}:${Date.now()}`, x: 50, y: 50 });
+            }}
+          />
+        </section>
+        <section>
+          <h3 className="section-title">
+            <Ti icon={Droplet} />
+            Акцент
+          </h3>
+          <div className="plook__accents">
+            {ACCENTS.map((a) => (
+              <button
+                key={a.value}
+                className={`plook__accent ${b.accent === a.value ? 'is-on' : ''} ${a.value === 'auto' ? 'is-auto' : ''}`}
+                style={a.value === 'auto' ? undefined : { background: a.value }}
+                title={a.name}
+                aria-label={a.name}
+                onClick={() => update({ accent: a.value })}
+              />
+            ))}
+          </div>
+          <p className="muted small">Рамка аватара, свечение шапки и подсветка витрины.</p>
+        </section>
+        <section>
+          <h3 className="section-title">
+            <Ti icon={CircleUser} />
+            Аватар
+          </h3>
+          <Segmented
+            small
+            value={b.avatar}
+            onChange={(avatar) => update({ avatar })}
+            options={[
+              { value: 'round', label: 'Круг' },
+              { value: 'squircle', label: 'Скруглённый' },
+              { value: 'hex', label: 'Шестиугольник' },
+            ]}
+          />
+        </section>
+        <section>
+          <h3 className="section-title">
+            <Ti icon={MessageSquareText} />
+            Статус
+          </h3>
+          <input className="input" maxLength={60} value={b.status} onChange={(e) => update({ status: e.target.value })} placeholder="например: мид или фид · иду в Divine" />
+        </section>
+        <section>
+          <h3 className="section-title">
+            <Ti icon={LayoutGrid} />
+            Плитки в шапке
+          </h3>
+          <Toggle on={b.tiles.games} onChange={(games) => update({ tiles: { ...b.tiles, games } })} label="Игры в рейтинге" />
+          <Toggle on={b.tiles.winrate} onChange={(winrate) => update({ tiles: { ...b.tiles, winrate } })} label="Винрейт" />
+          <Toggle on={b.tiles.pos} onChange={(pos) => update({ tiles: { ...b.tiles, pos } })} label="Главная роль" />
+          <Toggle on={b.tiles.month} onChange={(month) => update({ tiles: { ...b.tiles, month } })} label="Главный герой месяца" />
+        </section>
+        <section>
+          <h3 className="section-title">
+            <Ti icon={Star} />
+            Витрина героев <span className="muted">· до 5</span>
+          </h3>
+          <div className="plook__show">
+            {b.showcase.map((h) => (
+              <button key={h} className="plook__showhero" onClick={() => update({ showcase: b.showcase.filter((x) => x !== h) })} title="Убрать">
+                <HeroIcon id={h} size="md" />
+                <span className="plook__x">✕</span>
+              </button>
+            ))}
+          </div>
+          {b.showcase.length < 5 && (
+            <HeroSearch
+              placeholder="Добавить героя в витрину…"
+              unavailable={new Set(b.showcase)}
+              onPick={(h) => update({ showcase: [...b.showcase, h.id].slice(0, 5) })}
+              compact
+            />
+          )}
+        </section>
+      </div>
+    </Sheet>
   );
 }
 
@@ -258,18 +498,18 @@ function BannerModel({ heroKey, x }: { heroKey: string; x: number }) {
   );
 }
 
-/** Header banner: the user's own image/GIF (IndexedDB) or a hero render; drag to pick the visible part. */
+/** Header banner: the user's own image/GIF (IndexedDB), a hero render or a built-in gradient, in
+ * the profile's accent; «Баннер» lets the picture (or the hero) be dragged to the part to show. */
 function Banner({ children }: { children: ReactNode }) {
   const banner = useUi((s) => s.banner);
   const set = useUi((s) => s.set);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
   const box = useRef<HTMLDivElement>(null);
-  const input = useRef<HTMLInputElement>(null);
   const drag = useRef<{ x: number; y: number; bx: number; by: number } | null>(null);
   const [pos, setPos] = useState({ x: banner.x, y: banner.y });
   useEffect(() => setPos({ x: banner.x, y: banner.y }), [banner.x, banner.y]);
+  const heroColor = useHeroModel(banner.kind === 'hero' ? banner.key : null).color;
 
   useEffect(() => {
     if (banner.kind !== 'file') return;
@@ -285,6 +525,8 @@ function Banner({ children }: { children: ReactNode }) {
   }, [banner.kind, banner.key]);
 
   const src = banner.kind === 'hero' && banner.key ? heroArt(banner.key) : banner.kind === 'file' ? fileUrl : null;
+  const preset = banner.kind === 'preset' ? PRESETS.find((x) => x.id === banner.key) : null;
+  const accent = banner.accent === 'auto' ? (heroColor ?? '#9db4ff') : banner.accent;
   const update = (patch: Partial<typeof banner>) => set({ banner: { ...banner, ...patch } });
 
   const onDown = (e: PointerEvent) => {
@@ -306,75 +548,38 @@ function Banner({ children }: { children: ReactNode }) {
   };
 
   return (
-    <>
-      <div
-        ref={box}
-        className={`banner ${src ? 'has-img' : ''} ${editing && src ? 'is-editing' : ''}`}
-        onPointerDown={onDown}
-        onPointerMove={onMove}
-        onPointerUp={onUp}
-        onPointerCancel={onUp}
-      >
-        {src && (
-          <img
-            className="banner__img"
-            src={src}
-            alt=""
-            draggable={false}
-            style={{
-              objectPosition: `${pos.x}% ${pos.y}%`,
-              // a hero: its scene blurred behind the model, never sharp (that was the "own background")
-              filter: banner.kind === 'hero' ? `blur(${Math.max(12, banner.blur)}px) saturate(1.3)` : banner.blur ? `blur(${banner.blur}px)` : undefined,
-              transform: banner.kind === 'hero' || banner.blur ? 'scale(1.08)' : undefined,
-            }}
-          />
-        )}
-        {src && <div className="banner__dim" style={{ '--dim': banner.dim } as CSSProperties} />}
-        {banner.kind === 'hero' && banner.key && <BannerModel heroKey={banner.key} x={pos.x} />}
-        <div className="banner__content">{children}</div>
-        <button className="btn btn--sm banner__edit" onClick={() => setEditing((v) => !v)} onPointerDown={(e) => e.stopPropagation()}>
-          {editing ? 'Готово' : 'Баннер'}
-        </button>
-      </div>
-      {editing && (
-        <div className="banner-edit">
-          <div className="banner-edit__row">
-            <button className="btn btn--sm" onClick={() => input.current?.click()}>
-              Свой файл (картинка или GIF)
-            </button>
-            {banner.kind !== 'none' && (
-              <button className="btn btn--sm" onClick={() => update({ kind: 'none' })}>
-                Убрать
-              </button>
-            )}
-          </div>
-          <HeroSearch placeholder="Арт героя на баннер…" onPick={(h) => update({ kind: 'hero', key: h.key, x: 22, y: 20 })} compact />
-          <Slider label="Размытие" value={banner.blur} min={0} max={20} step={1} onChange={(blur) => update({ blur })} format={(v) => `${v} px`} />
-          <Slider label="Затемнение" value={banner.dim} min={0} max={0.85} step={0.05} onChange={(dim) => update({ dim })} format={(v) => `${Math.round(v * 100)}%`} />
-          {src && (
-            <p className="muted small">
-              {banner.kind === 'hero' ? 'Перетащи героя в шапке влево или вправо.' : 'Перетащи картинку в шапке, чтобы выбрать видимую часть.'}
-            </p>
-          )}
-          {err && <p className="c-bad small">{err}</p>}
-          <input
-            ref={input}
-            type="file"
-            accept="image/*"
-            hidden
-            onChange={async (e) => {
-              const f = e.target.files?.[0];
-              e.target.value = '';
-              if (!f) return;
-              if (f.size > 40 * 1024 * 1024) return setErr('Файл больше 40 МБ — возьми поменьше.');
-              setErr(null);
-              await saveFile(BANNER_KEY, f);
-              // a new key re-reads the file even when the banner already was a file
-              update({ kind: 'file', key: `${f.name}:${f.size}:${Date.now()}`, x: 50, y: 50 });
-            }}
-          />
-        </div>
+    <div
+      ref={box}
+      className={`banner ${src || preset ? 'has-img' : ''} ${editing && src ? 'is-editing' : ''}`}
+      style={{ '--accent-p': accent, ...(preset ? { background: preset.css } : {}) } as CSSProperties}
+      onPointerDown={onDown}
+      onPointerMove={onMove}
+      onPointerUp={onUp}
+      onPointerCancel={onUp}
+    >
+      {src && (
+        <img
+          className="banner__img"
+          src={src}
+          alt=""
+          draggable={false}
+          style={{
+            objectPosition: `${pos.x}% ${pos.y}%`,
+            // a hero: its scene blurred behind the model, never sharp (that was the "own background")
+            filter: banner.kind === 'hero' ? `blur(${Math.max(12, banner.blur)}px) saturate(1.3)` : banner.blur ? `blur(${banner.blur}px)` : undefined,
+            transform: banner.kind === 'hero' || banner.blur ? 'scale(1.08)' : undefined,
+          }}
+        />
       )}
-    </>
+      {src && <div className="banner__dim" style={{ '--dim': banner.dim } as CSSProperties} />}
+      <div className="banner__accent" aria-hidden />
+      {banner.kind === 'hero' && banner.key && <BannerModel heroKey={banner.key} x={pos.x} />}
+      <div className="banner__content">{children}</div>
+      {src && (
+        <button className="btn btn--sm banner__edit" onClick={() => setEditing((v) => !v)} onPointerDown={(e) => e.stopPropagation()}>
+          {editing ? 'Готово' : banner.kind === 'hero' ? 'Сдвинуть героя' : 'Выбрать часть картинки'}
+        </button>
+      )}
+    </div>
   );
 }

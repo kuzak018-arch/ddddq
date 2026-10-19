@@ -1764,24 +1764,262 @@ input {
 .profile {
   height: 100%;
   display: grid;
-  grid-template-columns: minmax(380px, 1fr) 1.2fr;
+  grid-template-columns: minmax(360px, 1fr) 1.25fr;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: var(--gutter);
 }
-.me {
-  display: flex;
-  gap: 16px;
-  align-items: center;
+.profile__head {
+  grid-column: 1 / -1;
 }
-.me h1 {
+.profile__side {
+  grid-column: 1;
+  grid-row: 2;
+}
+.profile__pool {
+  grid-column: 2;
+  grid-row: 2;
+}
+.profile__side > .panel__body {
   display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+/* the profile's header card (ProfileCard): avatar in its frame, medal, name, tiles, showcase */
+.pro {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+}
+.pro__avatar {
+  --shape: 26%;
+  flex: none;
+  width: 112px;
+  height: 112px;
+  padding: 3px;
+  border-radius: var(--shape);
+  background: linear-gradient(150deg, #fff, var(--accent-p) 45%, color-mix(in srgb, var(--accent-p) 40%, transparent));
+  box-shadow: 0 10px 34px -8px color-mix(in srgb, var(--accent-p) 70%, transparent);
+}
+.pro__avatar > img,
+.pro__avatar > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: calc(var(--shape) - 2%);
+  background: var(--control-bg);
+}
+.pro__avatar--round {
+  --shape: 50%;
+}
+.pro__avatar--hex,
+.pro__avatar--hex > img,
+.pro__avatar--hex > span {
+  border-radius: 0;
+  clip-path: polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0 50%);
+}
+.pro__avatar--hex {
+  box-shadow: none;
+  filter: drop-shadow(0 8px 20px color-mix(in srgb, var(--accent-p) 60%, transparent));
+}
+.pro__medal {
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.45));
+}
+.pro__who {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pro__who h1 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: clamp(28px, 3vw, 40px);
+  line-height: 1.05;
+  text-shadow: 0 4px 24px color-mix(in srgb, var(--accent-p) 45%, transparent);
+}
+.pro__who p {
+  margin: 0;
+}
+.pro__status {
+  font-weight: 600;
+  color: color-mix(in srgb, var(--accent-p) 55%, var(--text));
+}
+.pro__tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.pro__tile {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+.pro__tile b {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-display);
+  font-size: 17px;
+}
+.pro__tile > span {
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+.pro__tile--hero {
+  flex-direction: row;
   align-items: center;
   gap: 10px;
+  cursor: pointer;
 }
-.me__avatar {
-  width: 72px;
-  height: 72px;
-  border-radius: 18px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+.pro__tile--hero > span {
+  font-size: 12px;
+}
+.pro__tile--hero b {
+  display: inline;
+  font-size: 14px;
+}
+.pro__showcase {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.pro__showcase > div {
+  display: flex;
+  gap: 8px;
+}
+.pro__show {
+  position: relative;
+  width: 74px;
+  height: 104px;
+  padding: 0;
+  border: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--control-bg);
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.16),
+    0 10px 24px -12px color-mix(in srgb, var(--accent-p) 80%, transparent);
+  transition: transform 0.45s var(--ease-spring);
+}
+.pro__show:hover {
+  transform: translateY(-4px);
+}
+.pro__show img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.pro__show span {
+  position: absolute;
+  inset: auto 0 0;
+  padding: 14px 4px 4px;
+  font-size: 10.5px;
+  font-weight: 650;
+  color: #fff;
+  text-align: center;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+}
+@media (max-width: 1260px) {
+  .pro__showcase {
+    display: none;
+  }
+}
+/* «Оформить» (ProfileLook) */
+.plook {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: min(560px, 80vw);
+}
+.plook section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.plook__bgs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.plook__bg {
+  height: 50px;
+  border: 0;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: flex-end;
+  padding: 6px 8px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--control-bg);
+  box-shadow: inset 0 0 0 1px var(--glass-rim-2);
+}
+.plook__bg.is-on {
+  box-shadow: inset 0 0 0 2px #fff;
+}
+.plook__accents {
+  display: flex;
+  gap: 10px;
+}
+.plook__accent {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3);
+  transition: transform 0.45s var(--ease-spring);
+}
+.plook__accent.is-auto {
+  background: conic-gradient(#ff6b5e, #ffc95c, #5ee6a0, #6aa8ff, #c48bff, #ff6b5e);
+}
+.plook__accent.is-on {
+  transform: scale(1.15);
+  box-shadow:
+    0 0 0 2px var(--page-bg, #111),
+    0 0 0 4px #fff;
+}
+.plook__show {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.plook__showhero {
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.plook__x {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  background: var(--bad);
+  color: #fff;
 }
 .exp-chart text {
   font-size: 10px;
@@ -1805,8 +2043,20 @@ input {
   overflow: hidden;
   isolation: isolate;
 }
+.banner:last-child {
+  margin-bottom: -18px;
+}
+.banner__accent {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(40% 120% at 8% 100%, color-mix(in srgb, var(--accent-p) 32%, transparent), transparent 70%),
+    linear-gradient(90deg, transparent 60%, color-mix(in srgb, var(--accent-p) 10%, transparent));
+}
 .banner.has-img {
-  min-height: 170px;
+  min-height: 230px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;

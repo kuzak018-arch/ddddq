@@ -35,8 +35,24 @@ interface UiState {
   fx: { kind: Effect; intensity: number };
   /** App icon next to the title and in the taskbar: built-in or the user's picture (IndexedDB). */
   logo: { kind: 'default' | 'file'; key?: string };
-  /** Profile banner: own file (image or GIF, in IndexedDB) or a hero render; x/y = visible part in %. */
-  banner: { kind: 'none' | 'file' | 'hero'; key?: string; x: number; y: number; blur: number; dim: number };
+  /** Profile banner: own file (image or GIF, in IndexedDB), a hero render or a built-in gradient
+   * (key = its id); x/y = visible part in %. The rest is the profile's look (ProfilePage). */
+  banner: {
+    kind: 'none' | 'file' | 'hero' | 'preset';
+    key?: string;
+    x: number;
+    y: number;
+    blur: number;
+    dim: number;
+    /** 'auto' = the banner hero's colour, else a colour */
+    accent: string;
+    avatar: 'round' | 'squircle' | 'hex';
+    status: string;
+    /** up to 5 heroes shown in the header */
+    showcase: number[];
+    /** which tiles the header shows */
+    tiles: { games: boolean; winrate: boolean; pos: boolean; month: boolean };
+  };
   /** «Оформление игры» (menu background, fonts) is unlocked: off until the user reads the warning. */
   gameMods: boolean;
   /** «Оформление»: which tool is open. */
@@ -74,7 +90,10 @@ export const useUi = create<UiState>()(
       closeToTray: false,
       logo: { kind: 'default' },
       fx: { kind: 'none', intensity: 0.5 },
-      banner: { kind: 'none', x: 50, y: 30, blur: 0, dim: 0.35 },
+      banner: {
+        kind: 'none', x: 50, y: 30, blur: 0, dim: 0.35, accent: 'auto', avatar: 'squircle', status: '', showcase: [],
+        tiles: { games: true, winrate: true, pos: true, month: true },
+      },
       gameMods: false,
       lookTab: 'grids',
       overlay: { toggle: 'Ctrl+Shift+M', interact: 'Ctrl+Shift+N', opacity: 0.94, effect: 'acrylic', mode: 'auto', autoPerf: true, autoShow: true },
