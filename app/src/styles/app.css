@@ -219,14 +219,12 @@ input {
   display: grid;
   place-items: center;
   border-radius: 12px;
-  background: linear-gradient(140deg, #4a8cff, #2f5be0 55%, #6a3fd0);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    0 8px 22px -8px rgba(40, 90, 255, 0.7);
+  box-shadow: 0 8px 22px -10px rgba(40, 90, 255, 0.75);
 }
-.brand-logo svg {
-  width: 24px;
-  height: 24px;
+.brand-mark {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 .brand-logo--img {
   object-fit: cover;

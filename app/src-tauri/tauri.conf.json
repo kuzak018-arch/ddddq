@@ -64,6 +64,9 @@
           "Russian"
         ],
         "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico",
+        "sidebarImage": "windows/installer-sidebar.bmp",
+        "headerImage": "windows/installer-header.bmp",
         "installerHooks": "./windows/hooks.nsh"
       }
     },

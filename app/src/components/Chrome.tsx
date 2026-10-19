@@ -123,15 +123,10 @@ function PositionPicker() {
   );
 }
 
-/** The built-in logo: crossed blades on a Radiant-to-Dire tile (same as the app icon). */
+/** The built-in logo: crossed blades on a glass lens over a Radiant-to-Dire glow (the app icon,
+ * app/design/app-icon.svg; public/brand.svg is the same file). */
 export function BrandMark() {
-  return (
-    <svg viewBox="0 0 32 32" aria-hidden>
-      <path d="M8 8 L24 24 M24 8 L8 24" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" />
-      <circle cx="11" cy="21" r="2.4" fill="#1b1d26" />
-      <circle cx="21" cy="21" r="2.4" fill="#1b1d26" />
-    </svg>
-  );
+  return <img className="brand-mark" src="/brand.svg" alt="" draggable={false} data-tauri-drag-region />;
 }
 
 /** Built-in wallpapers; `luma` is how bright each one is (for the glass veil). */
