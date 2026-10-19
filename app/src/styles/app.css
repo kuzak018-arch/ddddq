@@ -1181,11 +1181,13 @@ input {
     inset 0 0 0 1px rgba(255, 255, 255, 0.14),
     inset 0 -24px 40px -24px color-mix(in srgb, var(--glow) 65%, transparent);
 }
-/* the feet stay inside the rounded card, the head may rise above it */
+/* the feet stay inside the rounded card, the head may rise above it, but only into the headroom of
+   the box (--card-top): a clip reaching higher put the playing video's repaint under the top bar,
+   and its glass redrew in strips every frame (a flickering light band in the tab pill) */
 .hmodel__figs {
   position: absolute;
   inset: 0;
-  clip-path: inset(-50% -50% 0 -50% round 0 0 var(--radius-md) var(--radius-md));
+  clip-path: inset(0 -50% 0 -50% round 0 0 var(--radius-md) var(--radius-md));
   filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.45));
   pointer-events: none;
   user-select: none;
