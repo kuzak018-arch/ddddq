@@ -49,7 +49,10 @@ export function Onboarding() {
             <label className="onboard__field">
               <span className="label">Токен Stratz (необязательно)</span>
               <input className="input" value={token} onChange={(e) => setToken(e.target.value)} placeholder="stratz.com/api → вход через Steam → токен" type="password" />
-              <span className="hint">С ним точнее позиции героев и билды. Хранится только у тебя в .env.</span>
+              <span className="hint">
+                Без него не будет истории матчей с оценкой игры, «Игр топов» Immortal/Divine и данных линий, а позиции и билды
+                будут грубее. Бесплатный, хранится только у тебя в .env.
+              </span>
             </label>
             <p className="hint">
               Ещё установлю конфиг Game State Integration в папку Доты — это официальный способ Valve узнать стадию матча и

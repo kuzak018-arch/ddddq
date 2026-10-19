@@ -7,7 +7,8 @@ import pytest
 from drafter.data import constants
 from drafter.vision import calibration, evaluate, matcher, reader, runner
 
-pytestmark = pytest.mark.skipif(not matcher.has_templates(), reason="нужны иконки героев")
+pytestmark = pytest.mark.skipif(not (constants.DIR / "heroes.json").exists() or not matcher.has_templates(),
+                                reason="нужны константы и иконки героев")
 
 AM, AXE, PUDGE, LION = 1, 2, 14, 26
 
