@@ -432,7 +432,7 @@ def lane_bulk_action(body: LaneBulkIn):
 def my_profile():
     data = me.load()
     if not data:
-        raise HTTPException(404, "истории ещё нет: POST /me/refresh")
+        raise HTTPException(404, "истории ещё нет: нажми «Обновить историю»")
     pool = me.hero_pool(data)
     prof = data["profile"].get("profile") or {}
     heroes = sorted(pool["heroes"].items(), key=lambda kv: -kv[1]["games"])[:30]

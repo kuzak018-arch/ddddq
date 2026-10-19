@@ -549,6 +549,10 @@ input {
   -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 14px, #000 calc(100% - 18px), transparent 100%);
   mask-image: linear-gradient(180deg, transparent 0, #000 14px, #000 calc(100% - 18px), transparent 100%);
 }
+/* in a scrolling column nothing is squeezed: a button (overflow: hidden) used to shrink to a sliver */
+.panel__body > * {
+  flex-shrink: 0;
+}
 .panel__body::-webkit-scrollbar {
   width: 6px;
 }
@@ -1377,7 +1381,10 @@ input {
   width: 170px;
   flex: none;
   border-radius: var(--radius-md);
-  background: center 15% / cover no-repeat var(--slot-bg);
+  background-color: var(--slot-bg);
+  background-position: center 15%, center;
+  background-size: cover, cover;
+  background-repeat: no-repeat;
   min-height: 200px;
 }
 .hero-card__info {
@@ -1876,7 +1883,10 @@ input {
   cursor: pointer;
   position: relative;
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-start;
+  text-align: left;
   padding: 6px 8px;
   background: var(--control-bg);
   box-shadow: inset 0 0 0 1px var(--glass-rim-2);
@@ -2032,7 +2042,9 @@ input {
   z-index: 50;
   display: grid;
   place-items: center;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
 }
 .onboard__card {
   width: min(520px, 92vw);
@@ -2846,7 +2858,15 @@ input {
   display: block;
   font-size: 10px;
   font-weight: 500;
-  opacity: 0.75;
+  color: #fff;
+  opacity: 0.8;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+.bg-tile span {
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ---------- draft (new layout) ---------- */
@@ -3440,4 +3460,73 @@ input {
   .dr-row__text b {
     font-size: 14px;
   }
+}
+
+/* ---------- heroes tab: hero page / builds switch, all heroes when none is chosen ---------- */
+.hero-page__bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.hero-page__bar > :last-child {
+  flex: 1;
+  min-width: 0;
+}
+.hero-page.is-empty .hero-page__head {
+  grid-column: 1 / -1;
+  grid-row: 1 / -1;
+}
+.all-heroes {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.all-heroes__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(62px, 1fr));
+  gap: 6px;
+  margin-top: 6px;
+}
+.all-heroes__item {
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    transform 0.4s var(--ease-spring),
+    filter var(--dur) var(--ease-out);
+}
+.all-heroes__item .hero-icon--md {
+  width: 100%;
+}
+.all-heroes__item:hover {
+  transform: scale(1.08);
+  filter: brightness(1.15);
+}
+.all-heroes__item:active {
+  transform: scale(0.96);
+}
+.empty-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px;
+  border-radius: var(--radius-md);
+  background: var(--row-bg);
+  color: var(--text-2);
+}
+label.field {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+:root[data-theme='light'] .dr-row__empty {
+  border-color: rgba(0, 0, 0, 0.22);
+  background: rgba(255, 255, 255, 0.35);
+}
+:root[data-theme='light'] .dr-row.is-focus {
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.45);
 }

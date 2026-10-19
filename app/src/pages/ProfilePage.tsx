@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
 
 import { api } from '../api/client';
-import { useAvatar, useHeroes, useMeSummary, useProfile } from '../api/hooks';
+import { useAvatar, useHealth, useHeroes, useMeSummary, useProfile } from '../api/hooks';
 import type { MeSummary } from '../api/types';
 import { heroArt } from '../components/Chrome';
 import { Panel } from '../components/Glass';
@@ -30,6 +30,8 @@ export function ProfilePage() {
   const avatar = useAvatar(p?.avatar, p?.fetched);
   const summary = useMeSummary().data;
   const [tab, setTab] = useState<'matches' | 'pool'>('matches');
+  const health = useHealth().data;
+  const go = useUi((s) => s.go);
 
   return (
     <div className="profile">
@@ -53,7 +55,16 @@ export function ProfilePage() {
             </div>
           )}
         </Banner>
-        {prof.error && <ErrorBox error={prof.error} />}
+        {prof.error && !health?.account_id ? (
+          <div className="empty-cta">
+            <p>Укажи свой Steam ID (Friend ID из профиля Доты) — здесь появятся твоя история, пул героев и разбор матчей.</p>
+            <button className="btn btn--accent" onClick={() => go('settings')}>
+              Указать в настройках
+            </button>
+          </div>
+        ) : (
+          prof.error && <ErrorBox error={prof.error} />
+        )}
         {refresh.error && <ErrorBox error={refresh.error} />}
         {exp && (
           <div className="exp">

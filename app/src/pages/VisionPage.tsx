@@ -226,7 +226,7 @@ export function VisionPage() {
   return (
     <div className="vision">
       <Panel className="vision__side" refracting>
-        <div className="panel__head">
+        <div className="panel__head panel__head--wrap">
           <button className="btn btn--sm btn--ghost" onClick={() => useUi.getState().go('settings')} title="Вернуться в настройки">
             ← Настройки
           </button>

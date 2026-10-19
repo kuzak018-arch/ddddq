@@ -23,6 +23,7 @@ export function SettingsPage() {
     <div className="settings">
       <AppearanceCard />
       <div className="settings__col">
+        <AccountCard />
         <GsiCard />
         <VisionCard />
         <OverlayCard />
@@ -270,6 +271,65 @@ const STATE_RU: Record<string, string> = {
   DOTA_GAMERULES_STATE_GAME_IN_PROGRESS: 'игра идёт',
   DOTA_GAMERULES_STATE_POST_GAME: 'матч окончен',
 };
+
+/** My Steam32 id (Friend ID) and the Stratz token: set at first start, changeable here any time. */
+function AccountCard() {
+  const qc = useQueryClient();
+  const setup = useQuery({ queryKey: ['setup'], queryFn: () => api<{ account_id: number | null; has_stratz_token: boolean }>('/setup') });
+  const [acc, setAcc] = useState<string | null>(null);
+  const [token, setToken] = useState('');
+  const save = useMutation({
+    mutationFn: async () => {
+      const id = Number((acc ?? '').replace(/\D/g, ''));
+      await api('/setup', {
+        method: 'PUT',
+        body: { account_id: acc === null ? null : id || null, stratz_token: token.trim() || null },
+      });
+      if (acc !== null && id) await api('/me/refresh', { method: 'POST' });
+    },
+    onSuccess: () => {
+      setToken('');
+      setAcc(null);
+      qc.invalidateQueries();
+    },
+  });
+  const s = setup.data;
+  return (
+    <Panel>
+      <div className="panel__head">
+        <h2>Аккаунт</h2>
+        {s && <span className="pill">{s.account_id ? `id ${s.account_id}` : 'не указан'}</span>}
+      </div>
+      <label className="field">
+        <span className="label">Steam ID (Friend ID из профиля Доты)</span>
+        <input
+          className="input"
+          inputMode="numeric"
+          value={acc ?? (s?.account_id ? String(s.account_id) : '')}
+          onChange={(e) => setAcc(e.target.value)}
+          placeholder="например 1477734386"
+        />
+      </label>
+      <label className="field">
+        <span className="label">Токен Stratz {s?.has_stratz_token && <span className="muted">— есть, впиши новый, чтобы заменить</span>}</span>
+        <input
+          className="input"
+          type="password"
+          value={token}
+          onChange={(e) => setToken(e.target.value)}
+          placeholder="stratz.com/api → вход через Steam → токен"
+        />
+      </label>
+      <div className="row">
+        <button className="btn btn--accent" onClick={() => save.mutate()} disabled={save.isPending || (acc === null && !token.trim())}>
+          {save.isPending ? 'Сохраняю…' : 'Сохранить'}
+        </button>
+      </div>
+      {save.error && <ErrorBox error={save.error} />}
+      <p className="hint">Хранится только у тебя в .env. Нужен для истории матчей и твоего пула; токен — для позиций, билдов и линий.</p>
+    </Panel>
+  );
+}
 
 function GsiCard() {
   const qc = useQueryClient();

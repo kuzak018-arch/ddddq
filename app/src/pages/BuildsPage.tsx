@@ -1,6 +1,7 @@
 import { useHeroes, useBuild } from '../api/hooks';
 import { BuildView } from '../components/BuildView';
 import { Panel } from '../components/Glass';
+import { HeroModeSwitch } from '../components/HeroModeSwitch';
 import { HeroSearch } from '../components/HeroSearch';
 import { LaneView } from '../components/LaneView';
 import { Empty, ErrorBox, HeroIcon, Loading, Segmented } from '../components/ui';
@@ -21,7 +22,7 @@ export function BuildsPage() {
     <div className="builds">
       <Panel className="builds__controls" refracting>
         <div className="panel__head">
-          <h2>Билды</h2>
+          <HeroModeSwitch />
         </div>
         <span className="label">Мой герой</span>
         <div className="builds__hero">

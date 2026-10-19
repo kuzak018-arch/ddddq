@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 
+import { asset } from '../api/client';
 import { useBuild, useHeroes, useHeroPage, useProfile } from '../api/hooks';
 import type { Matchup } from '../api/types';
 import { BuildView } from '../components/BuildView';
 import { heroArt } from '../components/Chrome';
 import { Panel } from '../components/Glass';
+import { HeroModeSwitch } from '../components/HeroModeSwitch';
 import { HeroSearch } from '../components/HeroSearch';
 import { Empty, ErrorBox, fmtPct, fmtSigned, HeroIcon, Loading, Segmented } from '../components/ui';
 import { useUi } from '../state/ui';
@@ -21,15 +23,19 @@ export function HeroPage() {
   const build = useBuild(p ? id : null, buildPos, []);
 
   return (
-    <div className="hero-page">
+    <div className={`hero-page ${id ? '' : 'is-empty'}`}>
       <Panel className="hero-page__head" refracting>
-        <HeroSearch placeholder="Найти героя…" onPick={(h) => openHero(h.id)} compact />
+        <div className="hero-page__bar">
+          <HeroModeSwitch />
+          <HeroSearch placeholder="Найти героя…" onPick={(h) => openHero(h.id)} compact />
+        </div>
         {!id && <HeroPicks onPick={openHero} />}
         {id && page.isPending && <Loading>Загружаю героя…</Loading>}
         {page.error && <ErrorBox error={page.error} />}
         {p && (
           <div className="hero-card">
-            <div className="hero-card__art" style={{ backgroundImage: `url("${heroArt(p.hero.key)}")` }} />
+            {/* the Steam render over the local portrait: offline (or while it loads) the portrait shows */}
+            <div className="hero-card__art" style={{ backgroundImage: `url("${heroArt(p.hero.key)}"), url("${asset(p.hero.icon)}")` }} />
             <div className="hero-card__info">
               <h1>{p.hero.name}</h1>
               <p className="muted">{p.hero.ru.slice(0, 3).join(' · ')}</p>
@@ -126,13 +132,18 @@ function MatchupList({ title, rows }: { title: string; rows: Matchup[] }) {
   );
 }
 
-/** Empty hero page: the user's most played heroes as one-click shortcuts. */
+/** Empty hero page: the user's most played heroes, then every hero by attribute, one click away. */
 function HeroPicks({ onPick }: { onPick: (id: number) => void }) {
   const pool = useProfile().data?.heroes.slice(0, 8) ?? [];
   const heroes = useHeroes().data;
+  const groups: { attr: string; name: string }[] = [
+    { attr: 'str', name: 'Сила' },
+    { attr: 'agi', name: 'Ловкость' },
+    { attr: 'int', name: 'Интеллект' },
+    { attr: 'all', name: 'Универсальные' },
+  ];
   return (
     <div className="hero-picks">
-      <p className="muted">Найди героя поиском выше или дважды кликни по герою в драфте.</p>
       {pool.length > 0 && (
         <>
           <h3 className="section-title">Твои герои</h3>
@@ -147,6 +158,23 @@ function HeroPicks({ onPick }: { onPick: (id: number) => void }) {
           </div>
         </>
       )}
+      <div className="all-heroes">
+        {groups.map((g) => (
+          <section key={g.attr}>
+            <h3 className="section-title">{g.name}</h3>
+            <div className="all-heroes__grid">
+              {heroes?.heroes
+                .filter((h) => h.attr === g.attr)
+                .sort((a, b) => a.name.localeCompare(b.name))
+                .map((h) => (
+                  <button key={h.id} className="all-heroes__item" onClick={() => onPick(h.id)} title={h.name}>
+                    <HeroIcon id={h.id} size="md" />
+                  </button>
+                ))}
+            </div>
+          </section>
+        ))}
+      </div>
     </div>
   );
 }
