@@ -15,7 +15,7 @@ import { useEffectsBlocked } from '../components/Effects';
 import { refractionSupported } from '../glass/refraction';
 import { ErrorBox, Segmented, Slider, Toggle } from '../components/ui';
 import { LOGO_KEY, useLogoUrl } from '../lib/appIcon';
-import { saveBackgroundFile, saveFile } from '../state/bgstore';
+import { loadBackgroundFile, saveBackgroundFile, saveFile } from '../state/bgstore';
 import { useUi } from '../state/ui';
 
 export function SettingsPage() {
@@ -41,6 +41,7 @@ function AppearanceCard() {
   const heroes = useHeroes().data;
   const bg = ui.background;
   const fxBlocked = useEffectsBlocked();
+  const [fileErr, setFileErr] = useState<string | null>(null);
   return (
     <Panel refracting>
       <h2>Оформление</h2>
@@ -70,7 +71,8 @@ function AppearanceCard() {
           </button>
         ))}
         <button className={`bg-tile ${bg.kind === 'file' ? 'is-on' : ''}`} onClick={() => file.current?.click()}>
-          <span>Свой файл…</span>
+          <span>{bg.kind === 'file' ? bg.name : 'Свой файл…'}</span>
+          <small>картинка, GIF, видео</small>
         </button>
         {bg.kind === 'hero' && (
           <button className="bg-tile is-on" style={{ background: `url("${heroArt(bg.key)}") center 20% / cover, #222` }}>
@@ -81,16 +83,21 @@ function AppearanceCard() {
       <input
         ref={file}
         type="file"
-        accept="image/*"
+        accept="image/*,video/mp4,video/webm"
         hidden
         onChange={async (e) => {
           const f = e.target.files?.[0];
+          e.target.value = '';
           if (!f) return;
+          if (f.size > 400 * 1024 * 1024) return setFileErr('Файл больше 400 МБ — возьми поменьше.');
+          setFileErr(null);
           await saveBackgroundFile(f);
-          ui.set({ background: { kind: 'file', name: f.name } });
+          ui.set({ background: { kind: 'file', name: f.name }, bgPos: { x: 50, y: 50 } });
         }}
       />
-      <HeroSearch placeholder="Арт героя как фон…" onPick={(h) => ui.set({ background: { kind: 'hero', key: h.key } })} compact />
+      {fileErr && <p className="small c-bad">{fileErr}</p>}
+      <HeroSearch placeholder="Арт героя как фон…" onPick={(h) => ui.set({ background: { kind: 'hero', key: h.key }, bgPos: { x: 50, y: 20 } })} compact />
+      {bg.kind !== 'preset' && <WallpaperFrame />}
       <Slider label="Размытие фона" value={ui.bgBlur} min={0} max={40} step={1} onChange={(bgBlur) => ui.set({ bgBlur })} format={(v) => `${v} px`} />
       <Slider label="Затемнение фона" value={ui.bgDim} min={0} max={0.8} step={0.05} onChange={(bgDim) => ui.set({ bgDim })} format={(v) => `${Math.round(v * 100)}%`} />
       <div className="field">
@@ -132,6 +139,65 @@ function AppearanceCard() {
       />
       <Toggle on={ui.performance} onChange={(performance) => ui.set({ performance })} label="Режим производительности (без размытия и анимаций)" />
     </Panel>
+  );
+}
+
+/** The visible part of the user's picture, video or hero art: drag the preview to move it. */
+function WallpaperFrame() {
+  const { background: bg, bgPos, set } = useUi();
+  const [src, setSrc] = useState<{ url: string; video: boolean } | null>(null);
+  const [pos, setPos] = useState(bgPos);
+  const box = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ x: number; y: number; bx: number; by: number } | null>(null);
+  useEffect(() => setPos(bgPos), [bgPos]);
+  useEffect(() => {
+    if (bg.kind === 'hero') {
+      setSrc({ url: heroArt(bg.key), video: false });
+      return;
+    }
+    if (bg.kind !== 'file') return setSrc(null);
+    let url: string | null = null;
+    let alive = true;
+    loadBackgroundFile().then((blob) => {
+      if (blob && alive) setSrc({ url: (url = URL.createObjectURL(blob)), video: blob.type.startsWith('video/') });
+    });
+    return () => {
+      alive = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [bg]);
+  if (!src) return null;
+  const clamp = (v: number) => Math.min(100, Math.max(0, v));
+  const style = { objectPosition: `${pos.x}% ${pos.y}%` };
+  return (
+    <div className="wall-frame">
+      <div
+        ref={box}
+        className="wall-frame__box"
+        onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture(e.pointerId);
+          drag.current = { x: e.clientX, y: e.clientY, bx: pos.x, by: pos.y };
+        }}
+        onPointerMove={(e) => {
+          const d = drag.current;
+          const r = box.current?.getBoundingClientRect();
+          if (!d || !r) return;
+          // dragging the picture right shows more of its left side: the position goes down
+          setPos({ x: clamp(d.bx - ((e.clientX - d.x) / r.width) * 100), y: clamp(d.by - ((e.clientY - d.y) / r.height) * 100) });
+        }}
+        onPointerUp={() => {
+          if (drag.current) set({ bgPos: { x: Math.round(pos.x), y: Math.round(pos.y) } });
+          drag.current = null;
+        }}
+      >
+        {src.video ? (
+          <video src={src.url} style={style} muted loop autoPlay playsInline />
+        ) : (
+          <img src={src.url} style={style} alt="" draggable={false} />
+        )}
+      </div>
+      <p className="hint">Перетащи картинку, чтобы выбрать видимую часть обоев.</p>
+    </div>
   );
 }
 

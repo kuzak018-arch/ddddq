@@ -241,7 +241,10 @@ input {
   letter-spacing: -0.02em;
   line-height: 1.1;
   white-space: nowrap;
-  text-shadow: var(--text-on-wall-shadow);
+  /* the title sits right on the wallpaper: a stronger shadow on bright pictures */
+  text-shadow:
+    var(--text-on-wall-shadow),
+    0 0 calc(var(--veil) * 40px) rgba(0, 0, 0, calc(var(--veil) * 1.4));
 }
 .topbar__title small {
   font-family: var(--font);
@@ -2812,4 +2815,36 @@ input {
 }
 .grids__backups li .btn {
   margin-left: auto;
+}
+
+/* ---------- wallpaper: the visible part of a picture or video ---------- */
+.wall-frame {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.wall-frame__box {
+  height: 180px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: grab;
+  box-shadow: inset 0 0 0 1px var(--glass-border);
+  touch-action: none;
+}
+.wall-frame__box:active {
+  cursor: grabbing;
+}
+.wall-frame__box img,
+.wall-frame__box video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+.bg-tile small {
+  display: block;
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.75;
 }
