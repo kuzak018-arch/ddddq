@@ -63,12 +63,22 @@ vision_runner = runner.Runner(
 
 def _set_vision(on: bool) -> None:
     s = user_settings.load()
-    user_settings.save(s.model_copy(update={"vision_enabled": on}))
+    user_settings.save(s.model_copy(update={"vision_off": not on}))
     vision_runner.set_enabled(on)
 
 
+def _vision_wanted() -> bool:
+    """Reading is on from the first draft unless the user switched it off (now or, before this
+    setting existed, in the wizard: auto.json's manual_off)."""
+    return not user_settings.load().vision_off and not vauto.state().get("manual_off")
+
+
+def _set_cautious(on: bool) -> None:
+    vision_runner.cautious = on
+
+
 def _after_draft(d: dict) -> None:
-    out = vauto.finalize(d, _set_vision, lambda: vision_runner.enabled)
+    out = vauto.finalize(d, _set_cautious)
     bus.publish("vision", status=vision_runner.status(), auto=out)
 
 
@@ -98,7 +108,8 @@ async def lifespan(app: FastAPI):
             server = gsi.serve(_on_gsi)
         except OSError as e:  # port taken (another copy running): the app still works without GSI
             print(f"GSI-приёмник не запущен: порт {gsi.PORT} занят ({e})", flush=True)
-    if user_settings.load().vision_enabled:
+    vision_runner.cautious = not vauto.proven()
+    if _vision_wanted():
         vision_runner.set_enabled(True)
     if os.environ.get("DRAFTER_NO_GSI") != "1":   # without GSI there is never a draft phase to collect
         vision_collector.start()
@@ -756,8 +767,8 @@ def vision_status():
             "layout_base": vlayout.base()[1], "fits": sorted(vlayout._detected()),
             "labeled_frames": labeled, "required_precision": veval.REQUIRED_PRECISION, "report": report,
             "dota_window": vcap.find_window() is not None, "collect": vision_collector.status(),
-            "auto": {"last": auto_state.get("last"), "auto_enabled": auto_state.get("auto_enabled", False),
-                     "enabled_at": auto_state.get("enabled_at"),
+            "auto": {"last": auto_state.get("last"), "proven": bool(auto_state.get("proven")),
+                     "proven_at": auto_state.get("proven_at"),
                      "rule": {"drafts": vauto.AUTO_MIN_DRAFTS, "frames": vauto.AUTO_MIN_FRAMES,
                               "filled": vauto.AUTO_MIN_FILLED}}}
 
@@ -976,21 +987,13 @@ class EnableIn(BaseModel):
 
 @app.post("/vision/enable")
 def vision_enable(body: EnableIn):
-    if body.on:
-        ev = vauto.evaluate_all()   # frames confirmed in the wizard plus frames collected in drafts
-        if ev["frames"] < 3:
-            raise HTTPException(409, "сначала нужны хотя бы 3 настоящих кадра драфта: собранные в матчах "
-                                     "(с заполненной доской) или подтверждённые в мастере")
-        if ev["precision"] is None or ev["precision"] < veval.REQUIRED_PRECISION:
-            got = "—" if ev["precision"] is None else f"{ev['precision']:.0%}"
-            raise HTTPException(409, f"точность на настоящих кадрах {got}, нужно не ниже "
-                                     f"{veval.REQUIRED_PRECISION:.0%}: подтверди ещё кадры или подними порог")
+    """On or off by hand, at any time. While the accuracy is unproven the reader is cautious
+    (only confident reads), so switching it on early fills fewer slots, not wrong ones."""
     _set_vision(body.on)
-    if not body.on:   # switched off by hand: don't switch it back on by itself
-        st = vauto.state()
-        st["auto_enabled"] = False
-        st["manual_off"] = True
-        vauto._save_state(st)
+    st = vauto.state()
+    st["manual_off"] = not body.on
+    st.pop("auto_enabled", None)
+    vauto._save_state(st)
     return vision_runner.status()
 
 

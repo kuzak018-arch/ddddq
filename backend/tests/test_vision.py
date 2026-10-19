@@ -56,6 +56,7 @@ def test_runner_needs_two_frames_side_and_respects_manual_edits():
         state.update(c)
 
     r = runner.Runner(lambda: state, patch, lambda d: None)
+    r.cautious = False                                  # accuracy proven: the normal pace
     f = frame_with([AM, None, None, None, None], [AXE, None, None, None, None], cal)
     assert r.step(f, dict(state), cal) is None          # side unknown -> nothing applied
     state["side"] = "dire"
@@ -81,3 +82,43 @@ def test_learned_template_and_eval_report(tmp_path, monkeypatch):
     (ds / "a.json").write_text(json.dumps({"radiant": [AM, PUDGE, None, None, None], "dire": [None] * 5, "bans": []}))
     r = evaluate.evaluate(ds, cal)
     assert r["precision"] == 1.0 and r["recall"] == 1.0
+
+
+def test_cautious_reader_needs_a_frame_more_and_more_confidence(monkeypatch, tmp_path):
+    monkeypatch.setattr(calibration, "PATH", tmp_path / "calibration.json")
+    from drafter.vision import layout
+    monkeypatch.setattr(layout, "PATH", tmp_path / "layout.json")
+    cal = layout.for_frame(1920, 1080)
+    state = {"allies": [None] * 5, "enemies": [None] * 5, "bans": [], "side": "radiant", "phase": "draft"}
+    r = runner.Runner(lambda: state, lambda **c: state.update(c), lambda d: None)
+    assert r.cautious                                   # from the first draft, before any proof
+    f = frame_with([AM, None, None, None, None], [None] * 5, cal)
+    assert r.step(f, dict(state)) is None and r.step(f, dict(state)) is None   # two frames: not yet
+    ch = r.step(f, dict(state))
+    assert ch["allies"][0] == AM and r.status()["cautious"]
+    # a weak read (a blurred, darkened portrait) is left out while cautious, taken when proven
+    weak = cv2.addWeighted(cv2.GaussianBlur(frame_with([None, PUDGE, None, None, None], [None] * 5, cal), (0, 0), 4), 0.55,
+                           np.zeros_like(f), 0, 0)
+    res = r._read(weak)
+    r.cautious = False
+    loose = r._read(weak)
+    assert sum(x.hero is not None for x in res["radiant"]) <= sum(x.hero is not None for x in loose["radiant"])
+
+
+def test_a_half_filled_board_does_not_make_right_reads_wrong(monkeypatch):
+    from drafter.vision import collector
+    S = matcher.SlotResult
+    res = {"radiant": [S(AM, .9, .2, []), S(PUDGE, .9, .2, []), S(LION, .9, .2, []), S(None, 0, 0, [], True), S(None, 0, 0, [], True)],
+           "dire": [S(10, .9, .2, []), S(AXE, .9, .2, []), S(None, 0, 0, [], True), S(None, 0, 0, [], True), S(None, 0, 0, [], True)],
+           "bans": [], "warnings": [], "source": "profile"}
+    monkeypatch.setattr(matcher, "_read", lambda p: np.zeros((10, 10, 3), np.uint8))
+    monkeypatch.setattr(reader, "read", lambda img, cal=None, exclude=None: res)
+    monkeypatch.setattr(collector, "frame_path", lambda fid: fid)
+    # the user put only Anti-Mage on our side, but all five enemies (Lion among them)
+    draft = {"id": "d", "frames": [{"id": "f", "complete": False}],
+             "labels": {"radiant": [AM], "dire": [10, 11, 12, 13, LION], "bans": []}}
+    r = evaluate.evaluate_collected(draft_list=[draft])
+    # right: AM, 10. Wrong: Lion on our side (he is an enemy), Axe among complete enemies.
+    # Pudge: our side's board is incomplete, so nobody knows - not counted
+    assert (r["correct"], r["filled"], r["unknown"]) == (2, 4, 1)
+    assert {w[3] for w in r["wrong"]} == {LION, AXE}

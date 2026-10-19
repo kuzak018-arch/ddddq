@@ -433,6 +433,7 @@ function VisionCard() {
     queryFn: () =>
       api<{
         enabled: boolean;
+        cautious: boolean;
         calibrated: boolean;
         calibration_auto: boolean;
         layout_base: 'default' | 'manual' | 'auto';
@@ -440,23 +441,42 @@ function VisionCard() {
         labeled_frames: number;
         error: string | null;
         collect: CollectStatus;
-        auto: { auto_enabled: boolean; enabled_at: number | null; last: { evaluation?: { precision: number | null; frames: number; drafts: number } } | null };
+        auto: {
+          proven: boolean;
+          last: { evaluation?: { precision: number | null; frames: number; drafts: number; filled: number } } | null;
+          rule: { drafts: number; frames: number; filled: number };
+        };
       }>('/vision/status'),
   });
+  const qc = useQueryClient();
   const s = status.data;
   const c = s?.collect;
   const ev = s?.auto.last?.evaluation;
+  const toggle = useMutation({
+    mutationFn: (on: boolean) => api('/vision/enable', { body: { on } }),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['vision'] }),
+  });
   return (
     <Section>
       <div className="panel__head">
         <h2>Чтение драфта с экрана</h2>
-        <span className="pill">{s?.enabled ? (s.auto.auto_enabled ? 'включено само' : 'включено') : 'выключено'}</span>
+        <span className="pill">{!s?.enabled ? 'выключено' : s.cautious ? 'учится' : 'включено'}</span>
       </div>
       <p className="hint">
-        Экспериментально и отключаемо: захват только окна Доты и сравнение портретов с шаблонами. Калибровка не нужна: рамки
-        берутся из встроенного профиля под разрешение окна и сами подгоняются по первым кадрам с героями. Включается само, когда
-        точность на кадрах из твоих матчей не ниже 98%.
+        Во время выбора героев программа смотрит на окно Доты (как скриншот, без памяти игры) и сама вписывает героев на доску.
+        Калибровка не нужна: рамки берутся из профиля под разрешение окна и подгоняются по первым кадрам с героями. Твоя правка
+        слота всегда важнее, а после каждого драфта программа учится на том, что в итоге стоит на доске, — так она запоминает,
+        как портреты выглядят именно у тебя.
       </p>
+      <Toggle on={!!s?.enabled} onChange={(on) => toggle.mutate(on)} label={<b>Читать драфт с экрана</b>} />
+      {s?.enabled && (
+        <p className="small">
+          {s.cautious
+            ? `Пока учится: вписывает героя, только когда уверено, и после трёх одинаковых кадров — лучше пустой слот, чем чужой герой. Станет смелее после ${s.auto.rule.drafts} драфтов, ${s.auto.rule.frames} кадров и ${s.auto.rule.filled} героев с точностью от 98%${ev ? ` (сейчас: ${ev.drafts} драфтов, ${ev.frames} кадров, ${ev.filled} героев${ev.precision !== null ? `, ${Math.round(ev.precision * 1000) / 10}%` : ''})` : ''}.`
+            : 'Точность на твоих драфтах подтверждена: вписывает героев сразу.'}
+        </p>
+      )}
+      {toggle.error && <ErrorBox error={toggle.error} />}
       <Toggle
         on={settings?.vision_collect ?? true}
         onChange={(vision_collect) => settings && save.mutate({ ...settings, vision_collect })}

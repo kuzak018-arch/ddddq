@@ -93,6 +93,7 @@ def test_runner_fits_on_live_frames_by_itself():
     frame = draw((2560, 1440), HEROES[:5], HEROES[5:], 1.05, 20, 6)
     state = {"allies": [None] * 5, "enemies": [None] * 5, "bans": [], "side": "radiant", "phase": "draft"}
     r = runner.Runner(lambda: state, lambda **c: state.update(c), lambda d: None)
+    r.cautious = False
     r.step(frame, dict(state))
     assert r.autofit.last_info["saved"] and layout.for_frame(2560, 1440).source == "detected"
     assert r.last_result["source"] == "detected"

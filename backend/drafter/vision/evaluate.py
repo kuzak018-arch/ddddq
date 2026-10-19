@@ -138,12 +138,15 @@ def evaluate_collected(cal: calibration.Calibration | None = None, draft_list: l
     """Accuracy on frames collected during real drafts, labelled from the draft board.
 
     The board's slot order needn't match the screen, so a hero read in a team's slot is right if
-    that team has it (and a ban if it was banned; bans count only when the board has bans). Every
-    frame counts for precision (a hero shown mid-draft is already final); recall only on complete
-    frames (strategy time, all ten on screen) of drafts with full teams. Each draft is read
-    without the templates learned from that same draft."""
+    that team has it (and a ban if it was banned). It is wrong only when the board proves it: the
+    hero is in the other team or in the bans, or the team on the board is complete (five) without
+    it. A board the user filled only in part says nothing about the heroes missing from it, so
+    those reads count neither way (they used to count as errors). Every frame counts for precision
+    (a hero shown mid-draft is already final); recall only on complete frames (strategy time, all
+    ten on screen) of drafts with full teams. Each draft is read without the templates learned
+    from that same draft."""
     from . import collector
-    filled = correct = present = found = frames = 0
+    filled = correct = present = found = frames = unknown = 0
     used_drafts = 0
     wrong = []
     for d in draft_list if draft_list is not None else collector.drafts():
@@ -164,20 +167,24 @@ def evaluate_collected(cal: calibration.Calibration | None = None, draft_list: l
             for g in ("radiant", "dire", "bans"):
                 if g == "bans" and not truth["bans"]:
                     continue
+                others = set().union(*(truth[o] for o in ("radiant", "dire", "bans") if o != g))
                 for i, r in enumerate(res[g]):
                     if not r.hero:
                         continue
-                    filled += 1
                     if r.hero in truth[g]:
+                        filled += 1
                         correct += 1
                         if g != "bans":
                             seen.add(r.hero)
-                    else:
+                    elif r.hero in others or (g != "bans" and len(truth[g]) == 5):
+                        filled += 1
                         wrong.append((f["id"], g, i, r.hero, r.score))
+                    else:
+                        unknown += 1
             if f.get("complete") and full:
                 present += 10
                 found += len(seen)
         used_drafts += frames > before
     return {"folder": "collected", "drafts": used_drafts, "frames": frames, "filled": filled, "correct": correct,
             "precision": correct / filled if filled else None, "recall": found / present if present else None,
-            "wrong": wrong[:20], **_limits(cal)}
+            "wrong": wrong[:20], "unknown": unknown, **_limits(cal)}

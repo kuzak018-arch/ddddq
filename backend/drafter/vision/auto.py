@@ -5,9 +5,9 @@
 2. templates: on that frame, each team's crops are matched to the team's five heroes (best
    one-to-one assignment) and saved as learned templates tagged with the draft, when the match is
    clear; accuracy on a draft is always measured without its own templates;
-3. accuracy on everything collected and confirmed so far; the feature switches itself on when it
-   is good enough (AUTO_* below), and off again if it was switched on automatically and has
-   dropped below the bar since.
+3. accuracy on everything collected and confirmed so far. Reading is on from the first draft;
+   until the accuracy is proven (AUTO_* below) it runs cautiously (runner.CAUTIOUS_*: only
+   confident reads, one frame more of agreement), and once proven at full speed.
 """
 
 from __future__ import annotations
@@ -134,8 +134,13 @@ def good_enough(ev: dict) -> bool:
             and ev["precision"] is not None and ev["precision"] >= evaluate.REQUIRED_PRECISION)
 
 
-def finalize(d: dict, set_enabled, is_enabled) -> dict:
-    """Run after a collected draft is frozen. set_enabled(bool) switches the feature on/off."""
+def proven() -> bool:
+    return bool(state().get("proven"))
+
+
+def finalize(d: dict, set_cautious) -> dict:
+    """Run after a collected draft is frozen. set_cautious(bool) tells the reader whether its
+    accuracy is still unproven."""
     st = state()
     out: dict = {"draft": d["id"], "at": time.time()}
     if not d.get("labels"):
@@ -146,15 +151,14 @@ def finalize(d: dict, set_enabled, is_enabled) -> dict:
         out["learned"] = learn(d)
     ev = evaluate_all()
     out["evaluation"] = {k: ev[k] for k in ("drafts", "frames", "filled", "correct", "precision")}
-    if good_enough(ev) and not is_enabled() and not st.get("manual_off"):   # never against the user's choice
-        set_enabled(True)
-        st.update(enabled_at=time.time(), auto_enabled=True)
-        out["switched"] = "on"
-    elif st.get("auto_enabled") and is_enabled() and ev["precision"] is not None \
-            and ev["precision"] < evaluate.REQUIRED_PRECISION:
-        set_enabled(False)
-        st["auto_enabled"] = False
-        out["switched"] = "off"
+    ok = good_enough(ev)
+    if ok != bool(st.get("proven")):
+        out["switched"] = "confident" if ok else "cautious"
+        if ok:
+            st["proven_at"] = time.time()
+    st["proven"] = ok
+    out["proven"] = ok
+    set_cautious(not ok)
     st["last"] = out
     _save_state(st)
     return out

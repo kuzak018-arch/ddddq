@@ -53,6 +53,7 @@ interface SlotResult {
 type ReadResult = Record<Group, SlotResult[]> & { warnings: string[] };
 interface VisionStatus {
   enabled: boolean;
+  cautious: boolean;
   running: boolean;
   error: string | null;
   calibrated: boolean;
@@ -446,8 +447,8 @@ export function VisionPage() {
             <li>Если рамки легли криво — потяни их мышью и «Сохранить рамки» (ручные). «Сбросить на автоматические» вернёт профиль.</li>
           </ol>
           <p className="muted">
-            Дальше ничего делать не нужно: во время драфта программа сама подгоняет профиль по первым кадрам с героями и сама
-            включает чтение, когда точность на твоих матчах дойдёт до 98%.
+            Это необязательно: чтение включено сразу, во время драфта само подгоняет рамки по первым кадрам с героями и учится
+            после каждого драфта. Подтверждённые здесь кадры просто ускоряют обучение.
           </p>
         </details>
 
@@ -471,14 +472,15 @@ export function VisionPage() {
         </button>
         {total && (
           <p className="hint">
-            Включится само при ≥ {total.auto_rule.drafts} драфтах, ≥ {total.auto_rule.frames} кадрах, ≥ {total.auto_rule.filled} распознанных
-            героях и точности ≥ {fmtPct(total.required, 0)}.
+            Пока точность не подтверждена, чтение осторожное: вписывает героя только при высокой уверенности. Осторожность снимется
+            сама при ≥ {total.auto_rule.drafts} драфтах, ≥ {total.auto_rule.frames} кадрах, ≥ {total.auto_rule.filled} распознанных героях
+            и точности ≥ {fmtPct(total.required, 0)}. Герои, которых нет на неполной доске драфта, ошибкой не считаются.
           </p>
         )}
         <Toggle
           on={!!s?.enabled}
           onChange={(on) => enable.mutate(on)}
-          label={`Читать драфт во время выбора героев (нужно ≥ ${fmtPct(s?.required_precision ?? 0.98, 0)} на 3+ кадрах)`}
+          label={s?.enabled && s.cautious ? 'Читать драфт во время выбора героев (пока учится, осторожно)' : 'Читать драфт во время выбора героев'}
         />
         {s?.error && <p className="warn">{s.error}</p>}
       </Panel>

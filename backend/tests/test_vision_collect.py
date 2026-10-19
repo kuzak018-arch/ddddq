@@ -71,17 +71,17 @@ def run_draft(col, sess, state, radiant, dire, rng):
     col.tick()
 
 
-def test_collect_label_freeze_and_switch_on(sandbox, monkeypatch):
+def test_collect_label_freeze_and_become_confident(sandbox, monkeypatch):
     monkeypatch.setattr(auto, "AUTO_MIN_FRAMES", 4)
     monkeypatch.setattr(auto, "AUTO_MIN_FILLED", 10)
     rng = np.random.default_rng(3)
     sess = {"phase": "idle", "side": None, "allies": [None] * 5, "enemies": [None] * 5, "bans": [], "rev": 0}
     state = {"gs": None}
-    enabled = {"on": False}
+    cautious = {"on": True}
     finals = []
 
     def finalize(d):
-        finals.append(auto.finalize(d, lambda on: enabled.update(on=on), lambda: enabled["on"]))
+        finals.append(auto.finalize(d, lambda on: cautious.update(on=on)))
 
     settings = types.SimpleNamespace(vision_collect=True, vision_collect_mb=500)
     col = collector.Collector(lambda: sess, lambda: state["gs"], lambda: settings, on_finalize=finalize)
@@ -94,7 +94,7 @@ def test_collect_label_freeze_and_switch_on(sandbox, monkeypatch):
     first = finals[0]
     assert first["calibration"]["done"] and calibration.load().auto        # rects found on the frame
     assert first["learned"] >= 8                                             # templates from the screen
-    assert not enabled["on"]                                                 # one draft is not enough
+    assert cautious["on"] and not first["proven"]                            # one draft is not enough
 
     # the board is cleared for the next game: the frozen labels must stay
     sess.update(allies=[None] * 5, enemies=[None] * 5, rev=sess["rev"] + 1)
@@ -106,7 +106,7 @@ def test_collect_label_freeze_and_switch_on(sandbox, monkeypatch):
     run_draft(col, sess, state, hs[10:15], hs[15:20], rng)
     ev = finals[-1]["evaluation"]
     assert ev["drafts"] == 2 and ev["precision"] >= 0.98
-    assert enabled["on"] and finals[-1]["switched"] == "on"
+    assert not cautious["on"] and finals[-1]["switched"] == "confident" and auto.proven()
 
     # a frame of a known draft gives the same rects through the API helper
     f = auto.complete_frame(collector.drafts()[0])
