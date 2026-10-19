@@ -1,5 +1,5 @@
 /* Overlay window: the page itself is transparent; with Acrylic the system blurs the game behind,
-   with "tint" the panel paints a darker translucent glass on its own. */
+   with "tint" the panel paints a darker translucent glass on its own. One glass panel ~400px. */
 html.is-overlay,
 html.is-overlay body,
 html.is-overlay #root {
@@ -13,72 +13,113 @@ html.is-overlay body {
   height: 100%;
   display: flex;
   flex-direction: column;
-  border-radius: 18px;
+  border-radius: 26px;
   overflow: hidden;
   color: var(--text);
   box-shadow:
-    inset 0 1px 0.5px rgba(255, 255, 255, 0.45),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.22);
   transition: opacity var(--dur) var(--ease-out);
 }
-/* Acrylic already blurs and tints the game: keep only a light sheen so text stays readable */
+/* Acrylic already blurs and tints the game: a light white veil keeps text readable */
 .ov--acrylic {
   background:
-    radial-gradient(130% 70% at 10% -10%, rgba(255, 255, 255, 0.14), transparent 55%),
-    rgba(12, 13, 18, 0.35);
+    radial-gradient(130% 70% at 10% -10%, rgba(255, 255, 255, 0.16), transparent 55%),
+    linear-gradient(rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.06)),
+    rgba(10, 11, 16, 0.42);
 }
+/* no Acrylic (or performance mode): a dark translucent glass of our own */
 .ov--tint {
   background:
     radial-gradient(130% 70% at 10% -10%, rgba(255, 255, 255, 0.1), transparent 55%),
-    rgba(14, 15, 20, 0.86);
+    rgba(14, 15, 21, 0.88);
 }
 :root[data-theme='light'] .ov--acrylic {
   background:
     radial-gradient(130% 70% at 10% -10%, rgba(255, 255, 255, 0.5), transparent 55%),
-    rgba(250, 250, 252, 0.45);
+    rgba(250, 250, 252, 0.5);
 }
 :root[data-theme='light'] .ov--tint {
-  background: rgba(248, 248, 250, 0.9);
+  background: rgba(248, 248, 250, 0.92);
 }
 .ov.is-through {
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 .ov__head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 6px 6px 12px;
+  gap: 6px;
+  padding: 12px 12px 6px;
   cursor: grab;
 }
-.ov__title {
+.ov-switch {
   flex: 1;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 700;
-  white-space: nowrap;
+  padding: 4px;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
-.ov__title .titlebar__logo {
-  width: 14px;
-  height: 14px;
-  border-radius: 5px;
+.ov-switch__btn {
+  position: relative;
+  flex: 1;
+  height: 32px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--text);
 }
-.ov__opacity {
-  width: 64px;
-  accent-color: #fff;
+.ov-switch__btn.is-on {
+  color: var(--chip-on-text);
 }
-.ov__head .winbtn {
-  width: 30px;
-  height: 26px;
+.ov-switch__btn > span:not(.ov-switch__pill) {
+  position: relative;
+  z-index: 1;
+}
+.ov-switch__pill {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-pill);
+  background: var(--chip-on);
+  box-shadow: inset 0 1px 0 #fff;
+}
+.ov-round {
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  color: var(--text-2);
+  cursor: pointer;
+}
+.ov-round:hover {
+  background: rgba(255, 255, 255, 0.16);
+  color: var(--text);
+}
+.ov-round.is-on {
+  background: var(--chip-on);
+  color: var(--chip-on-text);
+}
+.ov-round__min {
+  width: 12px;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
 }
 
 .ov__body {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 4px 12px 8px;
+  padding: 6px 14px 8px;
   scrollbar-width: thin;
 }
 .ov__center {
@@ -90,124 +131,166 @@ html.is-overlay body {
 .ov__warn {
   margin-bottom: 8px;
   padding: 8px 10px;
-  border-radius: 10px;
+  border-radius: 12px;
   background: color-mix(in srgb, var(--warn) 22%, transparent);
   font-size: 12px;
 }
-
 .ov__draft,
 .ov__build {
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 10px;
+}
+
+/* search with the Ctrl K hint */
+.ov-search {
+  position: relative;
+}
+.ov-search kbd {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 2px 7px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.12);
+  font: 600 11px var(--font-mono);
+  color: var(--text-2);
+  pointer-events: none;
+}
+.is-overlay .hero-search__field {
+  height: 40px;
+  border-radius: var(--radius-pill);
+}
+.is-overlay .hero-search__field input {
+  font-size: 13px;
+}
+
+/* the draft in two rows of five portraits, then the chances */
+.ov-board {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 .ov__team {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 3px;
+  grid-template-columns: 50px repeat(5, 1fr);
+  align-items: center;
+  gap: 6px;
+}
+.ov__team-label {
+  font-size: 12px;
+  font-weight: 700;
+}
+.ov__team--ally .ov__team-label {
+  color: var(--radiant);
+}
+.ov__team--enemy .ov__team-label {
+  color: var(--dire);
 }
 .ov__slot {
-  aspect-ratio: 16 / 9;
-  border-radius: 4px;
-  background: var(--slot-bg);
+  aspect-ratio: 1.1;
+  border-radius: 10px;
+  border: 1.5px dashed rgba(255, 255, 255, 0.22);
   overflow: hidden;
-  transition: filter var(--dur) var(--ease-out);
+  cursor: pointer;
 }
-.ov__slot:has(.hero-icon):hover {
-  filter: brightness(1.15);
+.ov__slot.is-filled {
+  border: 0;
 }
 .ov__slot .hero-icon--sm {
   width: 100%;
-  border-radius: 0;
-  box-shadow: none;
+  height: 100%;
+  border-radius: 10px;
 }
-.ov__team--ally .ov__slot {
-  box-shadow: inset 0 -2px 0 var(--radiant);
+.ov__slot .hero-icon img {
+  object-fit: cover;
 }
-.ov__team--enemy .ov__slot {
-  box-shadow: inset 0 -2px 0 var(--dire);
+.ov__slot.is-filled:hover {
+  filter: brightness(1.15);
 }
 .ov__slot.is-me {
-  box-shadow:
-    inset 0 -2px 0 var(--radiant),
-    0 0 0 1.5px var(--text-2);
+  box-shadow: 0 0 0 2px var(--radiant);
 }
-.ov__team--ally .ov__slot:has(.hero-icon) {
-  cursor: pointer;
-}
-/* lane favourite: one row + a thin outcome bar */
-.ov-lane {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  padding: 6px 8px;
-  border-radius: 10px;
-  background: var(--glass-tint-inset);
-  box-shadow: inset 0 0 0 1px var(--glass-rim-2);
-}
-.ov-lane__row {
-  display: flex;
+.ov-winbar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 6px;
-  min-width: 0;
+  gap: 10px;
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.ov-winbar__track {
+  height: 6px;
+  border-radius: 6px;
+  background: var(--bad);
+  overflow: hidden;
+}
+.ov-winbar__track .is-us {
+  display: block;
+  height: 100%;
+  background: var(--good);
+}
+
+/* the lane line */
+.ov-lanebox {
+  padding: 10px 12px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+/* green when I am the lane favourite, red when the enemy is */
+.ov-lanebox:has(.lane-card.is-good) {
+  background: color-mix(in srgb, var(--good) 14%, rgba(255, 255, 255, 0.04));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--good) 35%, transparent);
+}
+.ov-lanebox:has(.lane-card.is-bad) {
+  background: color-mix(in srgb, var(--bad) 14%, rgba(255, 255, 255, 0.04));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bad) 35%, transparent);
+}
+.ov-lanebox .lane-card {
+  gap: 4px;
+}
+.ov-lanebox .lane-card__title {
+  font-size: 13px;
+}
+.ov-lanebox .lane-card__text {
   font-size: 12px;
 }
-.ov-lane__row .hero-icon--sm {
-  width: 34px;
-}
-.ov-lane__enemy {
-  padding: 0;
-  border: 0;
-  background: none;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: transform 0.3s var(--ease-spring);
-}
-.ov-lane__enemy:disabled {
-  cursor: default;
-}
-.ov-lane__enemy:not(:disabled):hover {
-  transform: translateY(-1px);
-}
-.ov-lane__verdict {
-  flex: 1;
-  min-width: 0;
-  text-align: right;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ov-lane__verdict .pill {
-  margin-left: 6px;
-}
-.lane__bar--thin {
-  height: 5px;
-}
-.ov__win {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.ov__win .winbar {
-  flex: 1;
-}
-.ov__pct {
-  font-size: 22px;
-  font-weight: 750;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-}
-.ov__row {
+
+/* top-5 picks */
+.ov-picks__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  margin-top: 2px;
 }
-.ov__row > span:not(.label) {
+.ov-pos {
+  display: flex;
+  gap: 2px;
+}
+.ov-pos button {
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  font: 700 11px var(--font-display);
+  color: var(--text-3);
   cursor: pointer;
 }
-.ov__row .is-on .hero-icon {
-  box-shadow: 0 0 0 2px var(--text);
+.ov-pos button:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+.ov-pos button.is-on {
+  background: var(--chip-on);
+  color: var(--chip-on-text);
 }
 .ov__list {
   list-style: none;
@@ -215,39 +298,51 @@ html.is-overlay body {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 .ov__list li {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 6px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.06);
+  gap: 10px;
+  padding: 7px 10px 7px 8px;
+  border-radius: 14px;
   cursor: pointer;
   transition: background-color var(--dur) var(--ease-out);
 }
-.ov__list li:hover {
-  background: rgba(255, 255, 255, 0.13);
+.ov__list li.is-best {
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
 }
-.ov__why {
+.ov__list li:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+.ov__list .hero-icon--sm {
+  width: 30px;
+  aspect-ratio: 1;
+  border-radius: 9px;
+  flex: none;
+}
+.ov__who {
   flex: 1;
   min-width: 0;
-  font-size: 12px;
-  color: var(--text-2);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ov__list b {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
-  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
 }
-.ov__list b small {
-  font-size: 10px;
-  opacity: 0.85;
+.ov__who b {
+  font-size: 13px;
+}
+.ov__who small {
+  font-size: 11px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ov__p {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 13px;
 }
 .ov__bans {
   display: flex;
@@ -259,7 +354,7 @@ html.is-overlay body {
 }
 .ov__bans span:not(.label) {
   cursor: pointer;
-  border-radius: 5px;
+  border-radius: 6px;
   transition:
     filter var(--dur) var(--ease-out),
     transform 0.35s var(--ease-spring);
@@ -268,8 +363,24 @@ html.is-overlay body {
   filter: brightness(1.15);
   transform: translateY(-1px);
 }
-.ov__bans span:not(.label):active {
-  transform: scale(0.95);
+
+/* build mode */
+.ov__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ov__row > span:not(.label) {
+  cursor: pointer;
+}
+.ov__row .is-on .hero-icon {
+  box-shadow: 0 0 0 2px var(--radiant);
+}
+.ov__row--start {
+  justify-content: flex-start;
+}
+.ov__row--start .label {
+  margin-right: 4px;
 }
 .ov__items {
   display: flex;
@@ -282,13 +393,13 @@ html.is-overlay body {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   font-size: 12px;
   color: var(--text-2);
 }
 .ov__vs li {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: flex-start;
 }
 .ov__vs li.is-rare {
@@ -297,46 +408,88 @@ html.is-overlay body {
 .ov__vs b {
   color: var(--text);
 }
+.ov__lane-mode .lane {
+  font-size: 12px;
+}
 
+/* footer: hotkey hint, opacity, screen reading status */
 .ov__foot {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 4px 6px 6px 12px;
+  gap: 10px;
+  padding: 6px 8px 10px 16px;
   font-size: 11px;
   color: var(--text-3);
 }
-.ov__foot > span:first-child,
-.ov__link {
+.ov__foot > span:first-child {
+  white-space: nowrap;
+}
+.ov__opacity {
   flex: 1;
+  min-width: 40px;
+  accent-color: #fff;
 }
-.ov__link {
-  border: 0;
-  background: transparent;
-  color: var(--text-3);
-  text-align: left;
-  cursor: pointer;
-  padding: 0;
-  font-size: 11px;
+.ov-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
 }
-.ov__link:hover {
-  color: var(--text);
+.ov-status i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+.ov-status.is-on {
+  color: var(--text-2);
+}
+.ov-status.is-on i {
+  background: var(--good);
+  box-shadow: 0 0 6px var(--good);
 }
 .ov__grip {
   width: 14px;
   height: 14px;
+  flex: none;
   cursor: se-resize;
   background: linear-gradient(135deg, transparent 50%, rgba(255, 255, 255, 0.35) 50% 60%, transparent 60% 70%, rgba(255, 255, 255, 0.35) 70% 80%, transparent 80%);
 }
-.is-overlay .hero-search__field {
-  height: 34px;
+
+/* collapsed: a small pill with the best pick and the chances */
+.ov--pill {
+  border-radius: var(--radius-pill);
+  justify-content: center;
 }
-.is-overlay .hero-search__field input {
+.ov-pill {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 18px 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ov-pill .hero-icon--sm {
+  width: 38px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  flex: none;
+}
+.ov-pill b {
   font-size: 13px;
 }
-.ov__row--start {
-  justify-content: flex-start;
+.ov-pill small {
+  color: var(--text-2);
 }
-.ov__row--start .label {
-  margin-right: 4px;
+.ov-pill__dot {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(140deg, #4a8cff, #6a3fd0);
 }
