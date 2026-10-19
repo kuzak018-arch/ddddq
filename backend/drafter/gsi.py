@@ -111,6 +111,20 @@ def parse_draft(draft: dict) -> dict[str, list[int]]:
     return out
 
 
+def merge_slots(slots: list, heroes: list[int], taken: set[int]) -> list:
+    """The board's slots with the heroes Dota reported for that team added: each into the first
+    empty slot, in Dota's order. Nothing is removed: a slot Dota says nothing about keeps what the
+    screen reader or the user put there. A hero reported for the other team leaves this one."""
+    out = [h if h not in taken or h in heroes else None for h in slots]
+    for h in heroes:
+        if h in out:
+            continue
+        if None not in out:
+            break
+        out[out.index(None)] = h
+    return out
+
+
 class Tracker:
     """Turns the GSI stream into session updates. Kept separate from HTTP for tests."""
 
@@ -164,8 +178,18 @@ class Tracker:
             mine = side or current.get("side")
             if mine:
                 ours, theirs = (d["radiant"], d["dire"]) if mine == "radiant" else (d["dire"], d["radiant"])
-                pad = lambda xs: (xs + [None] * 5)[:5]
-                changes.update(allies=pad(ours), enemies=pad(theirs), bans=d["bans"][:16])
+                # the block only adds what it knows: a player's GSI carries their own team, and
+                # an empty enemy side used to wipe the enemies read from the screen on every tick
+                # (the reader then took the cleared slots for the user's edits and stopped)
+                base = {**current, **changes}
+                for key, heroes in (("allies", ours), ("enemies", theirs)):
+                    merged = merge_slots(base.get(key) or [None] * 5, heroes, taken=set(ours) | set(theirs))
+                    if merged != list(base.get(key) or [None] * 5):
+                        changes[key] = merged
+                bans = list(base.get("bans") or [])
+                new_bans = [b for b in d["bans"] if b not in bans]
+                if new_bans:
+                    changes["bans"] = (bans + new_bans)[:16]
         if changes:
             self.apply(**changes)
             return changes
