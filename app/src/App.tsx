@@ -16,6 +16,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { TopGamesPage } from './pages/TopGamesPage';
 import { VisionPage } from './pages/VisionPage';
 import { useAppIcon } from './lib/appIcon';
+import { LEAVE_MS, slideDir } from './lib/pageAnim';
 import { useCloseToTray } from './lib/tray';
 import { applyHotkeys, showOverlay } from './lib/overlay';
 import { useDraft } from './state/draft';
@@ -54,8 +55,6 @@ function useAppearance() {
   }, [calm, refraction]);
 }
 
-const LEAVE_MS = 220;
-
 /** Calm motion: the system's "reduce motion" or the app's performance mode. */
 function useCalmMotion(): boolean {
   const perf = useUi((s) => s.performance);
@@ -70,18 +69,20 @@ function useCalmMotion(): boolean {
 }
 
 /**
- * Crossfade between pages: the page being left stays mounted for LEAVE_MS as a layer under the
- * new one while its panels fade out, and the new page's panels fade in over it. Both stay the
- * same React elements (keyed by page), so nothing remounts or refetches mid-fade.
+ * Page switch: the page being left stays mounted for a moment as a layer under the new one while
+ * its panels animate out, and the new page's panels animate in over it (the chosen animation,
+ * lib/pageAnim.ts and the CSS under .page--in / .page--out). Both stay the same React elements
+ * (keyed by page), so nothing remounts or refetches mid-animation.
  */
 function usePageStack(page: Page, calm: boolean) {
-  const [stack, setStack] = useState<{ cur: Page; prev: Page | null }>({ cur: page, prev: null });
-  if (stack.cur !== page) setStack({ cur: page, prev: calm ? null : stack.cur });
+  const anim = useUi((s) => s.pageAnim);
+  const [stack, setStack] = useState<{ cur: Page; prev: Page | null; dir: 'fwd' | 'back' }>({ cur: page, prev: null, dir: 'fwd' });
+  if (stack.cur !== page) setStack({ cur: page, prev: calm || anim === 'none' ? null : stack.cur, dir: slideDir(stack.cur, page) });
   useEffect(() => {
     if (!stack.prev) return;
-    const t = setTimeout(() => setStack((s) => ({ ...s, prev: null })), LEAVE_MS);
+    const t = setTimeout(() => setStack((s) => ({ ...s, prev: null })), LEAVE_MS[anim]);
     return () => clearTimeout(t);
-  }, [stack]);
+  }, [stack, anim]);
   return stack;
 }
 
@@ -133,6 +134,7 @@ export default function App() {
   }, [phase]);
 
   const pages = stack.prev ? [stack.prev, stack.cur] : [stack.cur];
+  const anim = useUi((s) => s.pageAnim);
   return (
     <>
       <Wallpaper />
@@ -140,7 +142,7 @@ export default function App() {
       <div className="app">
         <TitleBar />
         <div className="app__body">
-          <main className="app__main">
+          <main className="app__main" data-anim={anim} data-dir={stack.dir}>
             {!ready ? (
               <Panel className="boot" refracting>
                 {error ? (

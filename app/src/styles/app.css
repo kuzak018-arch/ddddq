@@ -311,6 +311,10 @@ input {
   position: relative;
   z-index: 1;
 }
+.posnav__btn > span:not(.posnav__pill) {
+  display: grid;
+  place-items: center;
+}
 
 /* my position: round buttons 1–5 */
 .posnav {
@@ -469,11 +473,11 @@ input {
     box-shadow var(--dur) var(--ease-out);
 }
 
-/* page switch: a crossfade. The page being left stays for a moment as a layer underneath and its
-   panels fade out; the new page's panels fade in with a short rise, one after another. Opacity sits
-   on the panels, never on .page: an opacity on the wrapper would make it a backdrop root and the
-   glass would lose the wallpaper blur for the whole transition. No scale: rescaling blurred glass
-   every frame is what made the old animation stutter. */
+/* page switch (Настройки → Оформление → «Переход между вкладками», lib/pageAnim.ts). The page being
+   left stays for a moment as a layer underneath while its panels animate out; the new page's panels
+   animate in, one after another. Everything sits on the panels, never on .page: an opacity, filter or
+   transform on the wrapper would make it a backdrop root and the glass would lose the wallpaper blur
+   for the whole transition. data-dir on .app__main: fwd = to a tab further right. */
 .app__main > .page--out {
   position: absolute;
   inset: 0;
@@ -494,30 +498,109 @@ input {
     opacity: 0;
   }
 }
+@keyframes panel-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes panel-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(calc(var(--slide) * 1px));
+  }
+}
+@keyframes panel-slide-out {
+  to {
+    opacity: 0;
+    transform: translateX(calc(var(--slide) * -1px));
+  }
+}
+@keyframes panel-zoom-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+@keyframes panel-zoom-out {
+  to {
+    opacity: 0;
+    transform: scale(1.04);
+  }
+}
+@keyframes panel-blur-in {
+  from {
+    opacity: 0;
+    filter: blur(14px);
+  }
+}
+@keyframes panel-blur-out {
+  to {
+    opacity: 0;
+    filter: blur(10px);
+  }
+}
+/* «Подъём» (default): fade with a short rise */
 .page--in .panel {
   animation: panel-in 0.34s var(--ease-out) both;
-}
-.page--in :nth-child(2 of .panel) {
-  animation-delay: 0.03s;
-}
-.page--in :nth-child(3 of .panel) {
-  animation-delay: 0.06s;
-}
-.page--in :nth-child(4 of .panel) {
-  animation-delay: 0.09s;
 }
 .page--out .panel {
   animation: panel-out 0.2s var(--ease-out) both;
 }
+/* «Затухание» */
+[data-anim='fade'] > .page--in .panel {
+  animation: panel-fade-in 0.3s ease-out both;
+}
+/* «Слайд»: both pages move the same way, the new one comes from the side of the tab clicked */
+[data-anim='slide'] {
+  --slide: 56;
+}
+[data-anim='slide'][data-dir='back'] {
+  --slide: -56;
+}
+[data-anim='slide'] > .page--in .panel {
+  animation: panel-slide-in 0.4s var(--ease-out) both;
+}
+[data-anim='slide'] > .page--out .panel {
+  animation: panel-slide-out 0.28s ease-in both;
+}
+/* «Глубина»: the old page comes towards you and fades, the new one rises from the depth */
+[data-anim='zoom'] > .page--in .panel {
+  animation: panel-zoom-in 0.38s var(--ease-out) both;
+}
+[data-anim='zoom'] > .page--out .panel {
+  animation: panel-zoom-out 0.24s ease-in both;
+}
+/* «Фокус»: from blur to sharp */
+[data-anim='blur'] > .page--in .panel {
+  animation: panel-blur-in 0.36s var(--ease-out) both;
+}
+[data-anim='blur'] > .page--out .panel {
+  animation: panel-blur-out 0.24s ease-in both;
+}
+[data-anim='none'] > .page--in .panel {
+  animation: none;
+}
+/* one panel after another (after the rules above: their shorthand would reset the delay) */
+.app__main > .page--in :nth-child(2 of .panel) {
+  animation-delay: 0.03s;
+}
+.app__main > .page--in :nth-child(3 of .panel) {
+  animation-delay: 0.06s;
+}
+.app__main > .page--in :nth-child(4 of .panel) {
+  animation-delay: 0.09s;
+}
 
 @media (prefers-reduced-motion: reduce) {
-  .page--in .panel {
+  .page--in .panel,
+  .app__main > .page--in .panel {
     animation: none;
   }
   .page--out {
     display: none;
   }
 }
+
 
 /* ---------- panels ---------- */
 /* The glass (rim, sheen, refraction) is the outer element and never scrolls; content scrolls in
@@ -590,6 +673,63 @@ input {
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-2);
+}
+/* line icons in front of titles and labels: sized to the text, a touch dimmer than it */
+.ti {
+  display: inline-block;
+  flex: none;
+  width: 1.2em;
+  height: 1.2em;
+  margin-right: 0.45em;
+  vertical-align: -0.24em;
+  opacity: 0.85;
+}
+.section-title .ti {
+  width: 1.4em;
+  height: 1.4em;
+  margin-right: 0.55em;
+  vertical-align: -0.36em;
+}
+/* Dota's own icons (components/DotaIcons.tsx) */
+.role-ico {
+  display: inline-block;
+  flex: none;
+  vertical-align: middle;
+  background-color: currentColor;
+  -webkit-mask: var(--ico) center / contain no-repeat;
+  mask: var(--ico) center / contain no-repeat;
+}
+.attr-ico {
+  flex: none;
+  vertical-align: middle;
+  object-fit: contain;
+}
+.rank-medal {
+  position: relative;
+  display: inline-block;
+  flex: none;
+  vertical-align: middle;
+}
+.rank-medal img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.rank-medal__place {
+  position: absolute;
+  inset: auto 0 6% 0;
+  text-align: center;
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+}
+.plus-badge {
+  flex: none;
+  width: auto;
+  vertical-align: middle;
 }
 .btn--icon {
   width: 36px;
@@ -889,6 +1029,11 @@ input {
 .hero-search__row img {
   width: 52px;
   border-radius: 5px;
+}
+.hero-search__row .attr-ico {
+  width: 14px;
+  border-radius: 0;
+  margin-right: -4px;
 }
 .hero-search__row.is-active {
   background: var(--control-bg-hover);
@@ -1252,6 +1397,41 @@ input {
   display: flex;
   flex-direction: column;
 }
+.hero-card__sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.hero-card__name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.posbar > span {
+  display: grid;
+  place-items: center;
+  height: 14px;
+}
+.seg-role {
+  margin-right: 4px;
+  vertical-align: -2px;
+}
+.seg-medal {
+  margin: -4px 3px -4px -4px;
+}
+.dr-row__pos {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.h-role {
+  margin-left: 4px;
+  vertical-align: -0.15em;
+}
+.title-attr {
+  margin-right: 0.5em;
+  vertical-align: -0.4em;
+}
 .stat__label {
   font-size: 11px;
   color: var(--text-3);
@@ -1486,6 +1666,11 @@ input {
   gap: 16px;
   align-items: center;
 }
+.me h1 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 .me__avatar {
   width: 72px;
   height: 72px;
@@ -1655,9 +1840,15 @@ input {
   flex-direction: column;
   gap: 6px;
 }
+.pos-wr__name {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
 .pos-wr__row {
   display: grid;
-  grid-template-columns: 96px 1fr 32px 40px;
+  grid-template-columns: 118px 1fr 32px 40px;
   gap: 10px;
   align-items: center;
   font-size: 13px;
@@ -4589,8 +4780,16 @@ label.field {
   min-width: 180px;
 }
 .psearch__who h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin: 0 0 2px;
   font-size: 18px;
+}
+.mh__pos {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 .psearch__who p {
   margin: 2px 0 0;

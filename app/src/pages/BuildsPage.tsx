@@ -1,5 +1,9 @@
+import { Crosshair, Route, Shield, Users } from 'lucide-react';
+
 import { useHeroes, useBuild } from '../api/hooks';
 import { BuildView } from '../components/BuildView';
+import { AttrIcon, RoleIcon } from '../components/DotaIcons';
+import { Ti } from '../components/Icons';
 import { Panel } from '../components/Glass';
 import { HeroModeSwitch } from '../components/HeroModeSwitch';
 import { HeroSearch } from '../components/HeroSearch';
@@ -24,14 +28,27 @@ export function BuildsPage() {
         <div className="panel__head">
           <HeroModeSwitch />
         </div>
-        <span className="label">Мой герой</span>
+        <span className="label">
+          <Ti icon={Shield} />
+          Мой герой
+        </span>
         <div className="builds__hero">
           {buildHero && <HeroIcon id={buildHero} size="md" />}
           <HeroSearch placeholder="Мой герой…" onPick={(h) => set({ buildHero: h.id })} compact />
         </div>
-        <span className="label">Позиция</span>
-        <Segmented value={buildPos} onChange={(p) => set({ buildPos: p })} options={[1, 2, 3, 4, 5].map((p) => ({ value: p, label: String(p) }))} />
-        <span className="label">Чьи билды</span>
+        <span className="label">
+          <RoleIcon pos={buildPos} size={14} className="seg-role" />
+          Позиция
+        </span>
+        <Segmented
+          value={buildPos}
+          onChange={(p) => set({ buildPos: p })}
+          options={[1, 2, 3, 4, 5].map((p) => ({ value: p, title: `Позиция ${p}`, label: <><RoleIcon pos={p} size={14} className="seg-role" />{p}</> }))}
+        />
+        <span className="label">
+          <Ti icon={Users} />
+          Чьи билды
+        </span>
         <Segmented
           value={mode}
           onChange={setMode}
@@ -41,6 +58,7 @@ export function BuildsPage() {
           ]}
         />
         <span className="label">
+          <Ti icon={Crosshair} />
           Враги {enemies === null && draftEnemies.length > 0 && <span className="muted">— из драфта</span>}
         </span>
         <div className="builds__enemies">
@@ -68,7 +86,10 @@ export function BuildsPage() {
         </div>
         {buildHero && vsList.length > 0 && (
           <section className="builds__lane">
-            <h3 className="section-title">Линия</h3>
+            <h3 className="section-title">
+              <Ti icon={Route} />
+              Линия
+            </h3>
             <LaneView hero={buildHero} pos={buildPos} enemies={vsList} />
           </section>
         )}
@@ -77,7 +98,8 @@ export function BuildsPage() {
         {!buildHero && <Empty>Выбери героя и позицию. Враги подтянутся из драфта, а билд подстроится под них.</Empty>}
         {buildHero && (
           <div className="panel__head">
-            <h2>
+            <h2 className="hero-card__name">
+              <AttrIcon attr={heroes?.byId.get(buildHero)?.attr ?? ''} size={22} />
               {heroes?.byId.get(buildHero)?.name} · позиция {buildPos}
             </h2>
           </div>

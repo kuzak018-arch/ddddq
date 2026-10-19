@@ -1,5 +1,8 @@
 /** «Герои» holds two views: the hero page and its builds. The switch keeps the chosen hero. */
+import { Hammer, Shield } from 'lucide-react';
+
 import { useUi } from '../state/ui';
+import { Ti } from './Icons';
 import { Segmented } from './ui';
 
 export function HeroModeSwitch() {
@@ -13,8 +16,8 @@ export function HeroModeSwitch() {
           : set({ page: 'hero', heroPageId: heroPageId ?? buildHero })
       }
       options={[
-        { value: 'hero', label: 'Герой' },
-        { value: 'builds', label: 'Билды' },
+        { value: 'hero', label: <><Ti icon={Shield} />Герой</> },
+        { value: 'builds', label: <><Ti icon={Hammer} />Билды</> },
       ]}
     />
   );

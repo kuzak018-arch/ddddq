@@ -4,12 +4,15 @@
  * A closed profile (no public match data) says so plainly; its rank medal is still shown.
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Clock, ExternalLink as LinkIcon, LayoutGrid, RefreshCw, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { api } from '../api/client';
 import { useHeroes } from '../api/hooks';
 import { rankName } from '../lib/ranks';
+import { PlusBadge, RankMedal, RoleIcon } from './DotaIcons';
 import { ExternalLink } from './ExternalLink';
+import { Ti } from './Icons';
 import { Empty, ErrorBox, fmtPct, HeroIcon } from './ui';
 
 interface PlayerMatch {
@@ -114,6 +117,7 @@ export function PlayerSearch() {
           spellCheck={false}
         />
         <button className="btn btn--accent" type="submit" disabled={!text.trim() || res.isFetching}>
+          <Ti icon={Search} />
           {res.isFetching ? 'Ищу…' : 'Найти'}
         </button>
       </form>
@@ -139,8 +143,12 @@ export function PlayerSearch() {
         <div className="psearch__result">
           <div className="psearch__head">
             {p.avatar ? <img className="psearch__avatar" src={p.avatar} alt="" /> : <div className="psearch__avatar" />}
+            <RankMedal tier={p.rank_tier} leaderboard={p.leaderboard} size={58} />
             <div className="psearch__who">
-              <h3>{p.name ?? `Игрок ${p.account_id}`}</h3>
+              <h3>
+                {p.name ?? `Игрок ${p.account_id}`}
+                {p.plus && <PlusBadge size={20} />}
+              </h3>
               <p className="muted small">
                 {rankName(p.rank_tier)}
                 {p.leaderboard ? ` · #${p.leaderboard} в таблице лидеров` : ''}
@@ -157,18 +165,23 @@ export function PlayerSearch() {
             </div>
             <div className="psearch__links">
               <ExternalLink className="btn btn--sm" href={p.links.dotabuff}>
+                <Ti icon={LinkIcon} />
                 Dotabuff
               </ExternalLink>
               <ExternalLink className="btn btn--sm" href={p.links.stratz}>
+                <Ti icon={LinkIcon} />
                 Stratz
               </ExternalLink>
               <ExternalLink className="btn btn--sm" href={p.links.opendota}>
+                <Ti icon={LinkIcon} />
                 OpenDota
               </ExternalLink>
               <ExternalLink className="btn btn--sm" href={p.links.steam}>
+                <Ti icon={LinkIcon} />
                 Steam
               </ExternalLink>
               <button className="btn btn--sm btn--ghost" onClick={() => api<Player>(`/players/lookup?q=${p.account_id}&refresh=true`).then((d) => qc.setQueryData(['player', q], d))}>
+                <Ti icon={RefreshCw} />
                 Обновить
               </button>
             </div>
@@ -182,7 +195,10 @@ export function PlayerSearch() {
           ))}
           {!!p.heroes.length && (
             <>
-              <h3 className="section-title">Герои</h3>
+              <h3 className="section-title">
+                <Ti icon={LayoutGrid} />
+                Герои
+              </h3>
               <div className="psearch__heroes">
                 {p.heroes.map((h) => (
                   <div key={h.hero} className="psearch__hero" title={name(h.hero)}>
@@ -198,7 +214,10 @@ export function PlayerSearch() {
           )}
           {!!p.matches.length && (
             <>
-              <h3 className="section-title">Последние матчи</h3>
+              <h3 className="section-title">
+                <Ti icon={Clock} />
+                Последние матчи
+              </h3>
               <ul className="mh__list">
                 {p.matches.map((m) => (
                   <li key={m.id} className={`mh__row ${m.win ? 'is-win' : 'is-loss'}`}>
@@ -206,7 +225,12 @@ export function PlayerSearch() {
                     <div className="mh__main">
                       <div className="mh__line">
                         <b>{name(m.hero)}</b>
-                        {m.pos && <span className="muted">{POS[m.pos]}</span>}
+                        {m.pos && (
+                          <span className="muted mh__pos">
+                            <RoleIcon pos={m.pos} size={14} />
+                            {POS[m.pos]}
+                          </span>
+                        )}
                         <span className={m.win ? 'c-good' : 'c-bad'}>{m.win ? 'победа' : 'поражение'}</span>
                         <span>
                           {m.k}/{m.d}/{m.a}

@@ -5,6 +5,7 @@
  * confirm frames, which also measures accuracy. Dragging the rects by hand is the fallback.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ScanEye, Target } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { api, backend } from '../api/client';
@@ -12,6 +13,7 @@ import { moveRects, resizeRects, type Rect } from '../lib/calibrate';
 import { useHeroes } from '../api/hooks';
 import { Panel } from '../components/Glass';
 import { HeroSearch } from '../components/HeroSearch';
+import { Ti } from '../components/Icons';
 import { useUi } from '../state/ui';
 import { Empty, ErrorBox, fmtPct, HeroIcon, Segmented, Slider, Toggle } from '../components/ui';
 
@@ -290,7 +292,10 @@ export function VisionPage() {
           <button className="btn btn--sm btn--ghost" onClick={() => useUi.getState().go('settings')} title="Вернуться в настройки">
             ← Настройки
           </button>
-          <h2>Чтение экрана</h2>
+          <h2>
+            <Ti icon={ScanEye} />
+            Чтение экрана
+          </h2>
           <span className="pill">эксперимент</span>
         </div>
         <p className="hint">
@@ -452,7 +457,10 @@ export function VisionPage() {
           </p>
         </details>
 
-        <h3 className="section-title">Точность</h3>
+        <h3 className="section-title">
+          <Ti icon={Target} />
+          Точность
+        </h3>
         <dl className="kv">
           <dt>Подтверждено в мастере</dt>
           <dd>

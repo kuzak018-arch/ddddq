@@ -6,6 +6,7 @@
  * looks at the user's current match.
  */
 import { useQuery } from '@tanstack/react-query';
+import { ChartLine, Crown, Hammer, ShoppingBag, Swords, Trophy } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import { api } from '../api/client';
@@ -13,7 +14,9 @@ import { ExternalLink } from '../components/ExternalLink';
 import { useHeroes } from '../api/hooks';
 import type { AbilityInfo } from '../api/types';
 import { AbilityIcon, TalentIcon } from '../components/Ability';
+import { RankMedal, RoleIcon } from '../components/DotaIcons';
 import { Panel } from '../components/Glass';
+import { Ti } from '../components/Icons';
 import { HeroSearch } from '../components/HeroSearch';
 import { Empty, ErrorBox, HeroIcon, ItemIcon, Loading, plural, Segmented, Toggle } from '../components/ui';
 import { clock, coreTimings, filterMatches, skillLevels, summarize, type TopMatch } from '../lib/topgames';
@@ -84,9 +87,9 @@ export function TopGamesPage() {
             value={source}
             onChange={(s) => (setSource(s), setOpen(null))}
             options={[
-              { value: 'immortal', label: 'Immortal' },
-              { value: 'divine', label: 'Divine+' },
-              { value: 'pro', label: 'Про' },
+              { value: 'immortal', label: <><RankMedal tier={80} size={22} className="seg-medal" />Immortal</> },
+              { value: 'divine', label: <><RankMedal tier={75} size={22} className="seg-medal" />Divine+</> },
+              { value: 'pro', label: <><Ti icon={Crown} />Про</> },
             ]}
           />
         </div>
@@ -95,7 +98,7 @@ export function TopGamesPage() {
             small
             value={pos ?? 0}
             onChange={(v) => setPos(v || null)}
-            options={[{ value: 0, label: 'Все позиции' }, ...[1, 2, 3, 4, 5].map((p) => ({ value: p, label: String(p), title: POS[p] }))]}
+            options={[{ value: 0, label: 'Все позиции' }, ...[1, 2, 3, 4, 5].map((p) => ({ value: p, label: <><RoleIcon pos={p} size={14} className="seg-role" />{p}</>, title: POS[p] }))]}
           />
           <Toggle on={winsOnly} onChange={setWinsOnly} label="Только победы" />
           <div className="top__against">
@@ -155,7 +158,10 @@ export function TopGamesPage() {
       {hero && (
         <Panel className="top__list">
           <div className="panel__head">
-            <h2>{d ? `${d.label} · патч ${d.patch}` : 'Матчи'}</h2>
+            <h2>
+              <Ti icon={Trophy} />
+              {d ? `${d.label} · патч ${d.patch}` : 'Матчи'}
+            </h2>
             {d?.loading && <span className="pill">загружаю… запросов: {d.requests}</span>}
             {d && !d.loading && (
               <button className="btn btn--sm btn--ghost" onClick={() => void api(`/top-games/${hero}?source=${source}&refresh=true`).then(() => data.refetch())}>
@@ -250,7 +256,10 @@ function MatchDetails({ m, d }: { m: TopMatch; d: TopResponse }) {
   return (
     <div className="top__details">
       <div className="top__block">
-        <h3>Покупки</h3>
+        <h3>
+          <Ti icon={ShoppingBag} />
+          Покупки
+        </h3>
         <div className="top__timeline">
           {[...m.items]
             .sort((a, b) => a[0] - b[0])
@@ -269,7 +278,10 @@ function MatchDetails({ m, d }: { m: TopMatch; d: TopResponse }) {
         )}
       </div>
       <div className="top__block">
-        <h3>Прокачка</h3>
+        <h3>
+          <Ti icon={Hammer} />
+          Прокачка
+        </h3>
         <div className="top__skills">
           {skills.map((s) => (
             <span key={s.level} className="top__skill" title={s.talent ? `Талант: ${d.talents[s.key] ?? s.key}` : (d.abilities[s.key]?.name ?? s.key)}>
@@ -291,11 +303,17 @@ function MatchDetails({ m, d }: { m: TopMatch; d: TopResponse }) {
         )}
       </div>
       <div className="top__block">
-        <h3>{m.curve_kind === 'gold' ? 'Золото по минутам' : 'Нетворс по минутам'}</h3>
+        <h3>
+          <Ti icon={ChartLine} />
+          {m.curve_kind === 'gold' ? 'Золото по минутам' : 'Нетворс по минутам'}
+        </h3>
         {m.curve?.length ? <Curve values={m.curve} /> : <p className="hint">Stratz не отдал график для этого матча.</p>}
       </div>
       <div className="top__block">
-        <h3>Матч</h3>
+        <h3>
+          <Ti icon={Swords} />
+          Матч
+        </h3>
         <div className="top__teams">
           <span className="muted small">Союзники</span>
           {m.allies.map((x) => (

@@ -3,6 +3,7 @@
  * advice at the bottom), the win chance ring with the main reasons between them. Below: the best
  * picks for my position and, at the right, the lane and the build against this draft.
  */
+import { Ban, Crosshair, Hammer, ShieldBan, Sparkles, Users } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -10,7 +11,8 @@ import { useBans, useBuild, useEvaluate, useHeroes, useSettings, useSuggest } fr
 import type { DraftRequest, Suggestion, Term } from '../api/types';
 import { Panel } from '../components/Glass';
 import { HeroSearch, type HeroSearchHandle } from '../components/HeroSearch';
-import { IconReset } from '../components/Icons';
+import { RoleIcon } from '../components/DotaIcons';
+import { IconReset, Ti } from '../components/Icons';
 import { LaneCard, LaneView } from '../components/LaneView';
 import { Sheet } from '../components/Sheet';
 import { Tip } from '../components/Tip';
@@ -103,7 +105,10 @@ function TeamPanel({ team, pos, req }: { team: 'ally' | 'enemy'; pos: number; re
   return (
     <Panel className={`dr-team dr-team--${team}`} refracting>
       <div className="dr-team__head">
-        <span className={`kicker ${team === 'ally' ? 'c-radiant' : 'c-dire'}`}>{team === 'ally' ? 'Мы' : 'Враги'}</span>
+        <span className={`kicker ${team === 'ally' ? 'c-radiant' : 'c-dire'}`}>
+          <Ti icon={team === 'ally' ? Users : Crosshair} />
+          {team === 'ally' ? 'Мы' : 'Враги'}
+        </span>
         <button className="dr-side" onClick={cycleSide} title="Сторона: нажми, чтобы сменить (Radiant / Dire / не знаю)">
           {side === 'radiant' ? 'Radiant' : side === 'dire' ? 'Dire' : 'сторона ?'}
         </button>
@@ -147,7 +152,8 @@ function TeamPanel({ team, pos, req }: { team: 'ally' | 'enemy'; pos: number; re
               </AnimatePresence>
               <span className="dr-row__text">
                 <b>{h ? (heroes?.byId.get(h)?.name ?? '…') : 'Выбирается…'}</b>
-                <small title={POS_LABEL[p]}>
+                <small title={POS_LABEL[p]} className="dr-row__pos">
+                  {p > 0 && <RoleIcon pos={p} size={12} />}
                   pos {p}
                   {mine && ' · ты'}
                 </small>
@@ -181,6 +187,7 @@ function BanRow() {
   return (
     <div className={`dr-bans ${isFocus ? 'is-focus' : ''}`} onClick={() => setFocus({ team: 'ban', index: 0 })} title="Клавиша B — вводить баны">
       <span className="dr-bans__label">
+        <Ti icon={Ban} />
         Баны <small className="muted">{bans.length}/{MAX_BANS}</small>
       </span>
       {bans.length === 0 && <span className="muted small">кликни и вводи героев</span>}
@@ -210,7 +217,10 @@ function BanAdvice({ req }: { req: DraftRequest }) {
   const heroes = useHeroes().data;
   return (
     <div className="dr-bans dr-bans--advice">
-      <span className="dr-bans__label">Кого банить</span>
+      <span className="dr-bans__label">
+        <Ti icon={ShieldBan} />
+        Кого банить
+      </span>
       {bans.isPending && <Loading inline>Считаю…</Loading>}
       {bans.data?.bans.slice(0, 4).map((b) => (
         <button
@@ -309,7 +319,10 @@ function PicksPanel({ req, comfort, onComfort, suggest: s }: {
   return (
     <Panel className="dr-picks" refracting>
       <div className="panel__head">
-        <h2>Кого взять на pos {req.pos}</h2>
+        <h2>
+          <Ti icon={Sparkles} />
+          Кого взять на pos {req.pos} {req.pos ? <RoleIcon pos={req.pos} size={18} className="h-role" /> : null}
+        </h2>
         <label className="check" title="Твой опыт на героях сдвигает оценку (вес — в настройках)">
           <input type="checkbox" checked={comfort} onChange={(e) => onComfort(e.target.checked)} />
           учитывать мой пул
@@ -433,7 +446,10 @@ function VsPanel({ hero, pos, enemies, when }: { hero: number | null; pos: numbe
   return (
     <Panel className="dr-vs" refracting>
       <div className="lane-card__head">
-        <span className="kicker">Билд против драфта</span>
+        <span className="kicker">
+          <Ti icon={Hammer} />
+          Билд против драфта
+        </span>
         {when && <span className="muted small">{when}</span>}
       </div>
       {!hero ? (

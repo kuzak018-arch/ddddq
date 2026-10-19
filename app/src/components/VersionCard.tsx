@@ -1,8 +1,10 @@
 /** Settings card: the app's version and where new versions come from (no auto-update: releases are private). */
 import { getVersion } from '@tauri-apps/api/app';
 import { isTauri } from '@tauri-apps/api/core';
+import { Info } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+import { Ti } from './Icons';
 import { Section } from './Section';
 
 export function VersionCard() {
@@ -13,7 +15,10 @@ export function VersionCard() {
   return (
     <Section>
       <div className="panel__head">
-        <h2>Версия</h2>
+        <h2>
+          <Ti icon={Info} />
+          Версия
+        </h2>
         {version && <span className="pill">версия {version}</span>}
       </div>
       <p className="hint">

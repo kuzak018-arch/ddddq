@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { AppWindow, Database, KeyRound, Lightbulb, Monitor, Palette, Plug, ScanEye } from 'lucide-react';
 
 import { comboFromEvent, dotaKeyName, toggleOverlay, useHotkeyStatus } from '../lib/overlay';
 
@@ -8,6 +9,7 @@ import { useHealth, useHeroes, useSaveSettings, useSettings } from '../api/hooks
 import type { Job, Settings } from '../api/types';
 import { BrandMark, heroArt, PRESETS } from '../components/Chrome';
 import { Panel } from '../components/Glass';
+import { Ti } from '../components/Icons';
 import { Section } from '../components/Section';
 import { HeroSearch } from '../components/HeroSearch';
 import { LaneBulkCard } from '../components/LaneBulkCard';
@@ -16,6 +18,7 @@ import { useEffectsBlocked } from '../components/Effects';
 import { refractionSupported } from '../glass/refraction';
 import { ErrorBox, Segmented, Slider, Toggle } from '../components/ui';
 import { LOGO_KEY, useIconResult, useLogoUrl } from '../lib/appIcon';
+import { PAGE_ANIMS, replayPageIn } from '../lib/pageAnim';
 import { autostartEnabled, setAutostart } from '../lib/tray';
 import { loadBackgroundFile, saveBackgroundFile, saveFile } from '../state/bgstore';
 import { useUi } from '../state/ui';
@@ -58,9 +61,13 @@ function AppearanceCard() {
   const bg = ui.background;
   const fxBlocked = useEffectsBlocked();
   const [fileErr, setFileErr] = useState<string | null>(null);
+  const reducedMotion = useMemo(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches, []);
   return (
     <Panel refracting>
-      <h2>Оформление</h2>
+      <h2>
+        <Ti icon={Palette} />
+        Оформление
+      </h2>
       <div className="field">
         <span className="label">Тема</span>
         <Segmented
@@ -148,6 +155,23 @@ function AppearanceCard() {
         Лёгкая отрисовка поверх окна; сама выключается в оверлее, во время матча, в режиме производительности и когда в Windows
         отключены эффекты анимации.
       </p>
+      <div className="field">
+        <span className="label">Переход между вкладками</span>
+        <Segmented
+          small
+          value={ui.pageAnim}
+          onChange={(pageAnim) => {
+            ui.set({ pageAnim });
+            requestAnimationFrame(replayPageIn);
+          }}
+          options={PAGE_ANIMS}
+        />
+      </div>
+      {(ui.performance || reducedMotion) && ui.pageAnim !== 'none' && (
+        <p className="small warn">
+          Сейчас переходов не видно: {ui.performance ? 'включён режим производительности' : 'в Windows отключены эффекты анимации'}.
+        </p>
+      )}
       <Toggle
         on={ui.refraction && refractionSupported}
         onChange={(refraction) => ui.set({ refraction })}
@@ -329,7 +353,10 @@ function AccountCard() {
   return (
     <Section>
       <div className="panel__head">
-        <h2>Аккаунт</h2>
+        <h2>
+          <Ti icon={KeyRound} />
+          Аккаунт
+        </h2>
         {s && <span className="pill">{s.account_id ? `id ${s.account_id}` : 'не указан'}</span>}
       </div>
       <label className="field">
@@ -377,7 +404,10 @@ function GsiCard() {
   return (
     <Section>
       <div className="panel__head">
-        <h2>Интеграция с игрой</h2>
+        <h2>
+          <Ti icon={Plug} />
+          Интеграция с игрой
+        </h2>
         <span className={`pill ${fresh ? 'c-good' : ''}`}>{fresh ? 'Дота на связи' : 'нет данных'}</span>
       </div>
       {s && !s.dota_found && <ErrorBox error="Не нашёл установку Dota 2." />}
@@ -459,7 +489,10 @@ function VisionCard() {
   return (
     <Section>
       <div className="panel__head">
-        <h2>Чтение драфта с экрана</h2>
+        <h2>
+          <Ti icon={ScanEye} />
+          Чтение драфта с экрана
+        </h2>
         <span className="pill">{!s?.enabled ? 'выключено' : s.cautious ? 'учится' : 'включено'}</span>
       </div>
       <p className="hint">
@@ -562,7 +595,10 @@ function OverlayCard() {
   return (
     <Section>
       <div className="panel__head">
-        <h2>Оверлей</h2>
+        <h2>
+          <Ti icon={AppWindow} />
+          Оверлей
+        </h2>
         <button className="btn btn--accent" onClick={() => toggleOverlay()}>
           Показать / скрыть
         </button>
@@ -627,7 +663,10 @@ function AdviceCard() {
   };
   return (
     <Section>
-      <h2>Подсказки</h2>
+      <h2>
+        <Ti icon={Lightbulb} />
+        Подсказки
+      </h2>
       <div className="field">
         <span className="label">Моя позиция по умолчанию</span>
         <Segmented value={draft.pos} onChange={(pos) => upd({ pos })} options={[1, 2, 3, 4, 5].map((p) => ({ value: p, label: String(p) }))} />
@@ -663,7 +702,10 @@ function AppCard() {
   });
   return (
     <Section>
-      <h2>Приложение</h2>
+      <h2>
+        <Ti icon={Monitor} />
+        Приложение
+      </h2>
       <Toggle on={ui.closeToTray} onChange={(closeToTray) => ui.set({ closeToTray })} label="Сворачивать в трей при закрытии окна" />
       <Toggle
         on={!!auto.data}
@@ -705,7 +747,10 @@ function DataCard() {
   const shown = lines.length ? lines : last?.log ?? [];
   return (
     <Section>
-      <h2>Данные</h2>
+      <h2>
+        <Ti icon={Database} />
+        Данные
+      </h2>
       {health && (
         <dl className="kv">
           <dt>Патч</dt>

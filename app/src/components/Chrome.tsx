@@ -2,6 +2,7 @@
  * wallpaper behind everything (picture, GIF, video, hero art or a built-in one). */
 import { isTauri } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { ChartColumnIncreasing, Palette, Shield, Swords, Trophy, User, type LucideIcon } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -11,19 +12,18 @@ import { lumaOfBlob, lumaOfUrl, veilFor } from '../lib/wallLuma';
 import { useDraft } from '../state/draft';
 import { loadBackgroundFile } from '../state/bgstore';
 import { useUi, type Background, type Page } from '../state/ui';
-import { IconClose, IconMax, IconMin, IconSettings } from './Icons';
+import { POS_ROLE, RoleIcon } from './DotaIcons';
+import { IconClose, IconMax, IconMin, IconSettings, Ti } from './Icons';
 
 /** The tab pill. Builds live under «Герои» (the hero page and its builds share one tab). */
-export const NAV: { page: Page; label: string; also?: Page[] }[] = [
-  { page: 'draft', label: 'Драфт' },
-  { page: 'meta', label: 'Мета' },
-  { page: 'hero', label: 'Герои', also: ['builds'] },
-  { page: 'top', label: 'Игры топов' },
-  { page: 'grids', label: 'Оформление' },
-  { page: 'profile', label: 'Профиль' },
+export const NAV: { page: Page; label: string; icon: LucideIcon; also?: Page[] }[] = [
+  { page: 'draft', label: 'Драфт', icon: Swords },
+  { page: 'meta', label: 'Мета', icon: ChartColumnIncreasing },
+  { page: 'hero', label: 'Герои', icon: Shield, also: ['builds'] },
+  { page: 'top', label: 'Игры топов', icon: Trophy },
+  { page: 'grids', label: 'Оформление', icon: Palette },
+  { page: 'profile', label: 'Профиль', icon: User },
 ];
-
-const POS_LABEL = ['', 'Керри', 'Мид', 'Оффлейн', 'Роумер', 'Саппорт'];
 
 export function TitleBar() {
   const health = useHealth().data;
@@ -48,7 +48,7 @@ export function TitleBar() {
       </div>
 
       <nav className="tabs glass" aria-label="Разделы">
-        {NAV.map(({ page: p, label, also }, i) => {
+        {NAV.map(({ page: p, label, icon, also }, i) => {
           const on = page === p || !!also?.includes(page);
           return (
             <button
@@ -59,7 +59,10 @@ export function TitleBar() {
               aria-current={on ? 'page' : undefined}
             >
               {on && <motion.span layoutId="tab-pill" className="tabs__pill" transition={{ type: 'spring', stiffness: 380, damping: 34 }} />}
-              <span className="tabs__label">{label}</span>
+              <span className="tabs__label">
+                <Ti icon={icon} />
+                {label}
+              </span>
             </button>
           );
         })}
@@ -93,7 +96,7 @@ export function TitleBar() {
   );
 }
 
-/** My position for the draft and its suggestions (round buttons 1–5). */
+/** My position for the draft and its suggestions: round buttons with Dota's position icons. */
 function PositionPicker() {
   const settings = useSettings().data;
   const d = useDraft();
@@ -107,10 +110,13 @@ function PositionPicker() {
           aria-checked={p === pos}
           className={`posnav__btn ${p === pos ? 'is-on' : ''}`}
           onClick={() => d.setPos(p)}
-          title={`Моя позиция: ${p} · ${POS_LABEL[p]}`}
+          title={`Моя позиция: ${p} · ${POS_ROLE[p]}`}
+          aria-label={`Позиция ${p} · ${POS_ROLE[p]}`}
         >
           {p === pos && <motion.span layoutId="pos-pill" className="posnav__pill" transition={{ type: 'spring', stiffness: 380, damping: 34 }} />}
-          <span>{p}</span>
+          <span>
+            <RoleIcon pos={p} size={20} />
+          </span>
         </button>
       ))}
     </div>

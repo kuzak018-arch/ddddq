@@ -6,6 +6,7 @@
  * of the file in Steam, export to a file and the safe write into Dota.
  */
 import { useQuery } from '@tanstack/react-query';
+import { Image, LayoutGrid, Store, Type } from 'lucide-react';
 import { useState } from 'react';
 
 import { api } from '../api/client';
@@ -14,6 +15,7 @@ import { ArtSheet, type ArtKind } from '../components/grid/ArtSheet';
 import { GridCanvas } from '../components/grid/GridCanvas';
 import { GridFileBar } from '../components/grid/GridFile';
 import { GridSide } from '../components/grid/GridSide';
+import { Ti } from '../components/Icons';
 import { Sheet } from '../components/Sheet';
 import { ErrorBox, Loading, plural, Segmented, Toggle } from '../components/ui';
 import { Workshop, WorkshopNote } from '../components/workshop/Workshop';
@@ -166,10 +168,10 @@ export function GridsPage() {
           value={tab}
           onChange={(lookTab) => set({ lookTab })}
           options={[
-            { value: 'grids', label: 'Сетки героев' },
-            { value: 'background', label: 'Фон меню' },
-            { value: 'font', label: 'Шрифт' },
-            { value: 'workshop', label: 'Мастерская GridStudio' },
+            { value: 'grids', label: <><Ti icon={LayoutGrid} />Сетки героев</> },
+            { value: 'background', label: <><Ti icon={Image} />Фон меню</> },
+            { value: 'font', label: <><Ti icon={Type} />Шрифт</> },
+            { value: 'workshop', label: <><Ti icon={Store} />Мастерская GridStudio</> },
           ]}
         />
       </div>

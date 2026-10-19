@@ -6,6 +6,7 @@
  * which caches it; works tagged 18+ are not shown.
  */
 import { useQuery } from '@tanstack/react-query';
+import { CalendarDays, Download, Flame, Image, LayoutGrid, Palette, Sparkles } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { create } from 'zustand';
 
@@ -15,6 +16,7 @@ import { artToItems, type WorkshopArt } from '../../lib/workshop';
 import { addGrids, useGrids } from '../../state/grids';
 import { useUi } from '../../state/ui';
 import { ExternalLink } from '../ExternalLink';
+import { Ti } from '../Icons';
 import { PREFIX } from '../grid/GridFile';
 import { takeBackgroundFile } from '../mods/BackgroundBuilder';
 import { Empty, ErrorBox, Loading, Segmented } from '../ui';
@@ -58,11 +60,11 @@ interface Art extends WorkshopArt {
   credit: string;
 }
 
-const SORTS: { value: Sort; label: string }[] = [
-  { value: 'popular', label: 'Популярные' },
-  { value: 'week', label: 'За неделю' },
-  { value: 'downloads', label: 'Скачивают' },
-  { value: 'new', label: 'Новые' },
+const SORTS: { value: Sort; label: ReactNode }[] = [
+  { value: 'popular', label: <><Ti icon={Flame} />Популярные</> },
+  { value: 'week', label: <><Ti icon={CalendarDays} />За неделю</> },
+  { value: 'downloads', label: <><Ti icon={Download} />Скачивают</> },
+  { value: 'new', label: <><Ti icon={Sparkles} />Новые</> },
 ];
 
 const q = (o: Record<string, string | number>) =>
@@ -408,9 +410,9 @@ export function Workshop() {
           value={section}
           onChange={setSection}
           options={[
-            { value: 'grids', label: 'Сетки' },
-            { value: 'backgrounds', label: 'Фоны меню' },
-            { value: 'arts', label: 'Арты' },
+            { value: 'grids', label: <><Ti icon={LayoutGrid} />Сетки</> },
+            { value: 'backgrounds', label: <><Ti icon={Image} />Фоны меню</> },
+            { value: 'arts', label: <><Ti icon={Palette} />Арты</> },
           ]}
         />
         <p className="hint">

@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+import type { PageAnim } from '../lib/pageAnim';
+
 export type Page = 'draft' | 'meta' | 'hero' | 'builds' | 'top' | 'grids' | 'profile' | 'settings' | 'vision';
 export type Theme = 'system' | 'light' | 'dark';
 export type Effect = 'none' | 'rain' | 'snow' | 'stars' | 'fog' | 'particles';
@@ -25,6 +27,8 @@ interface UiState {
   bgPos: { x: number; y: number };
   refraction: boolean; // SVG edge refraction (Chromium only)
   performance: boolean; // no blur, no refraction, no animations
+  /** how one tab turns into another (lib/pageAnim.ts) */
+  pageAnim: PageAnim;
   /** closing the main window hides it into the tray instead of quitting */
   closeToTray: boolean;
   /** Background effect over the wallpaper and its intensity (0.1..1). */
@@ -66,6 +70,7 @@ export const useUi = create<UiState>()(
       bgPos: { x: 50, y: 30 },
       refraction: true,
       performance: false,
+      pageAnim: 'rise',
       closeToTray: false,
       logo: { kind: 'default' },
       fx: { kind: 'none', intensity: 0.5 },

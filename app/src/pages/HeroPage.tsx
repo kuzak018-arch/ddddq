@@ -1,3 +1,4 @@
+import { Ban, Hammer, HeartHandshake, Percent, Shield, Star, Swords, ThumbsDown, TrendingUp, User, type LucideIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { asset } from '../api/client';
@@ -6,7 +7,9 @@ import type { Matchup } from '../api/types';
 import { BuildView } from '../components/BuildView';
 import { HeroModel } from '../components/HeroModel';
 import { Panel } from '../components/Glass';
+import { AttrIcon, RoleIcon } from '../components/DotaIcons';
 import { HeroModeSwitch } from '../components/HeroModeSwitch';
+import { Ti } from '../components/Icons';
 import { HeroSearch } from '../components/HeroSearch';
 import { Empty, ErrorBox, fmtPct, fmtSigned, HeroIcon, Loading, Segmented } from '../components/ui';
 import { useUi } from '../state/ui';
@@ -37,12 +40,16 @@ export function HeroPage() {
             <HeroModel className="hero-card__art" heroKey={p.hero.key} heroId={p.hero.id} fallback={asset(p.hero.icon)} animated />
             <div className="hero-card__info">
               <h1>{p.hero.name}</h1>
-              <p className="muted">{p.hero.ru.slice(0, 3).join(' · ')}</p>
+              <p className="muted hero-card__sub">
+                <AttrIcon attr={p.hero.attr} size={18} />
+                {p.hero.ru.slice(0, 3).join(' · ')}
+              </p>
               <div className="stats">
-                <Stat label="Винрейт в мете" value={fmtPct(p.meta_wr)} good={p.meta_wr >= 0.5} />
-                <Stat label="Пикрейт" value={fmtPct(p.pick_rate)} />
+                <Stat icon={Percent} label="Винрейт в мете" value={fmtPct(p.meta_wr)} good={p.meta_wr >= 0.5} />
+                <Stat icon={TrendingUp} label="Пикрейт" value={fmtPct(p.pick_rate)} />
                 {p.bans && (
                   <Stat
+                    icon={Ban}
                     label="Доля банов"
                     value={`${fmtPct(p.bans.share)}${p.bans.place ? ` · ${p.bans.place}-й` : ''}`}
                     title={
@@ -54,6 +61,7 @@ export function HeroPage() {
                 )}
                 {p.me && (
                   <Stat
+                    icon={User}
                     label="Мои игры"
                     value={`${p.me.games} · ${fmtPct(p.me.wins / p.me.games, 0)}`}
                     good={p.me.wins / p.me.games >= 0.5}
@@ -64,7 +72,9 @@ export function HeroPage() {
                 {p.positions.map((s, i) => (
                   <div key={i} className="posbar" title={`Позиция ${i + 1}: ${fmtPct(s)} игр`}>
                     <div className="posbar__fill" style={{ height: `${Math.max(4, s * 100)}%` }} />
-                    <span>{i + 1}</span>
+                    <span>
+                      <RoleIcon pos={i + 1} size={14} />
+                    </span>
                   </div>
                 ))}
               </div>
@@ -76,22 +86,30 @@ export function HeroPage() {
       {p && (
         <>
           <Panel className="hero-page__matchups">
-            <MatchupList title="Хорош против" rows={p.matchups.counters} />
-            <MatchupList title="Его контрят" rows={p.matchups.countered_by} />
-            <MatchupList title="Лучшие союзники" rows={p.matchups.synergy} />
-            <MatchupList title="Плохо сочетается" rows={p.matchups.anti_synergy} />
+            <MatchupList icon={Swords} title="Хорош против" rows={p.matchups.counters} />
+            <MatchupList icon={Shield} title="Его контрят" rows={p.matchups.countered_by} />
+            <MatchupList icon={HeartHandshake} title="Лучшие союзники" rows={p.matchups.synergy} />
+            <MatchupList icon={ThumbsDown} title="Плохо сочетается" rows={p.matchups.anti_synergy} />
           </Panel>
           <Panel className="hero-page__build">
             <div className="panel__head">
-              <h2>Билд</h2>
+              <h2>
+                <Ti icon={Hammer} />
+                Билд
+              </h2>
               <Segmented
                 small
                 value={buildPos}
                 onChange={(v) => setPos(v)}
                 options={[1, 2, 3, 4, 5].map((n) => ({
                   value: n,
-                  label: `Поз ${n}`,
-                  title: p.builds_for_positions.includes(n) ? '' : 'на этой позиции почти не играют',
+                  label: (
+                    <>
+                      <RoleIcon pos={n} size={13} className="seg-role" />
+                      {n}
+                    </>
+                  ),
+                  title: `Позиция ${n}${p.builds_for_positions.includes(n) ? '' : ': на ней почти не играют'}`,
                 }))}
               />
             </div>
@@ -105,20 +123,26 @@ export function HeroPage() {
   );
 }
 
-function Stat({ label, value, good, title }: { label: string; value: string; good?: boolean; title?: string }) {
+function Stat({ icon, label, value, good, title }: { icon: LucideIcon; label: string; value: string; good?: boolean; title?: string }) {
   return (
     <div className="stat" title={title}>
-      <span className="stat__label">{label}</span>
+      <span className="stat__label">
+        <Ti icon={icon} />
+        {label}
+      </span>
       <span className={`stat__value ${good === undefined ? '' : good ? 'c-good' : 'c-bad'}`}>{value}</span>
     </div>
   );
 }
 
-function MatchupList({ title, rows }: { title: string; rows: Matchup[] }) {
+function MatchupList({ icon, title, rows }: { icon: LucideIcon; title: string; rows: Matchup[] }) {
   const openHero = useUi((s) => s.openHero);
   return (
     <section className="matchups">
-      <h3 className="section-title">{title}</h3>
+      <h3 className="section-title">
+        <Ti icon={icon} />
+        {title}
+      </h3>
       <ul>
         {rows.map((r) => (
           <li key={r.hero} onClick={() => openHero(r.hero)} title={`${r.games.toLocaleString('ru')} игр`}>
@@ -145,7 +169,10 @@ function HeroPicks({ onPick }: { onPick: (id: number) => void }) {
     <div className="hero-picks">
       {pool.length > 0 && (
         <>
-          <h3 className="section-title">Твои герои</h3>
+          <h3 className="section-title">
+            <Ti icon={Star} />
+            Твои герои
+          </h3>
           <div className="hero-picks__list">
             {pool.map((h) => (
               <button key={h.hero} className="hero-picks__item" onClick={() => onPick(h.hero)}>
@@ -160,7 +187,10 @@ function HeroPicks({ onPick }: { onPick: (id: number) => void }) {
       <div className="all-heroes">
         {groups.map((g) => (
           <section key={g.attr}>
-            <h3 className="section-title">{g.name}</h3>
+            <h3 className="section-title">
+              <AttrIcon attr={g.attr} size={18} className="title-attr" />
+              {g.name}
+            </h3>
             <div className="all-heroes__grid">
               {heroes?.heroes
                 .filter((h) => h.attr === g.attr)

@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { Activity, CalendarDays, Gamepad2, LayoutGrid, ChartLine, Percent, User, UserSearch } from 'lucide-react';
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
 
 import { api } from '../api/client';
@@ -7,7 +8,9 @@ import type { MeSummary } from '../api/types';
 import { heroArt } from '../components/Chrome';
 import { useHeroModel } from '../components/HeroModel';
 import { Panel } from '../components/Glass';
+import { AttrIcon, PlusBadge, RankMedal, RoleIcon } from '../components/DotaIcons';
 import { HeroSearch } from '../components/HeroSearch';
+import { Ti } from '../components/Icons';
 import { MatchHistory } from '../components/MatchHistory';
 import { PlayerSearch } from '../components/PlayerSearch';
 import { Empty, ErrorBox, fmtPct, fmtSigned, HeroIcon, Segmented, Slider } from '../components/ui';
@@ -39,7 +42,10 @@ export function ProfilePage() {
       <Panel className="profile__head" refracting>
         <Banner>
           <div className="panel__head">
-            <h2>Профиль</h2>
+            <h2>
+              <Ti icon={User} />
+              Профиль
+            </h2>
             <button className="btn" onClick={() => refresh.mutate()} disabled={refresh.isPending}>
               {refresh.isPending ? 'Загружаю…' : 'Обновить историю'}
             </button>
@@ -47,8 +53,12 @@ export function ProfilePage() {
           {p && (
             <div className="me">
               {avatar && <img className="me__avatar" src={avatar} alt="" />}
+              <RankMedal tier={p.rank_tier} leaderboard={p.leaderboard} size={64} />
               <div>
-                <h1>{p.name ?? p.account_id}</h1>
+                <h1>
+                  {p.name ?? p.account_id}
+                  {p.plus && <PlusBadge size={24} />}
+                </h1>
                 <p className="me__sub">
                   {rankName(p.rank_tier)} · рейтинговый All Pick: {p.overall?.games ?? 0} игр, {fmtPct(p.overall?.wr)} побед
                 </p>
@@ -69,7 +79,10 @@ export function ProfilePage() {
         {refresh.error && <ErrorBox error={refresh.error} />}
         {exp && (
           <div className="exp">
-            <h3 className="section-title">Твоя кривая опыта на героях</h3>
+            <h3 className="section-title">
+              <Ti icon={ChartLine} />
+              Твоя кривая опыта на героях
+            </h3>
             <p className="muted">
               Подогнана на {exp.games} твоих играх: насколько реже ты выигрываешь на герое, на котором мало играл.
             </p>
@@ -84,9 +97,9 @@ export function ProfilePage() {
             value={tab}
             onChange={setTab}
             options={[
-              { value: 'matches', label: 'Матчи' },
-              { value: 'pool', label: 'Пул героев' },
-              { value: 'search', label: 'Найти игрока' },
+              { value: 'matches', label: <><Ti icon={Gamepad2} />Матчи</> },
+              { value: 'pool', label: <><Ti icon={LayoutGrid} />Пул героев</> },
+              { value: 'search', label: <><Ti icon={UserSearch} />Найти игрока</> },
             ]}
           />
         </div>
@@ -108,7 +121,7 @@ export function ProfilePage() {
               {p.heroes.map((h) => (
                 <tr key={h.hero} onClick={() => openHero(h.hero)}>
                   <td className="table__hero">
-                    <HeroIcon id={h.hero} size="sm" /> {heroes?.byId.get(h.hero)?.name}
+                    <HeroIcon id={h.hero} size="sm" /> <AttrIcon attr={heroes?.byId.get(h.hero)?.attr ?? ''} size={14} /> {heroes?.byId.get(h.hero)?.name}
                   </td>
                   <td>{h.games}</td>
                   <td className={h.wins / h.games >= 0.5 ? 'c-good' : 'c-bad'}>{fmtPct(h.wins / h.games, 0)}</td>
@@ -163,6 +176,7 @@ function Summary({ s }: { s: MeSummary }) {
       {s.form.length > 0 && (
         <section className="sum">
           <h3 className="section-title">
+            <Ti icon={Activity} />
             Форма за {s.form.length} игр <span className="muted">· {wins}–{s.form.length - wins}</span>
           </h3>
           <div className="form-strip">
@@ -182,11 +196,17 @@ function Summary({ s }: { s: MeSummary }) {
       )}
       {s.positions.length > 0 && (
         <section className="sum">
-          <h3 className="section-title">Винрейт по позициям</h3>
+          <h3 className="section-title">
+            <Ti icon={Percent} />
+            Винрейт по позициям
+          </h3>
           <div className="pos-wr">
             {s.positions.map((x) => (
               <div key={x.pos} className="pos-wr__row">
-                <span>{POS_NAMES[x.pos]}</span>
+                <span className="pos-wr__name">
+                  <RoleIcon pos={x.pos} size={16} />
+                  {POS_NAMES[x.pos]}
+                </span>
                 <div className="pos-wr__bar">
                   <i style={{ width: `${(x.games / maxPos) * 100}%` }} />
                 </div>
@@ -204,6 +224,7 @@ function Summary({ s }: { s: MeSummary }) {
       {s.month_heroes.length > 0 && (
         <section className="sum">
           <h3 className="section-title">
+            <Ti icon={CalendarDays} />
             Главные герои за месяц <span className="muted">· {s.month_games} игр</span>
           </h3>
           <div className="month">

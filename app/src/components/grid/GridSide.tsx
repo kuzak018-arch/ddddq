@@ -2,6 +2,7 @@
  * The editor's side panel: what is selected (name, size, heroes, glyphs the game will not show)
  * and the heroes to drag onto the grid, found by name or slang like the draft's search.
  */
+import { Layers, Shapes, Tag, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import { useHeroes } from '../../api/hooks';
@@ -10,6 +11,8 @@ import { CANVAS_H, CANVAS_W, cleanName, glyphWarnings, HEADER, listSize } from '
 import { clampItem, type GroupItem, type Item } from '../../lib/grid/doc';
 import { searchHeroes } from '../../lib/search';
 import { activeGrid, useGrids } from '../../state/grids';
+import { AttrIcon } from '../DotaIcons';
+import { Ti } from '../Icons';
 import { Segmented, Slider } from '../ui';
 import { Portrait, useHeroDrag } from './GridCanvas';
 
@@ -55,7 +58,10 @@ function Inspector({ item, onEditArt }: { item: Item; onEditArt: (id: string) =>
   if (item.type === 'text')
     return (
       <div className="gside__box">
-        <h3>Подпись</h3>
+        <h3>
+          <Ti icon={Tag} />
+          Подпись
+        </h3>
         <input className="input" value={item.text} maxLength={300} onChange={(e) => patch({ text: cleanName(e.target.value) }, true)} />
         <Warnings text={item.text} />
         <p className="hint">Это пустая категория Доты: в игре видно только её имя.</p>
@@ -66,7 +72,10 @@ function Inspector({ item, onEditArt }: { item: Item; onEditArt: (id: string) =>
     );
   return (
     <div className="gside__box">
-      <h3>{item.source.kind === 'text' ? 'Арт из текста' : 'Арт из картинки'}</h3>
+      <h3>
+        <Ti icon={Shapes} />
+        {item.source.kind === 'text' ? 'Арт из текста' : 'Арт из картинки'}
+      </h3>
       <p className="hint">
         {item.rows.filter((r) => r.text.trim()).length} категорий, {Math.round(item.w)}×{Math.round(item.h)}. Двигай мышью или стрелками.
       </p>
@@ -92,7 +101,10 @@ function GroupInspector({ g, patch, remove }: { g: GroupItem; patch: (p: Partial
   };
   return (
     <div className="gside__box">
-      <h3>Группа</h3>
+      <h3>
+        <Ti icon={Layers} />
+        Группа
+      </h3>
       <input className="input" value={g.name} maxLength={120} placeholder="Без названия" onChange={(e) => patch({ name: cleanName(e.target.value) }, true)} />
       <Warnings text={g.name} />
       <p className="hint">
@@ -134,7 +146,10 @@ function Palette({ group, placed }: { group: GroupItem | null; placed: Set<numbe
   };
   return (
     <div className="gside__box gside__palette">
-      <h3>Герои</h3>
+      <h3>
+        <Ti icon={Users} />
+        Герои
+      </h3>
       <input
         className="input"
         value={q}
@@ -142,7 +157,7 @@ function Palette({ group, placed }: { group: GroupItem | null; placed: Set<numbe
         onChange={(e) => setQ(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && list[0] && add(list[0])}
       />
-      {!q && <Segmented small value={attr} options={ATTRS.map((a) => ({ value: a.value, label: a.label }))} onChange={setAttr} />}
+      {!q && <Segmented small value={attr} options={ATTRS.map((a) => ({ value: a.value, title: a.label, label: a.value === 'all-heroes' ? a.label : <><AttrIcon attr={a.value} size={15} className="seg-role" />{a.label}</> }))} onChange={setAttr} />}
       <p className="hint">{group ? `Щелчок или Enter — в «${group.name || 'группу'}», или тяни в любую группу.` : 'Тяни героя в группу на сетке.'}</p>
       {heroes && placed.size > 0 && placed.size < heroes.length && (
         <p className="hint">

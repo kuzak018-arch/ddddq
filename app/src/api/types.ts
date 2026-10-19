@@ -193,6 +193,9 @@ export interface Profile {
   name: string | null;
   avatar: string | null;
   rank_tier: number | null;
+  /** place in the leaderboard (Immortal), null when not in it */
+  leaderboard?: number | null;
+  plus?: boolean;
   fetched: number;
   overall: { games: number; wins: number; wr: number } | null;
   experience: { k: number; A: number; c: number; games: number } | null;

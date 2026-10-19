@@ -467,7 +467,8 @@ def my_profile():
     heroes = sorted(pool["heroes"].items(), key=lambda kv: -kv[1]["games"])[:30]
     return {"account_id": data["account_id"], "name": prof.get("personaname"),
             "avatar": "/me/avatar" if me.AVATAR.exists() else None,
-            "rank_tier": me.rank_tier(data), "fetched": data["fetched"], "overall": pool["overall"],
+            "rank_tier": me.rank_tier(data), "leaderboard": data["profile"].get("leaderboard_rank"),
+            "plus": bool(prof.get("plus")), "fetched": data["fetched"], "overall": pool["overall"],
             "experience": pool["experience"],
             "heroes": [{"hero": h, **{k: (round(v, 4) if isinstance(v, float) else v) for k, v in s.items()}}
                        for h, s in heroes]}

@@ -1,8 +1,10 @@
 /** Settings card: an option to download lane data for the user's pool in the background. */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Route } from 'lucide-react';
 
 import { api } from '../api/client';
 import { useHeroes } from '../api/hooks';
+import { Ti } from './Icons';
 import { Section } from './Section';
 import { ErrorBox } from './ui';
 
@@ -47,7 +49,10 @@ export function LaneBulkCard() {
   const pct = s?.total ? Math.round((100 * (s.done ?? 0)) / s.total) : 0;
   return (
     <Section>
-      <h2>Данные линий</h2>
+      <h2>
+        <Ti icon={Route} />
+        Данные линий
+      </h2>
       <p className="hint">
         Кто выигрывает линию, Stratz отдаёт сразу — одним запросом на героя и позицию. Графики по минутам строятся по {s?.target ?? 25}{' '}
         матчам пары и грузятся сами, когда открываешь пару: несколько матчей в одном запросе, обычно 3–7 запросов на пару, потом —

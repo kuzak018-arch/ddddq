@@ -6,6 +6,7 @@
  * the backend's (drafter/game_mods).
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { House, LayoutGrid, Shield } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { create } from 'zustand';
 
@@ -14,6 +15,7 @@ import { DEFAULT_FRAME, framePlacement, mediaKind, MENU_LIMITS, MENU_SIZES, menu
 import { encodeMenuVideo, MenuVideoError } from '../../lib/mods/video';
 import { activeGrid, useGrids } from '../../state/grids';
 import { useUi } from '../../state/ui';
+import { Ti } from '../Icons';
 import { ErrorBox, Segmented, Slider, Toggle } from '../ui';
 import { GridScreen, HeroScreen, MenuScreen } from './DotaScreens';
 import { blocker, useModsStatus } from './ModsGate';
@@ -355,9 +357,9 @@ export function BackgroundBuilder() {
             value={st.screen}
             onChange={(screen) => set({ screen })}
             options={[
-              { value: 'menu', label: 'Главное меню' },
-              { value: 'hero', label: 'За героем' },
-              { value: 'grid', label: 'Сетка героев' },
+              { value: 'menu', label: <><Ti icon={House} />Главное меню</> },
+              { value: 'hero', label: <><Ti icon={Shield} />За героем</> },
+              { value: 'grid', label: <><Ti icon={LayoutGrid} />Сетка героев</> },
             ]}
           />
           <Segmented
@@ -377,7 +379,10 @@ export function BackgroundBuilder() {
       <div className="bgb-side">
         {st.screen === 'menu' && (
           <>
-            <h3>Главное меню</h3>
+            <h3>
+              <Ti icon={House} />
+              Главное меню
+            </h3>
             <SourceFields src={st.menu} label="Картинка, GIF или видео" onPick={pick('menu')} onChange={(menu) => set({ menu })} />
             {st.menu && (
               <button className="btn btn--sm btn--ghost" onClick={() => set({ menu: null })}>
@@ -389,7 +394,10 @@ export function BackgroundBuilder() {
         )}
         {st.screen === 'hero' && (
           <>
-            <h3>За героем</h3>
+            <h3>
+              <Ti icon={Shield} />
+              За героем
+            </h3>
             <p className="hint">Страница героя («Герои» → герой): Дота рисует модель героя поверх этой картинки.</p>
             <Segmented
               small
@@ -407,7 +415,10 @@ export function BackgroundBuilder() {
         )}
         {st.screen === 'grid' && (
           <>
-            <h3>Под сеткой героев</h3>
+            <h3>
+              <Ti icon={LayoutGrid} />
+              Под сеткой героев
+            </h3>
             <p className="hint">Страница «Герои» с сеткой. В превью — сетка, открытая в редакторе: «{grid.name}».</p>
             <Segmented
               small
