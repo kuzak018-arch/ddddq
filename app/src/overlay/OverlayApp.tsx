@@ -184,7 +184,7 @@ function ReadStatus() {
   const phase = useDraft((s) => s.phase);
   const st = useQuery({
     queryKey: ['vision-status-ov'],
-    queryFn: () => api<{ enabled: boolean; running: boolean; last_read: number | null; locked: number }>('/vision/status'),
+    queryFn: () => api<{ enabled: boolean; cautious: boolean; running: boolean; last_read: number | null; locked: number }>('/vision/status'),
     refetchInterval: phase === 'draft' ? 4000 : 20000,
   }).data;
   let text = 'чтение экрана выкл.';
@@ -195,9 +195,14 @@ function ReadStatus() {
       text = 'драфт распознан с экрана';
       on = true;
     } else text = phase === 'draft' ? 'читаю экран…' : 'чтение экрана ждёт драфта';
+    if (st.cautious) text += ' · учится';
   }
   return (
-    <span className={`ov-status ${on ? 'is-on' : ''}`} title={st?.enabled ? `Зафиксировано героев: ${st.locked}` : 'Включается в настройках («Чтение драфта с экрана»)'}>
+    <span className={`ov-status ${on ? 'is-on' : ''}`} title={
+        st?.enabled
+          ? `${st.cautious ? 'Учится: вписывает героя только при уверенности, после трёх одинаковых кадров. ' : ''}Исправленных вручную слотов: ${st.locked}`
+          : 'Включается в настройках («Чтение драфта с экрана»)'
+      }>
       <i />
       {text}
     </span>

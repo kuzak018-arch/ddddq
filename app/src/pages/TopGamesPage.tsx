@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 
 import { api } from '../api/client';
+import { ExternalLink } from '../components/ExternalLink';
 import { useHeroes } from '../api/hooks';
 import type { AbilityInfo } from '../api/types';
 import { AbilityIcon, TalentIcon } from '../components/Ability';
@@ -305,9 +306,9 @@ function MatchDetails({ m, d }: { m: TopMatch; d: TopResponse }) {
             <HeroIcon key={x} id={x} size="sm" />
           ))}
         </div>
-        <a className="small" href={`https://stratz.com/matches/${m.m}`} target="_blank" rel="noreferrer">
+        <ExternalLink className="small" href={`https://stratz.com/matches/${m.m}`}>
           Матч {m.m} на Stratz
-        </a>
+        </ExternalLink>
       </div>
     </div>
   );

@@ -4542,3 +4542,76 @@ label.field {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- «Профиль → Найти игрока» ---------- */
+.psearch {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.psearch__bar {
+  display: flex;
+  gap: 8px;
+}
+.psearch__bar .input {
+  flex: 1;
+  min-width: 0;
+}
+.psearch__recent {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.psearch__result {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.psearch__head {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.psearch__avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  object-fit: cover;
+  background: var(--slot-bg);
+  flex: none;
+}
+.psearch__who {
+  flex: 1;
+  min-width: 180px;
+}
+.psearch__who h3 {
+  margin: 0 0 2px;
+  font-size: 18px;
+}
+.psearch__who p {
+  margin: 2px 0 0;
+}
+.psearch__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.psearch__heroes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+}
+.psearch__hero {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: var(--radius-md);
+  background: var(--slot-bg);
+}
+a.btn {
+  text-decoration: none;
+  color: inherit;
+}

@@ -21,4 +21,5 @@ test('media: the hero render video from the backend, wallpapers and menu videos 
 test('images and requests to the backend', () => {
   assert.ok(directive('img-src').includes('http://127.0.0.1:*'));
   assert.ok(directive('connect-src').includes('http://127.0.0.1:*'));
+  assert.ok(directive('img-src').includes('https://avatars.steamstatic.com')); // avatars in «Найти игрока»
 });

@@ -9,12 +9,12 @@ import { useHeroModel } from '../components/HeroModel';
 import { Panel } from '../components/Glass';
 import { HeroSearch } from '../components/HeroSearch';
 import { MatchHistory } from '../components/MatchHistory';
+import { PlayerSearch } from '../components/PlayerSearch';
 import { Empty, ErrorBox, fmtPct, fmtSigned, HeroIcon, Segmented, Slider } from '../components/ui';
+import { rankName } from '../lib/ranks';
 import { loadFile, saveFile } from '../state/bgstore';
 import { useUi } from '../state/ui';
 
-const RANKS = ['', 'Herald', 'Guardian', 'Crusader', 'Archon', 'Legend', 'Ancient', 'Divine', 'Immortal'];
-const rankName = (t: number | null) => (t ? `${RANKS[Math.floor(t / 10)]} ${t % 10}` : 'нет ранга');
 const pp = (logit: number) => (1 / (1 + Math.exp(-logit)) - 0.5) * 100;
 
 export function ProfilePage() {
@@ -30,7 +30,7 @@ export function ProfilePage() {
   const exp = p?.experience;
   const avatar = useAvatar(p?.avatar, p?.fetched);
   const summary = useMeSummary().data;
-  const [tab, setTab] = useState<'matches' | 'pool'>('matches');
+  const [tab, setTab] = useState<'matches' | 'pool' | 'search'>('matches');
   const health = useHealth().data;
   const go = useUi((s) => s.go);
 
@@ -86,10 +86,12 @@ export function ProfilePage() {
             options={[
               { value: 'matches', label: 'Матчи' },
               { value: 'pool', label: 'Пул героев' },
+              { value: 'search', label: 'Найти игрока' },
             ]}
           />
         </div>
         {tab === 'matches' && <MatchHistory />}
+        {tab === 'search' && <PlayerSearch />}
         {tab === 'pool' && !p && !prof.error && <Empty>Загрузка…</Empty>}
         {tab === 'pool' && p && (
           <table className="table">

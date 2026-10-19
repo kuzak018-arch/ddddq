@@ -26,7 +26,7 @@ from .. import config, dota_paths, gsi, hero_grid, keybinds, search
 from .. import settings as user_settings
 from ..builds import counter, standard
 from ..builds import service as build_service
-from ..data import constants, matches, me, my_matches, renders, stratz
+from ..data import constants, matches, me, my_matches, players, renders, stratz
 from ..lane import bulk as lane_bulk
 from ..lane import service as lane_service
 from ..model import draft, explain, meta, predictor, train
@@ -479,6 +479,43 @@ def my_avatar():
     if not me.AVATAR.exists():
         raise HTTPException(404, "аватар ещё не загружен: обнови историю")
     return FileResponse(me.AVATAR, media_type="image/jpeg")
+
+
+# ---------- links to the sites the app shows data from ------------------------------------------
+# The app window has no browser of its own: a link opens in the default browser, for these
+# sites only (a page can't make the backend open anything else).
+
+LINK_HOSTS = ("stratz.com", "www.dotabuff.com", "dotabuff.com", "www.opendota.com", "opendota.com",
+              "steamcommunity.com", "gridstudio.me", "github.com")
+
+
+class OpenUrlIn(BaseModel):
+    url: str = Field(..., max_length=500)
+
+
+@app.post("/open-url")
+def open_url(body: OpenUrlIn):
+    from urllib.parse import urlparse
+    u = urlparse(body.url)
+    if u.scheme != "https" or (u.hostname or "") not in LINK_HOSTS:
+        raise HTTPException(422, "эту ссылку программа не открывает")
+    if os.environ.get("DRAFTER_NO_BUILD_LOAD") != "1":   # tests: nothing opens
+        import webbrowser
+        webbrowser.open(body.url)
+    return {"opened": body.url}
+
+
+# ---------- any player, searched by hand (data/players.py) --------------------------------------
+# Only what the user typed: players of the current match are never looked up by themselves.
+
+@app.get("/players/lookup")
+def player_lookup(q: str = Query(..., max_length=300), refresh: bool = False):
+    if os.environ.get("DRAFTER_NO_BUILD_LOAD") == "1":   # tests: never hit the network
+        raise HTTPException(503, "поиск игроков выключен в тестах")
+    try:
+        return players.lookup(q, refresh)
+    except players.PlayerError as e:
+        raise HTTPException(422, str(e))
 
 
 # ---------- hero models on a transparent background (data/renders.py) -------------------------
