@@ -18,6 +18,8 @@ interface MatchRow {
   a: number;
   award: string | null;
   pending?: string;
+  status: 'parsed' | 'queued' | 'simple';
+  simple?: boolean;
   label?: string;
   label_key?: string;
   imp?: number;
@@ -33,6 +35,8 @@ interface History {
     matches: number;
     rated: number;
     pending: number;
+    simple: number;
+    parsed: number;
     losses: number;
     losses_me: number;
     losses_team: number;
@@ -44,7 +48,16 @@ interface History {
   };
   job: { status?: string; step?: string; teams_done?: number; teams_total?: number; error?: string | null };
   good_imp: number;
+  recheck_min: number;
+  wait_hours: number;
+  stratz_parse_api: { checked: number; found: { name: string; args: string[] }[]; error?: string } | null;
 }
+
+const STATUS: Record<MatchRow['status'], { text: string; title: string; cls: string }> = {
+  parsed: { text: 'разобран', title: 'Stratz разобрал запись игры: полная оценка по IMP и норме героя', cls: 'is-parsed' },
+  queued: { text: 'в очереди', title: 'Запись отправлена на разбор, оценка обновится сама', cls: 'is-queued' },
+  simple: { text: 'упрощённая', title: 'Записи нет или она не разобрана: оценка по итоговым цифрам без разбора', cls: 'is-simple' },
+};
 
 const POS = ['', 'керри', 'мид', 'оффлейн', 'четвёрка', 'пятёрка'];
 const TONE: Record<string, string> = {
@@ -68,7 +81,9 @@ export function MatchHistory() {
     queryKey: ['me', 'matches'],
     queryFn: () => api<History>('/me/matches'),
     retry: false,
-    refetchInterval: (x) => (x.state.data?.job.status === 'loading' ? 3000 : false),
+    // while a match waits for its parse, asking again lets the backend recheck Stratz on its schedule
+    refetchInterval: (x) =>
+      x.state.data?.job.status === 'loading' ? 3000 : x.state.data?.summary.pending ? (x.state.data.recheck_min || 5) * 60_000 : false,
   });
   const h = q.data;
   const s = h?.summary;
@@ -94,8 +109,12 @@ export function MatchHistory() {
       )}
       <div className="mh__bar">
         <span className="muted small">
-          {s ? `Последние ${s.matches} рейтинговых матчей${s.pending ? `, ${s.pending} ещё не разобраны Stratz` : ''}.` : ''}
-          {loading && ` Обновляю${h?.job.step === 'teams' ? ` составы: ${h.job.teams_done ?? 0} из ${h.job.teams_total ?? 0}` : '…'}`}
+          {s
+            ? `Последние ${s.matches} рейтинговых матчей: разобрано ${s.parsed}` +
+              `${s.pending ? `, в очереди на разбор ${s.pending}` : ''}${s.simple ? `, упрощённая оценка ${s.simple}` : ''}.`
+            : ''}
+          {loading &&
+            ` Обновляю${h?.job.step === 'teams' ? ` составы: ${h.job.teams_done ?? 0} из ${h.job.teams_total ?? 0}` : h?.job.step === 'parse' ? ': запросы на разбор…' : '…'}`}
         </span>
         <button
           className="btn btn--sm"
@@ -125,6 +144,9 @@ export function MatchHistory() {
                   {m.k}/{m.d}/{m.a}
                 </span>
                 <span className="muted">{fmtDur(m.duration)}</span>
+                <span className={`mh__status ${STATUS[m.status]?.cls ?? ''}`} title={STATUS[m.status]?.title}>
+                  {STATUS[m.status]?.text}
+                </span>
                 <span className="muted mh__date">{fmtDate(m.start)}</span>
               </div>
               {m.label ? (
@@ -143,6 +165,17 @@ export function MatchHistory() {
         Оценка приблизительная. Основа — IMP от Stratz (оценка вклада игрока: 0 — обычная игра на этом герое, «хорошо» от +{h?.good_imp ?? 10},
         «плохо» от −{h?.good_imp ?? 10}); причины — сравнение с нормой героя на этой позиции на твоём ранге. Статистика видит не всё: вижн,
         позиционку, сейвы и размены она почти не замечает, особенно на саппортах.
+      </p>
+      <p className="hint">
+        Матч без разбора программа сама отправляет на разбор в OpenDota и перепроверяет Stratz каждые {h?.recheck_min ?? 5} минут. Если запись
+        игры уже недоступна или Stratz не разобрал её за {h?.wait_hours ?? 24} ч, оценка считается упрощённо — по итоговым KDA, GPM, XPM,
+        ластхитам, урону и нетворсу против нормы героя — и помечается «упрощённая».
+        {h?.stratz_parse_api &&
+          (h.stratz_parse_api.error
+            ? ' Проверить API Stratz на запрос разбора не удалось.'
+            : h.stratz_parse_api.found.length
+              ? ` В API Stratz нашлось похожее на запрос разбора: ${h.stratz_parse_api.found.map((f) => f.name).join(', ')} — пока не используется.`
+              : ' Запроса на разбор в API Stratz нет: он разбирает рейтинговые матчи сам.')}
       </p>
     </div>
   );

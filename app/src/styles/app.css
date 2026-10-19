@@ -2447,6 +2447,20 @@ input {
 .mh__reasons {
   color: var(--text-2);
 }
+.mh__status {
+  font-size: 11px;
+  padding: 0 7px;
+  border-radius: 99px;
+  border: 1px solid var(--hairline);
+  color: var(--text-2);
+}
+.mh__status.is-queued {
+  border-color: color-mix(in srgb, var(--warn) 55%, transparent);
+  color: var(--warn);
+}
+.mh__status.is-simple {
+  border-style: dashed;
+}
 /* ---------- polish: pressed feedback for chips and tiles ---------- */
 .lane__opp:active,
 .bg-tile:active,

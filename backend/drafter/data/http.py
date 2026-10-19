@@ -28,6 +28,13 @@ class OpenDota:
         self.http.close()
 
     def get(self, path: str, params: dict | None = None, retries: int = 5):
+        return self._call("GET", path, params, retries)
+
+    def post(self, path: str, params: dict | None = None, retries: int = 2):
+        """A parse request (POST /request/{match_id}) counts as 10 calls for OpenDota's rate limit."""
+        return self._call("POST", path, params, retries)
+
+    def _call(self, method: str, path: str, params: dict | None, retries: int):
         url = path if path.startswith("http") else f"{config.OPENDOTA}{path}"
         for attempt in range(retries):
             wait = self.min_interval - (time.monotonic() - self._last)
@@ -35,7 +42,7 @@ class OpenDota:
                 time.sleep(wait)
             self._last = time.monotonic()
             try:
-                r = self.http.get(url, params={**self._params, **(params or {})})
+                r = self.http.request(method, url, params={**self._params, **(params or {})})
             except httpx.TransportError:
                 time.sleep(2 ** attempt)
                 continue
