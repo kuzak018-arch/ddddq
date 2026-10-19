@@ -94,6 +94,9 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   useAppearance();
   useAppIcon();
+  useEffect(() => {
+    document.documentElement.classList.toggle('page-settings', page === 'settings');
+  }, [page]);
   useCloseToTray();
 
   useEffect(() => {

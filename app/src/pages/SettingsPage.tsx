@@ -8,6 +8,7 @@ import { useHealth, useHeroes, useSaveSettings, useSettings } from '../api/hooks
 import type { Job, Settings } from '../api/types';
 import { BrandMark, heroArt, PRESETS } from '../components/Chrome';
 import { Panel } from '../components/Glass';
+import { Section } from '../components/Section';
 import { HeroSearch } from '../components/HeroSearch';
 import { LaneBulkCard } from '../components/LaneBulkCard';
 import { VersionCard } from '../components/VersionCard';
@@ -19,24 +20,36 @@ import { autostartEnabled, setAutostart } from '../lib/tray';
 import { loadBackgroundFile, saveBackgroundFile, saveFile } from '../state/bgstore';
 import { useUi } from '../state/ui';
 
+/**
+ * Settings: the appearance on the left, everything else in one scrolling column on the right.
+ *
+ * The right column is deliberately plain (it would not scroll with the wheel in the installed app):
+ * one glass frame with one ordinary overflow-y:auto block inside it, the way every tab whose
+ * scrolling works is built. Inside it there are only flat sections — no glass, no backdrop-filter,
+ * no animations or transforms, no masks, no nested scrolling areas, no drag region, no wheel
+ * handlers; the background effects are drawn under the window on this page, not over it.
+ */
 export function SettingsPage() {
   return (
     <div className="settings">
       <AppearanceCard />
-      <div className="settings__col">
-        <AccountCard />
-        <GsiCard />
-        <VisionCard />
-        <OverlayCard />
-        <AdviceCard />
-        <AppCard />
-        <DataCard />
-        <LaneBulkCard />
-        <VersionCard />
+      <div className="settings-side glass">
+        <div className="settings-scroll">
+          <AccountCard />
+          <GsiCard />
+          <VisionCard />
+          <OverlayCard />
+          <AdviceCard />
+          <AppCard />
+          <DataCard />
+          <LaneBulkCard />
+          <VersionCard />
+        </div>
       </div>
     </div>
   );
 }
+
 
 function AppearanceCard() {
   const ui = useUi();
@@ -314,7 +327,7 @@ function AccountCard() {
   });
   const s = setup.data;
   return (
-    <Panel>
+    <Section>
       <div className="panel__head">
         <h2>Аккаунт</h2>
         {s && <span className="pill">{s.account_id ? `id ${s.account_id}` : 'не указан'}</span>}
@@ -346,7 +359,7 @@ function AccountCard() {
       </div>
       {save.error && <ErrorBox error={save.error} />}
       <p className="hint">Хранится только у тебя в .env. Нужен для истории матчей и твоего пула; токен — для позиций, билдов и линий.</p>
-    </Panel>
+    </Section>
   );
 }
 
@@ -362,7 +375,7 @@ function GsiCard() {
   const s = status.data;
   const fresh = s?.last_seen && Date.now() / 1000 - s.last_seen < 30;
   return (
-    <Panel>
+    <Section>
       <div className="panel__head">
         <h2>Интеграция с игрой</h2>
         <span className={`pill ${fresh ? 'c-good' : ''}`}>{fresh ? 'Дота на связи' : 'нет данных'}</span>
@@ -397,7 +410,7 @@ function GsiCard() {
           )}
         </>
       )}
-    </Panel>
+    </Section>
   );
 }
 
@@ -432,7 +445,7 @@ function VisionCard() {
   const c = s?.collect;
   const ev = s?.auto.last?.evaluation;
   return (
-    <Panel>
+    <Section>
       <div className="panel__head">
         <h2>Чтение драфта с экрана</h2>
         <span className="pill">{s?.enabled ? (s.auto.auto_enabled ? 'включено само' : 'включено') : 'выключено'}</span>
@@ -467,7 +480,7 @@ function VisionCard() {
       <button className="btn btn--accent" onClick={() => go('vision')}>
         Открыть мастер калибровки
       </button>
-    </Panel>
+    </Section>
   );
 }
 
@@ -523,7 +536,7 @@ function OverlayCard() {
   });
   const dotaKeys = useMemo(() => new Set(keys.data?.keys ?? []), [keys.data]);
   return (
-    <Panel>
+    <Section>
       <div className="panel__head">
         <h2>Оверлей</h2>
         <button className="btn btn--accent" onClick={() => toggleOverlay()}>
@@ -573,7 +586,7 @@ function OverlayCard() {
         «Авто»: на стадии драфта — подсказки, с началом матча — билд против врагов (после подключения GSI на этапе 5).
         Позиция и размер оверлея запоминаются.
       </p>
-    </Panel>
+    </Section>
   );
 }
 
@@ -589,7 +602,7 @@ function AdviceCard() {
     save.mutate(next);
   };
   return (
-    <Panel>
+    <Section>
       <h2>Подсказки</h2>
       <div className="field">
         <span className="label">Моя позиция по умолчанию</span>
@@ -611,7 +624,7 @@ function AdviceCard() {
       </p>
       <Slider label="Тир-лист за дней" value={draft.tier_days} min={3} max={30} step={1} onChange={(tier_days) => upd({ tier_days })} />
       {save.error && <ErrorBox error={save.error} />}
-    </Panel>
+    </Section>
   );
 }
 
@@ -625,7 +638,7 @@ function AppCard() {
     onSettled: () => qc.invalidateQueries({ queryKey: ['autostart'] }),
   });
   return (
-    <Panel>
+    <Section>
       <h2>Приложение</h2>
       <Toggle on={ui.closeToTray} onChange={(closeToTray) => ui.set({ closeToTray })} label="Сворачивать в трей при закрытии окна" />
       <Toggle
@@ -638,7 +651,7 @@ function AppCard() {
         Значок в трее: клик — показать окно, правый клик — меню (показать, оверлей вкл/выкл, выход). «Выход» в меню трея
         закрывает приложение совсем.
       </p>
-    </Panel>
+    </Section>
   );
 }
 
@@ -667,7 +680,7 @@ function DataCard() {
   );
   const shown = lines.length ? lines : last?.log ?? [];
   return (
-    <Panel>
+    <Section>
       <h2>Данные</h2>
       {health && (
         <dl className="kv">
@@ -696,6 +709,6 @@ function DataCard() {
       {start.error && <ErrorBox error={start.error} />}
       {last?.status === 'failed' && <ErrorBox error={last.error} />}
       {shown.length > 0 && <pre className="joblog">{shown.slice(-14).join('\n')}</pre>}
-    </Panel>
+    </Section>
   );
 }

@@ -709,7 +709,7 @@ input {
   background: var(--control-bg-hover);
 }
 .toggle__track:active .toggle__knob {
-  transform: scaleX(1.12);
+  width: 25px;
 }
 .toggle__track.is-on {
   background: #30c25a;
@@ -721,10 +721,20 @@ input {
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
-  transition: transform 0.45s var(--ease-spring);
+  /* moved by margin, not transform: a transformed knob would get its own compositor layer, and the
+     settings column keeps every such layer out (see SettingsPage) */
+  transition:
+    margin-left 0.45s var(--ease-spring),
+    width 0.2s var(--ease-out);
 }
 .toggle__track.is-on .toggle__knob {
-  transform: translateX(18px);
+  margin-left: 18px;
+}
+.toggle__track.is-on:active .toggle__knob {
+  margin-left: 15px;
+}
+.toggle__track {
+  display: flex;
 }
 
 .slider {
@@ -1581,22 +1591,40 @@ input {
   gap: var(--gutter);
   overflow: hidden;
 }
-.settings__col {
+/* The right column: one glass frame, one plain scrolling block, flat sections (see SettingsPage).
+   Nothing in or over the scrolling block may be composited on its own: no backdrop-filter, no
+   transform or animation, no mask, no overscroll-behavior, no smooth scrolling, no inner scrollers. */
+.settings-side {
+  min-height: 0;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: var(--gutter);
-  min-height: 0;
-  /* seven cards don't fit in a normal window: the column scrolls instead of squashing the cards
-     (they used to shrink to their headers). Padding keeps the glass shadow and focus ring visible. */
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: var(--control-bg-active) transparent;
-  margin: -6px;
-  padding: 6px;
 }
-.settings__col > .panel {
+.settings-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 22px;
+}
+.settings-section + .settings-section {
+  border-top: 1px solid var(--hairline);
+}
+.settings-section > * {
   flex-shrink: 0;
+}
+.settings-section > h2 {
+  margin-bottom: 2px;
+}
+/* the background effects go under the window on this page, so nothing is drawn over the column */
+.page-settings .fx {
+  z-index: 0;
 }
 .field {
   display: flex;

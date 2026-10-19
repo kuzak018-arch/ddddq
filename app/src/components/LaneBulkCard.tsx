@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api } from '../api/client';
 import { useHeroes } from '../api/hooks';
-import { Panel } from './Glass';
+import { Section } from './Section';
 import { ErrorBox } from './ui';
 
 interface BulkStatus {
@@ -44,7 +44,7 @@ export function LaneBulkCard() {
   const name = (id: number) => heroes?.byId.get(id)?.name ?? id;
   const pct = s?.total ? Math.round((100 * (s.done ?? 0)) / s.total) : 0;
   return (
-    <Panel>
+    <Section>
       <h2>Данные линий</h2>
       <p className="hint">
         Кто выигрывает линию, Stratz отдаёт сразу. Графики по минутам строятся по матчам пары (по запросу на матч), поэтому их
@@ -105,6 +105,6 @@ export function LaneBulkCard() {
           )}
         </div>
       )}
-    </Panel>
+    </Section>
   );
 }

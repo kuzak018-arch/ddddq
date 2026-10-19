@@ -3,7 +3,7 @@ import { getVersion } from '@tauri-apps/api/app';
 import { isTauri } from '@tauri-apps/api/core';
 import { useEffect, useState } from 'react';
 
-import { Panel } from './Glass';
+import { Section } from './Section';
 
 export function VersionCard() {
   const [version, setVersion] = useState<string | null>(null);
@@ -11,7 +11,7 @@ export function VersionCard() {
     if (isTauri()) getVersion().then(setVersion).catch(() => undefined);
   }, []);
   return (
-    <Panel>
+    <Section>
       <div className="panel__head">
         <h2>Версия</h2>
         {version && <span className="pill">версия {version}</span>}
@@ -21,6 +21,6 @@ export function VersionCard() {
         Releases: скачай установщик <b>Dota.Drafter_x.y.z_x64-setup.exe</b>, закрой приложение и запусти его поверх
         старой версии. Твои настройки и данные сохраняются.
       </p>
-    </Panel>
+    </Section>
   );
 }

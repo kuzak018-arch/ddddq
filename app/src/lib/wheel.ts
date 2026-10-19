@@ -1,60 +1,49 @@
 /**
- * Mouse wheel scrolling that always works, and a hidden debug mode for it.
+ * Hidden debug mode for mouse-wheel scrolling (the settings column would not scroll with the wheel
+ * in the installed app, and the browser preview never showed it).
  *
- * In the installed app (WebView2) some scrolling areas did not move on the wheel while dragging
- * their scrollbar worked; the browser preview never showed it. As a safety net every wheel event
- * is watched: if the area under the cursor that can scroll that way has not moved a moment later,
- * we scroll it ourselves. An area that moved by itself is remembered and left to the browser.
- *
- * Ctrl+Alt+Shift+W turns on the debug mode: every wheel event goes to logs/ui-debug.log in the
- * user's data folder (%LOCALAPPDATA%\DotaDrafter\logs) with the element under the cursor, the area
- * that should scroll, whether it moved by itself and whether we scrolled it.
+ * Off, it does nothing: no wheel listener at all. Ctrl+Alt+Shift+W turns it on, and from then on
+ * logs/ui-debug.log in the user's data folder (%LOCALAPPDATA%\DotaDrafter\logs) gets:
+ *  * every wheel event: the element it was sent to, the element under the cursor, every area of
+ *    its ancestors that can scroll with their positions, and the same positions 300 ms later
+ *    (the engine may scroll before this listener runs, so compare with the previous wheel line);
+ *  * every scroll that happened anywhere (which element, from where to where);
+ *  * once a second, which element the pointer is over — so a log with pointer lines but no wheel
+ *    lines means the wheel never reached the page.
+ * Listeners are passive and never scroll anything themselves.
  */
 import { api } from '../api/client';
 
-const WAIT_MS = 350;
-const LINE_PX = 40;
-
-/**
- * Per scrolling area: 'native' — the engine scrolls it on the wheel (leave it alone); 'broken' —
- * it did not move on a wheel, we scroll it at once from then on. Unknown until the first wheel:
- * then we wait for its 'scroll' event (a slow but working engine still sends one) before acting.
- */
-const state = new WeakMap<Element, 'native' | 'broken'>();
 let debug = false;
 let buffer: string[] = [];
-
-function canScroll(el: Element, dy: number, dx: number): boolean {
-  const cs = getComputedStyle(el);
-  if (Math.abs(dy) >= Math.abs(dx)) {
-    if (!/(auto|scroll|overlay)/.test(cs.overflowY) || el.scrollHeight <= el.clientHeight + 1) return false;
-    return dy > 0 ? el.scrollTop + el.clientHeight < el.scrollHeight - 1 : el.scrollTop > 0;
-  }
-  if (!/(auto|scroll|overlay)/.test(cs.overflowX) || el.scrollWidth <= el.clientWidth + 1) return false;
-  return dx > 0 ? el.scrollLeft + el.clientWidth < el.scrollWidth - 1 : el.scrollLeft > 0;
-}
-
-/** The nearest area under the element that can scroll in the wheel's direction. */
-export function scrollerFor(start: Element | null, dy: number, dx: number): Element | null {
-  for (let el = start; el && el !== document.documentElement; el = el.parentElement) {
-    if (canScroll(el, dy, dx)) return el;
-  }
-  return null;
-}
+let lastPointer = 0;
 
 const describe = (el: Element | null) => {
   if (!el) return 'none';
   const cls = typeof el.className === 'string' ? el.className.trim().split(/\s+/).slice(0, 3).join('.') : '';
   return `${el.tagName.toLowerCase()}${cls ? '.' + cls : ''}`;
 };
-const path = (el: Element | null) => {
+const path = (el: Element | null, n = 6) => {
   const out: string[] = [];
-  for (let e = el, i = 0; e && i < 5; e = e.parentElement, i++) out.push(describe(e));
+  for (let e = el, i = 0; e && i < n; e = e.parentElement, i++) out.push(describe(e));
   return out.join(' < ');
 };
 
+/** Ancestors that can scroll at all (either way), with their positions. */
+function scrollers(start: Element | null): Element[] {
+  const out: Element[] = [];
+  for (let el = start; el; el = el.parentElement) {
+    const cs = getComputedStyle(el);
+    const y = /(auto|scroll|overlay)/.test(cs.overflowY) && el.scrollHeight > el.clientHeight;
+    const x = /(auto|scroll|overlay)/.test(cs.overflowX) && el.scrollWidth > el.clientWidth;
+    if (y || x || el === document.scrollingElement) out.push(el);
+  }
+  return out;
+}
+
+const pos = (el: Element) => `${describe(el)} y=${Math.round(el.scrollTop)}/${el.scrollHeight - el.clientHeight} x=${Math.round(el.scrollLeft)}/${el.scrollWidth - el.clientWidth}`;
+
 function log(line: string) {
-  if (!debug) return;
   buffer.push(`${new Date().toISOString()} ${line}`);
 }
 
@@ -65,84 +54,79 @@ function flush() {
 }
 
 function onWheel(e: WheelEvent) {
-  if (e.ctrlKey) return; // zoom gesture
-  const k = e.deltaMode === 1 ? LINE_PX : e.deltaMode === 2 ? window.innerHeight * 0.9 : 1;
-  const dy = e.deltaY * k;
-  const dx = e.deltaX * k;
   const target = e.target instanceof Element ? e.target : null;
-  const sc = scrollerFor(target, dy, dx);
-  const atPoint = document.elementFromPoint(e.clientX, e.clientY);
-  if (!sc) {
-    log(`wheel dy=${Math.round(dy)} target=${path(target)} point=${describe(atPoint)} scroller=none`);
-    return;
-  }
-  const top0 = sc.scrollTop;
-  const left0 = sc.scrollLeft;
-  const cs = getComputedStyle(sc);
-  const vertical = Math.abs(dy) >= Math.abs(dx);
-  const scrollUs = () => sc.scrollBy({ top: vertical ? dy : 0, left: vertical ? 0 : dx });
-  const report = (action: string) =>
-    log(
-      `wheel dy=${Math.round(dy)} mode=${e.deltaMode} target=${path(target)} point=${describe(atPoint)} ` +
-        `scroller=${describe(sc)} top=${Math.round(top0)}→${Math.round(sc.scrollTop)} of ${sc.scrollHeight - sc.clientHeight} ` +
-        `overflow=${cs.overflowY} overscroll=${cs.overscrollBehaviorY} ${action}`,
-    );
-  const known = state.get(sc);
-  if (known === 'native') return report('native');
-  if (known === 'broken') {
-    scrollUs();
-    const expected = sc.scrollTop;
-    // the engine came back to life: it moved the area on top of us, stop helping
-    setTimeout(() => {
-      if (Math.abs(sc.scrollTop - expected) > Math.max(8, Math.abs(dy) * 0.5)) state.set(sc, 'native');
-      report(state.get(sc) === 'native' ? 'fallback, engine works again' : 'fallback');
-    }, WAIT_MS);
-    return;
-  }
-  let scrolled = false;
-  const onScroll = () => (scrolled = true);
-  sc.addEventListener('scroll', onScroll, { passive: true });
-  setTimeout(() => {
-    sc.removeEventListener('scroll', onScroll);
-    const moved = scrolled || sc.scrollTop !== top0 || sc.scrollLeft !== left0;
-    if (moved) {
-      state.set(sc, 'native');
-      report('native (checked)');
-    } else if (e.defaultPrevented) report('prevented');
-    else {
-      state.set(sc, 'broken');
-      scrollUs();
-      report('fallback (did not move by itself)');
-    }
-  }, WAIT_MS);
+  const at = document.elementFromPoint(e.clientX, e.clientY);
+  const chain = scrollers(target);
+  log(
+    `wheel dy=${e.deltaY} dx=${e.deltaX} mode=${e.deltaMode} ctrl=${e.ctrlKey} at=(${e.clientX},${e.clientY}) ` +
+      `cancelable=${e.cancelable} target=${path(target)} point=${path(at, 3)} chain=[${chain.map(pos).join(' | ')}]`,
+  );
+  setTimeout(() => log(`  300ms later: defaultPrevented=${e.defaultPrevented} chain=[${chain.map(pos).join(' | ')}]`), 300);
+}
+
+function onScroll(e: Event) {
+  const el = e.target instanceof Element ? e.target : document.scrollingElement;
+  if (el) log(`scroll ${pos(el)}`);
+}
+
+function onPointer(e: PointerEvent) {
+  const now = Date.now();
+  if (now - lastPointer < 1000) return;
+  lastPointer = now;
+  log(`pointer at=(${e.clientX},${e.clientY}) over=${path(document.elementFromPoint(e.clientX, e.clientY), 4)}`);
+}
+
+/** The column that would not scroll: its size and every style that could matter. */
+function snapshot() {
+  const col = document.querySelector('.settings-scroll');
+  if (!col) return 'settings column not open';
+  const cs = getComputedStyle(col);
+  const layered = [...col.querySelectorAll('*')].filter((el) => {
+    const c = getComputedStyle(el);
+    return c.backdropFilter !== 'none' || c.transform !== 'none' || c.animationName !== 'none' || c.maskImage !== 'none' || /(auto|scroll)/.test(c.overflowY);
+  });
+  return (
+    `settings column ${col.clientWidth}x${col.clientHeight} content=${col.scrollHeight} overflowY=${cs.overflowY} ` +
+    `overscroll=${cs.overscrollBehaviorY} layered children=${layered.length} [${layered.slice(0, 8).map((el) => describe(el)).join(', ')}]`
+  );
 }
 
 function toggleDebug(on: boolean) {
   debug = on;
   document.documentElement.classList.toggle('wheel-debug', on);
+  const opts = { passive: true, capture: true } as const;
   if (on) {
+    window.addEventListener('wheel', onWheel, opts);
+    document.addEventListener('scroll', onScroll, opts);
+    window.addEventListener('pointermove', onPointer, opts);
     const s = window.screen;
     log(
       `debug on: ${navigator.userAgent} dpr=${window.devicePixelRatio} window=${window.innerWidth}x${window.innerHeight} ` +
-        `screen=${s.width}x${s.height} ui=${localStorage.getItem('drafter-ui')?.slice(0, 600) ?? ''}`,
+        `screen=${s.width}x${s.height} page=${document.documentElement.className} ui=${localStorage.getItem('drafter-ui')?.slice(0, 600) ?? ''}`,
     );
+    log(snapshot());
     flush();
-  } else log('debug off');
+  } else {
+    window.removeEventListener('wheel', onWheel, opts);
+    document.removeEventListener('scroll', onScroll, opts);
+    window.removeEventListener('pointermove', onPointer, opts);
+    log('debug off');
+    flush();
+  }
 }
 
 let installed = false;
 
-export function installWheel() {
+export function installWheelDebug() {
   if (installed) return;
   installed = true;
-  window.addEventListener('wheel', onWheel, { passive: true, capture: true });
   window.addEventListener('keydown', (e) => {
     if (e.ctrlKey && e.altKey && e.shiftKey && e.code === 'KeyW') {
       e.preventDefault();
       toggleDebug(!debug);
     }
   });
-  setInterval(flush, 2000);
+  setInterval(() => debug && flush(), 2000);
 }
 
 export const wheelDebugOn = () => debug;
