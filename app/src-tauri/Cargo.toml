@@ -30,8 +30,9 @@ window-vibrancy = "0.8.1"
 tauri-plugin-autostart = "2"
 
 [target.'cfg(windows)'.dependencies]
-# Job Object: the backend dies with the shell however the shell ends (exit, crash, killed)
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects"] }
+# Job Object: the backend dies with the shell however the shell ends (exit, crash, killed);
+# Shell: tell Explorer that shortcut icons changed
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_UI_Shell"] }
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

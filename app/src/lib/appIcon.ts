@@ -1,14 +1,15 @@
 /**
  * The app's own icon: the user's picture (any image, GIF too) shown next to "Dota Drafter" and
- * used as the window's taskbar icon. The file lives in IndexedDB, the choice in the UI state.
+ * handed to the shell for the windows, the tray and the shortcuts (src-tauri/src/appicon.rs).
+ * The file lives in IndexedDB, the choice in the UI state.
  */
-import { defaultWindowIcon } from '@tauri-apps/api/app';
-import { isTauri } from '@tauri-apps/api/core';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { invoke, isTauri } from '@tauri-apps/api/core';
 import { useEffect, useState } from 'react';
+import { create } from 'zustand';
 
 import { loadFile } from '../state/bgstore';
 import { useUi } from '../state/ui';
+import { buildIco, ICO_SIZES } from './ico';
 
 export const LOGO_KEY = 'logo';
 const ICON_SIZE = 256;
@@ -35,7 +36,7 @@ export function useLogoUrl(): string | null {
   return url;
 }
 
-/** Square PNG of the picture (centre crop, first frame of a GIF) for the taskbar icon. */
+/** Square PNG of the picture (centre crop, first frame of a GIF) for the icons. */
 export async function toIconPng(blob: Blob, size = ICON_SIZE): Promise<Uint8Array> {
   const bmp = await createImageBitmap(blob);
   const side = Math.min(bmp.width, bmp.height);
@@ -49,24 +50,50 @@ export async function toIconPng(blob: Blob, size = ICON_SIZE): Promise<Uint8Arra
   return new Uint8Array(await png.arrayBuffer());
 }
 
-/** Main window only: keep the taskbar icon in step with the chosen logo. */
-export function useWindowIcon(enabled: boolean) {
+export interface IconApplied {
+  /** Where a shortcut of ours got the icon: "Рабочий стол", "Пуск", "Панель задач". */
+  shortcuts: string[];
+  error: string | null;
+}
+
+/** The last result of putting the icon on the shortcuts, for the settings card. */
+export const useIconResult = create<{ busy: boolean; result: IconApplied | null; error: string | null }>(() => ({
+  busy: false,
+  result: null,
+  error: null,
+}));
+
+async function iconFiles(blob: Blob): Promise<{ png: number[]; ico: number[] }> {
+  const images = [];
+  for (const size of ICO_SIZES) images.push({ size, png: await toIconPng(blob, size) });
+  return { png: Array.from(images[images.length - 1].png), ico: Array.from(buildIco(images)) };
+}
+
+/**
+ * Main window only: the shell keeps the chosen icon on every window, the tray and our shortcuts
+ * and restores it at start; here it is handed over when the choice differs from what the shell has.
+ */
+export function useAppIcon() {
   const logo = useUi((s) => s.logo);
   useEffect(() => {
-    if (!enabled || !isTauri()) return;
+    if (!isTauri()) return;
     let cancelled = false;
     (async () => {
-      const win = getCurrentWindow();
-      const blob = logo.kind === 'file' ? await loadFile(LOGO_KEY) : null;
-      if (cancelled) return;
-      if (blob) await win.setIcon(await toIconPng(blob));
-      else {
-        const def = await defaultWindowIcon();
-        if (def && !cancelled) await win.setIcon(def);
-      }
-    })().catch((e) => console.warn('иконка окна не сменилась', e));
+      const have = await invoke<{ key: string | null }>('app_icon_state');
+      const want = logo.kind === 'file' ? (logo.key ?? 'file') : null;
+      if (cancelled || have.key === want) return;
+      const blob = want ? await loadFile(LOGO_KEY) : null;
+      if (cancelled || (want && !blob)) return;
+      useIconResult.setState({ busy: true, error: null });
+      const files = blob ? await iconFiles(blob) : { png: null, ico: null };
+      const result = await invoke<IconApplied>('set_app_icon', { ...files, key: want });
+      useIconResult.setState({ busy: false, result, error: null });
+    })().catch((e) => {
+      console.warn('значок не сменился', e);
+      useIconResult.setState({ busy: false, error: String(e) });
+    });
     return () => {
       cancelled = true;
     };
-  }, [enabled, logo.kind, logo.key]);
+  }, [logo.kind, logo.key]);
 }

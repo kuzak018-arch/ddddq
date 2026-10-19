@@ -15,7 +15,7 @@ import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { TopGamesPage } from './pages/TopGamesPage';
 import { VisionPage } from './pages/VisionPage';
-import { useWindowIcon } from './lib/appIcon';
+import { useAppIcon } from './lib/appIcon';
 import { useCloseToTray } from './lib/tray';
 import { applyHotkeys, showOverlay } from './lib/overlay';
 import { useDraft } from './state/draft';
@@ -93,7 +93,7 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useAppearance();
-  useWindowIcon(true);
+  useAppIcon();
   useCloseToTray();
 
   useEffect(() => {

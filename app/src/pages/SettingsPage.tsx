@@ -14,7 +14,7 @@ import { VersionCard } from '../components/VersionCard';
 import { useEffectsBlocked } from '../components/Effects';
 import { refractionSupported } from '../glass/refraction';
 import { ErrorBox, Segmented, Slider, Toggle } from '../components/ui';
-import { LOGO_KEY, useLogoUrl } from '../lib/appIcon';
+import { LOGO_KEY, useIconResult, useLogoUrl } from '../lib/appIcon';
 import { autostartEnabled, setAutostart } from '../lib/tray';
 import { loadBackgroundFile, saveBackgroundFile, saveFile } from '../state/bgstore';
 import { useUi } from '../state/ui';
@@ -204,11 +204,12 @@ function WallpaperFrame() {
   );
 }
 
-/** The icon next to "Dota Drafter" and in the taskbar: the built-in one or the user's picture. */
+/** The app's icon everywhere Windows lets us change it: the built-in one or the user's picture. */
 function LogoField() {
   const logo = useUi((s) => s.logo);
   const set = useUi((s) => s.set);
   const url = useLogoUrl();
+  const applied = useIconResult();
   const input = useRef<HTMLInputElement>(null);
   const [err, setErr] = useState<string | null>(null);
   return (
@@ -221,11 +222,27 @@ function LogoField() {
         </button>
         {logo.kind === 'file' && (
           <button className="btn btn--sm" onClick={() => set({ logo: { kind: 'default' } })}>
-            Стандартный
+            Вернуть стандартную
           </button>
         )}
       </div>
-      <p className="hint">Показывается рядом с названием и на панели задач (на панели — первый кадр GIF, обрезка по центру).</p>
+      <p className="hint">
+        Рядом с названием, у главного окна и оверлея (панель задач, Alt+Tab), в трее и на наших ярлыках: рабочий стол, «Пуск», закреплённый
+        значок на панели задач. Для значков — первый кадр GIF, обрезка по центру.
+      </p>
+      {applied.busy && <p className="hint">Меняю значки…</p>}
+      {!applied.busy && applied.result && (
+        <p className="hint">
+          {applied.result.shortcuts.length
+            ? `Ярлыки обновлены: ${applied.result.shortcuts.join(', ')}.`
+            : 'Ярлыков приложения не нашлось — окна и трей уже со значком.'}
+        </p>
+      )}
+      {(applied.error || applied.result?.error) && <p className="c-bad small">{applied.error ?? applied.result?.error}</p>}
+      <p className="hint">
+        Если на панели задач остался старый значок: открепи приложение (правый клик → «Открепить от панели задач») и закрепи снова. Значок самого
+        файла «Dota Drafter.exe» в папке установки не меняется — Windows берёт его из программы.
+      </p>
       {err && <p className="c-bad small">{err}</p>}
       <input
         ref={input}

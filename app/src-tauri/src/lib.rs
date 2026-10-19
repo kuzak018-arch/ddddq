@@ -2,6 +2,7 @@
 //! per-launch token, hands both to the UI, owns the overlay window and the global hotkeys,
 //! and stops the backend when the app exits.
 
+mod appicon;
 mod backend;
 mod overlay;
 mod tray;
@@ -56,6 +57,7 @@ pub fn run() {
         .manage(tray::TrayState::default())
         .setup(|app| {
             tray::create(app.handle())?;
+            appicon::restore(app.handle());
             if std::env::args().any(|a| a == tray::MINIMIZED_ARG) {
                 if let Some(w) = app.get_webview_window("main") {
                     let _ = w.hide();
@@ -89,6 +91,8 @@ pub fn run() {
             overlay::overlay_set_effect,
             overlay::overlay_set_hotkeys,
             tray::set_close_to_tray,
+            appicon::app_icon_state,
+            appicon::set_app_icon,
         ])
         .build(tauri::generate_context!())
         .expect("не удалось запустить приложение");
