@@ -122,7 +122,7 @@ export interface BuildsResponse {
   status: 'loading' | 'ready';
   games: number;
   target: number;
-  progress: { have: number; target: number; requests: number };
+  progress: { have: number; target: number; requests: number; batch?: number };
   error: string | null;
   note?: string | null;
   builds: Build[];
@@ -308,7 +308,7 @@ export interface LaneResponse {
   outcome_error: string | null;
   status: 'loading' | 'ready';
   games: number;
-  progress: { have: number; target: number; requests: number };
+  progress: { have: number; target: number; requests: number; batch?: number };
   error: string | null;
   note: string | null;
   analysis: {

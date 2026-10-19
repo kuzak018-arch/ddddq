@@ -120,7 +120,75 @@ def test_bulk_plan(monkeypatch):
     monkeypatch.setattr(bulk, "pair_counts", lambda: counts)
     plan = bulk.plan(pos_mat, [(10, 1)])
     keys = [(p["a"], p["pa"], p["b"], p["pb"], p["why"]) for p in plan]
-    assert keys[0] == (10, 1, 20, 3, "pool")                 # pool first
+    assert keys[0] == (10, 1, 20, 3, "pool")                 # the main lane opponent first
+    assert all(k[0] == 10 and k[4] == "pool" for k in keys)  # only my pool: no frequent pairs of others
     assert not any(p["b"] == 21 for p in plan)               # expected < RARE: nothing to download
-    mids = [k for k in keys if k[1] == k[3] == 2]
-    assert mids == [(30, 2, 31, 2, "all")]                   # mid vs mid once, whichever side
+    both = bulk.plan(pos_mat, [(30, 2), (31, 2)])            # two pool mids
+    assert [(p["a"], p["b"]) for p in both] == [(30, 31)]    # mid vs mid once, whichever side
+
+
+# ---------- loading a pair: several matches per request -------------------------------------
+
+def stratz_match(mid, a=STORM, b=PUCK, parsed=True):
+    def pl(hero, radiant):
+        stats = {"networthPerMinute": [600, 900, 1300], "experiencePerMinute": [0, 300, 320],
+                 "lastHitsPerMinute": [0, 4, 5], "level": [0, 60, 130], "itemPurchases": [{"time": 30, "itemId": 1}]}
+        return {"heroId": hero, "isRadiant": radiant, "position": "POSITION_2", "lane": "MID_LANE",
+                "isVictory": radiant, "stats": stats if parsed else {}}
+    return {"id": mid, "startDateTime": 1, "durationSeconds": 2000, "players": [pl(a, True), pl(b, False)]}
+
+
+class FakeStratz:
+    """Answers aliased match queries; refuses any query of more than `limit` matches as too big."""
+
+    def __init__(self, limit=8, missing=()):
+        self.limit, self.missing, self.sizes = limit, set(missing), []
+
+    def q_all(self, query, retries=5):
+        import re
+        ids = [int(x) for x in re.findall(r"match\(id: (\d+)\)", query)]
+        self.sizes.append(len(ids))
+        if len(ids) > self.limit:
+            raise RuntimeError('Stratz: [{"message": "The maximum allowed operation complexity was exceeded."}]')
+        data = {f"m{i}": (None if mid in self.missing else stratz_match(mid)) for i, mid in enumerate(ids)}
+        return data, [{"message": "match not found"}] if self.missing & set(ids) else []
+
+    def close(self):
+        pass
+
+
+@pytest.fixture()
+def pair_cache(tmp_path, monkeypatch):
+    monkeypatch.setattr(pairs, "CACHE", tmp_path)
+    monkeypatch.setattr(pairs, "BATCH_FILE", tmp_path / "batch.json")
+    monkeypatch.setattr(pairs.sm, "_budget_ok", lambda floor: True)
+    return tmp_path
+
+
+def test_batch_shrinks_when_refused_and_remembers(pair_cache):
+    sz = FakeStratz(limit=8, missing={105})
+    recs, spent = pairs.fetch_batch(sz, list(range(100, 125)), STORM, PUCK)
+    assert [r["m"] for r in recs] == list(range(100, 125))            # every match, in order
+    assert next(r for r in recs if r["m"] == 105).get("unparsed")     # one Stratz hasn't got: the rest kept
+    assert sz.sizes[0] == pairs.BATCH_START and sz.sizes[1] == pairs.BATCH_START // 2
+    st = pairs.batch_state()
+    assert st["refused"] in (9, 10) and st["size"] <= 8 and st["max_ok"] >= 5   # grew back up to the edge once
+    assert spent == len(sz.sizes)                                     # the refusal costs a request too
+    # next time: no refusal, never above what Stratz refused
+    sz2 = FakeStratz(limit=8)
+    pairs.fetch_batch(sz2, list(range(200, 240)), STORM, PUCK)
+    assert max(sz2.sizes) <= 8 and len(sz2.sizes) == 5                  # 40 matches in 5 requests, none refused
+
+
+def test_collect_loads_the_target_in_a_few_requests(pair_cache, monkeypatch):
+    sz = FakeStratz(limit=30)
+    monkeypatch.setattr(pairs.stratz, "Stratz", lambda **kw: sz)
+    monkeypatch.setattr(pairs, "candidates", lambda a, b, exclude: [m for m in range(1, 200) if m not in exclude])
+    info, seen = {}, []
+    have = pairs.collect(STORM, 2, PUCK, 2, 25, info=info, progress=lambda h, t, n: seen.append((h, n)))
+    assert have >= 25 and info["reason"] == "target"
+    assert info["requests"] <= 4 and info["requests"] == len(sz.sizes)   # not one request per match
+    assert seen[-1] == (have, info["requests"])                          # progress: matches and requests
+    # opened again: everything from the cache, no request
+    sz.sizes.clear()
+    assert pairs.collect(STORM, 2, PUCK, 2, 25, info={}) == have and not sz.sizes

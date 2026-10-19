@@ -248,6 +248,8 @@ function LaneBody({ r }: { r: LaneResponse }) {
         <div className="lane__loading">
           <span className="muted small">
             Загружаю матчи этой пары: {r.progress.have} из {r.target}
+            {r.progress.requests ? ` · запросов Stratz: ${r.progress.requests}` : ''}
+            {r.progress.batch ? ` (до ${r.progress.batch} матчей в запросе)` : ''}
           </span>
           <div className="lane__progress">
             <i style={{ width: `${Math.min(100, (100 * r.progress.have) / r.target)}%` }} />

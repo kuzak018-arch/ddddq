@@ -15,7 +15,7 @@ from .. import config
 from ..data import stratz_matches as sm
 from . import analysis, outcome, pairs
 
-TARGET = 100
+TARGET = 25                 # matches per pair loaded when it is opened (curves from analysis.MIN_GAMES)
 RETRY_AFTER = 3600          # a load that stopped short is tried again after this long
 OFFROLE_SHARE = 0.10        # a hero plays a position in fewer games than this -> not its position
 
@@ -37,7 +37,8 @@ def _run(key: tuple, target: int) -> None:
         info: dict = {}
         have = pairs.collect(a, pa, b, pb, target, stop=job["stop"], info=info,
                              progress=lambda have, tgt, n: job.update(have=have, requests=n))
-        job.update(have=have, status="done", note=_note(have, target, info), rare=have == 0 and info["reason"] == "exhausted")
+        job.update(have=have, status="done", note=_note(have, target, info), requests=info.get("requests", job["requests"]),
+                   rare=have == 0 and info["reason"] == "exhausted")
     except Exception as e:  # network trouble etc.: show it, keep what is cached
         job.update(status="failed", error=f"{type(e).__name__}: {e}")
 
@@ -47,6 +48,8 @@ def _note(have: int, target: int, info: dict) -> str | None:
         return None
     if info.get("reason") == "budget":
         return "Лимит запросов Stratz на этот час исчерпан — догружу позже."
+    if info.get("reason") == "cap":
+        return "На этих позициях пара встречается редко: остальные матчи из базы — на других линиях. Догружу при следующем открытии."
     if info.get("reason") == "exhausted":
         return ("Матчей этой пары в нашей базе нет: пара слишком редкая." if have == 0
                 else "Больше матчей этой пары в нашей базе нет.")
@@ -78,7 +81,8 @@ def get(a: int, pa: int, b: int, pb: int, bracket: str, load: bool = True) -> di
     if load and res["games"] < TARGET:
         job = ensure_loading(key)
     out.update(status="loading" if job and job["status"] == "loading" else "ready", games=res["games"],
-               progress={"have": res["games"], "target": TARGET, "requests": job["requests"] if job else 0},
+               progress={"have": res["games"], "target": TARGET, "requests": job["requests"] if job else 0,
+                         "batch": pairs.batch_state()["size"]},
                error=job.get("error") if job else None,
                note=job.get("note") if job and res["games"] < TARGET else None,
                rare=bool(job and job.get("rare")), analysis=res)
