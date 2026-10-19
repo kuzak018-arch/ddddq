@@ -26,7 +26,7 @@ from .. import config, dota_paths, gsi, hero_grid, keybinds, search
 from .. import settings as user_settings
 from ..builds import counter, standard
 from ..builds import service as build_service
-from ..data import constants, matches, me, my_matches, players, renders, stratz
+from ..data import constants, gridstudio, matches, me, my_matches, players, renders, stratz
 from ..lane import bulk as lane_bulk
 from ..lane import service as lane_service
 from ..model import draft, explain, meta, predictor, train
@@ -46,7 +46,7 @@ from .events import bus, jobs
 
 ORIGINS = ["tauri://localhost", "http://tauri.localhost", "https://tauri.localhost",
            "http://localhost:1420", "http://127.0.0.1:1420"]
-OPEN_PATHS = ("/health", "/icons/", "/mod-fonts/", "/docs", "/openapi.json")
+OPEN_PATHS = ("/health", "/icons/", "/mod-fonts/", "/workshop-media/", "/docs", "/openapi.json")
 
 
 def token() -> str | None:
@@ -479,6 +479,55 @@ def my_avatar():
     if not me.AVATAR.exists():
         raise HTTPException(404, "аватар ещё не загружен: обнови историю")
     return FileResponse(me.AVATAR, media_type="image/jpeg")
+
+
+# ---------- GridStudio's workshop (data/gridstudio.py) ----------------------------------------
+
+def _workshop(fn, *a, **kw):
+    if os.environ.get("DRAFTER_NO_BUILD_LOAD") == "1":   # tests: never hit the network
+        raise HTTPException(503, "мастерская выключена в тестах")
+    try:
+        return fn(*a, **kw)
+    except gridstudio.WorkshopError as e:
+        raise HTTPException(404 if "больше нет" in str(e) else 502, str(e))
+
+
+@app.get("/workshop/meta")
+def workshop_meta():
+    return gridstudio.meta()
+
+
+@app.get("/workshop/grids")
+def workshop_grids(q: str = "", tag: str = "", sort: str = "popular", page: int = 0):
+    return _workshop(gridstudio.grids, q, tag, sort, page)
+
+
+@app.get("/workshop/grids/{work_id}")
+def workshop_grid(work_id: str):
+    return _workshop(gridstudio.grid_file, work_id)
+
+
+@app.get("/workshop/backgrounds")
+def workshop_backgrounds(q: str = "", tag: str = "", aspect: str = "", sort: str = "popular", page: int = 0):
+    return _workshop(gridstudio.backgrounds, q, tag, aspect, sort, page)
+
+
+@app.get("/workshop/arts")
+def workshop_arts():
+    return _workshop(gridstudio.arts)
+
+
+@app.get("/workshop-media/grid/{work_id}.jpg")
+def workshop_grid_preview(work_id: str, rev: str = ""):
+    from fastapi.responses import FileResponse
+    return FileResponse(_workshop(gridstudio.grid_preview, work_id, rev), media_type="image/jpeg")
+
+
+@app.get("/workshop-media/bg/{bg_id}/{name}")
+def workshop_background_file(bg_id: str, name: str):
+    from fastapi.responses import FileResponse
+    path, kind = _workshop(gridstudio.background_file, bg_id, name)
+    return FileResponse(path, media_type=kind)
 
 
 # ---------- links to the sites the app shows data from ------------------------------------------

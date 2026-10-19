@@ -16,6 +16,7 @@ import { GridFileBar } from '../components/grid/GridFile';
 import { GridSide } from '../components/grid/GridSide';
 import { Sheet } from '../components/Sheet';
 import { ErrorBox, Loading, plural, Segmented, Toggle } from '../components/ui';
+import { Workshop, WorkshopNote } from '../components/workshop/Workshop';
 import { BackgroundBuilder } from '../components/mods/BackgroundBuilder';
 import { FontBuilder } from '../components/mods/FontBuilder';
 import { ModsGate } from '../components/mods/ModsGate';
@@ -168,11 +169,17 @@ export function GridsPage() {
             { value: 'grids', label: 'Сетки героев' },
             { value: 'background', label: 'Фон меню' },
             { value: 'font', label: 'Шрифт' },
+            { value: 'workshop', label: 'Мастерская GridStudio' },
           ]}
         />
       </div>
+      <WorkshopNote />
       {tab === 'grids' ? (
         <GridEditor />
+      ) : tab === 'workshop' ? (
+        <Panel className="looks">
+          <Workshop />
+        </Panel>
       ) : (
         <Panel className="looks">
           <ModsGate />

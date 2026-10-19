@@ -89,6 +89,14 @@ async function loadSource(file: File): Promise<Source> {
   return out;
 }
 
+/** A file from outside the builder (GridStudio's workshop) as the menu background. */
+export async function takeBackgroundFile(file: File): Promise<void> {
+  const src = await loadSource(file);
+  const old = useBg.getState().menu;
+  if (old) URL.revokeObjectURL(old.url);
+  useBg.setState({ menu: src, screen: 'menu' });
+}
+
 /** The picture on the stage, placed as in the video; dragging moves the frame. */
 function Media({ src, aspect, opacity = 1, onFrame }: { src: Source; aspect: Aspect; opacity?: number; onFrame?: (f: Frame) => void }) {
   const box = useRef<HTMLDivElement>(null);

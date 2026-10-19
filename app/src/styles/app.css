@@ -4615,3 +4615,143 @@ a.btn {
   text-decoration: none;
   color: inherit;
 }
+
+/* ---------- «Оформление → Мастерская GridStudio» ---------- */
+.ws {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ws-head {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.ws-head .hint {
+  flex: 1;
+  min-width: 260px;
+  margin: 0;
+}
+.ws-note {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--good) 16%, transparent);
+  cursor: pointer;
+}
+.ws-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ws-search {
+  display: flex;
+  gap: 8px;
+}
+.ws-search .input {
+  flex: 1;
+  min-width: 0;
+}
+.ws-aspect {
+  width: auto;
+}
+.ws-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.chip-btn.is-on {
+  background: var(--control-bg-active);
+  color: var(--text);
+}
+.ws-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+}
+.ws-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--slot-bg);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.ws-card__media {
+  position: relative;
+}
+.ws-card__img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1193 / 593;
+  object-fit: cover;
+  background: rgba(0, 0, 0, 0.35);
+}
+.ws-card__media .ws-card__img {
+  aspect-ratio: 16 / 9;
+}
+.ws-card__video {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+}
+.ws-card__badge {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  padding: 1px 7px;
+  border-radius: 99px;
+  font-size: 11px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+}
+.ws-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px 4px;
+  min-width: 0;
+}
+.ws-card__title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ws-card__actions {
+  display: flex;
+  gap: 6px;
+  padding: 6px 10px 10px;
+  margin-top: auto;
+}
+.ws-arts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+.ws-art {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 10px;
+  border-radius: var(--radius-lg);
+  background: var(--slot-bg);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  overflow: hidden;
+}
+.ws-art > .btn {
+  margin: 0 10px;
+  align-self: flex-start;
+}
+.ws-art__text {
+  margin: 0;
+  padding: 10px;
+  height: 130px;
+  overflow: hidden;
+  font: 600 9px/10px var(--font-mono, monospace);
+  letter-spacing: 1px;
+  color: #c7d0df;
+  background: rgba(0, 0, 0, 0.35);
+  white-space: pre;
+}

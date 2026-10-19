@@ -36,7 +36,7 @@ interface UiState {
   /** «Оформление игры» (menu background, fonts) is unlocked: off until the user reads the warning. */
   gameMods: boolean;
   /** «Оформление»: which tool is open. */
-  lookTab: 'grids' | 'background' | 'font';
+  lookTab: 'grids' | 'background' | 'font' | 'workshop';
   overlay: {
     toggle: string;      // global hotkey: show/hide
     interact: string;    // global hotkey: click-through on/off
