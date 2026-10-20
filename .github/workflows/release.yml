@@ -7,12 +7,10 @@
 #     «Выпустить» is ticked: then, from main, the tag vX.Y.Z is created on the commit built and
 #     everything goes as for a pushed tag (for sessions that may not push tags);
 #
-# Updates in the app (backend/drafter/updates.py): this repository is private, so the app reads
-# the releases of a public repository that holds only installers — the variable RELEASES_REPO
-# (default kuzak018-arch/dota-drafter-releases). Publishing there needs the secret RELEASES_TOKEN:
-# a fine-grained token with "Contents: read and write" on that repository only. Without it the
-# build still works, only the app doesn't see the new version. The notes of a version come from
-# release-notes/vX.Y.Z.md when there is one.
+# Updates in the app (backend/drafter/updates.py) read this repository's public releases: the
+# installer and its .sha256 attached here are all they need, nothing else is published. (An optional
+# second place: set the variable RELEASES_REPO and the secret RELEASES_TOKEN and the installer is
+# copied there too.) The notes of a version come from release-notes/vX.Y.Z.md when there is one.
 #
 # Needs a release "seed-data" in this repository with seed-data.zip (scripts/publish-seed.ps1 on
 # the PC): the constants, icons, model and Stratz data the installer ships.
@@ -156,12 +154,11 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
-          REPO: ${{ vars.RELEASES_REPO || 'kuzak018-arch/dota-drafter-releases' }}
+          REPO: ${{ vars.RELEASES_REPO }}
         run: |
-          if (-not $env:GH_TOKEN) {
-            "::warning::нет секрета RELEASES_TOKEN: версия не опубликована в $env:REPO, приложение её не увидит"
-            exit 0
-          }
+          # an optional copy elsewhere: without the variable and the token there is nothing to do
+          # (the app reads this repository's releases)
+          if (-not $env:REPO -or -not $env:GH_TOKEN) { exit 0 }
           $tag = "${{ steps.meta.outputs.tag }}"
           $exe = "${{ steps.exe.outputs.path }}"
           gh release view $tag --repo $env:REPO *> $null
