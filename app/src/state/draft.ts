@@ -19,6 +19,9 @@ interface DraftState {
   /** Set by the backend (GSI, stage 5): match phase and the hero I picked. */
   phase: 'idle' | 'draft' | 'game';
   myHero: number | null;
+  /** The ally I marked as my hero by hand (when GSI does not say): local to this window. */
+  myPick: number | null;
+  setMyPick: (h: number | null) => void;
   setPos: (p: number) => void;
   setComfort: (c: boolean) => void;
   focus: Slot;
@@ -58,6 +61,8 @@ export const useDraft = create<DraftState>((set, get) => ({
   comfort: null,
   phase: 'idle',
   myHero: null,
+  myPick: null,
+  setMyPick: (myPick) => set({ myPick }),
   setPos: (pos) => set({ pos }),
   setComfort: (comfort) => set({ comfort }),
   focus: { team: 'ally', index: 0 },
@@ -92,7 +97,7 @@ export const useDraft = create<DraftState>((set, get) => ({
     list[index] = null;
     set({ [key]: list, focus: { team, index } } as Partial<DraftState>);
   },
-  reset: () => set({ allies: empty(), enemies: empty(), bans: [], focus: { team: 'ally', index: 0 } }),
+  reset: () => set({ allies: empty(), enemies: empty(), bans: [], myPick: null, focus: { team: 'ally', index: 0 } }),
   setSide: (side) => set({ side }),
   setDraft: (allies, enemies, bans) => {
     const fill = (xs: number[]) => [...xs, ...empty()].slice(0, 5);

@@ -122,7 +122,7 @@ export interface BuildsResponse {
   status: 'loading' | 'ready';
   games: number;
   target: number;
-  progress: { have: number; target: number; requests: number };
+  progress: { have: number; target: number; requests: number; batch?: number };
   error: string | null;
   note?: string | null;
   builds: Build[];
@@ -193,6 +193,9 @@ export interface Profile {
   name: string | null;
   avatar: string | null;
   rank_tier: number | null;
+  /** place in the leaderboard (Immortal), null when not in it */
+  leaderboard?: number | null;
+  plus?: boolean;
   fetched: number;
   overall: { games: number; wins: number; wr: number } | null;
   experience: { k: number; A: number; c: number; games: number } | null;
@@ -308,7 +311,7 @@ export interface LaneResponse {
   outcome_error: string | null;
   status: 'loading' | 'ready';
   games: number;
-  progress: { have: number; target: number; requests: number };
+  progress: { have: number; target: number; requests: number; batch?: number };
   error: string | null;
   note: string | null;
   analysis: {

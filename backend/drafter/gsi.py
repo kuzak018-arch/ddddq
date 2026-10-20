@@ -12,12 +12,13 @@ we parse it if it ever arrives and log every payload so this can be checked on a
 from __future__ import annotations
 
 import json
+import os
 import secrets
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from . import config, dota_paths, kv
+from . import config, dota_paths, ingame, kv
 from .data import constants
 
 PORT = 47831
@@ -34,13 +35,17 @@ GAME_STATES = {"DOTA_GAMERULES_STATE_TEAM_SHOWCASE", "DOTA_GAMERULES_STATE_WAIT_
 # ---------- config file ----------------------------------------------------------------------
 
 def _token() -> str:
-    if STATE_FILE.exists():
-        t = json.loads(STATE_FILE.read_text()).get("token")
-        if t:
-            return t
+    try:
+        t = json.loads(STATE_FILE.read_text()).get("token") if STATE_FILE.exists() else None
+    except (OSError, ValueError, AttributeError):
+        t = None   # an empty or broken file (power loss mid-write): a new token, the config is rewritten with it
+    if t:
+        return t
     t = secrets.token_hex(16)
     STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    STATE_FILE.write_text(json.dumps({"token": t}))
+    tmp = STATE_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps({"token": t}))
+    os.replace(tmp, STATE_FILE)
     return t
 
 
@@ -48,7 +53,7 @@ def cfg_text(port: int = PORT) -> str:
     return kv.dumps({"Dota Drafter": {
         "uri": f"http://127.0.0.1:{port}/",
         "timeout": "5.0", "buffer": "0.1", "throttle": "0.25", "heartbeat": "10.0",
-        "data": {"provider": "1", "map": "1", "player": "1", "hero": "1", "draft": "1"},
+        "data": {"provider": "1", "map": "1", "player": "1", "hero": "1", "items": "1", "draft": "1"},
         "auth": {"token": _token()},
     }})
 
@@ -80,7 +85,22 @@ def installed() -> dict:
     ok = p.exists() and f"127.0.0.1:{PORT}" in p.read_text(encoding="utf-8", errors="replace") \
         and _token() in p.read_text(encoding="utf-8", errors="replace")
     others = sorted(x.name for x in folder.glob("*.cfg") if x.name != CFG_NAME) if folder.is_dir() else []
-    return {"dota_found": True, "installed": ok, "path": str(p), "other_cfgs": others}
+    # an older cfg of ours without the items block: the in-game hints need it
+    outdated = ok and '"items"' not in p.read_text(encoding="utf-8", errors="replace")
+    return {"dota_found": True, "installed": ok, "outdated": outdated, "path": str(p), "other_cfgs": others}
+
+
+def upgrade() -> bool:
+    """Rewrites our own cfg when it is an older version (same port and token, fewer data blocks).
+    Only our file is touched; Dota picks it up at its next start."""
+    try:
+        st = installed()
+        if st.get("installed") and st.get("outdated"):
+            install()
+            return True
+    except OSError:
+        pass
+    return False
 
 
 # ---------- payload -> session ---------------------------------------------------------------
@@ -111,6 +131,20 @@ def parse_draft(draft: dict) -> dict[str, list[int]]:
     return out
 
 
+def merge_slots(slots: list, heroes: list[int], taken: set[int]) -> list:
+    """The board's slots with the heroes Dota reported for that team added: each into the first
+    empty slot, in Dota's order. Nothing is removed: a slot Dota says nothing about keeps what the
+    screen reader or the user put there. A hero reported for the other team leaves this one."""
+    out = [h if h not in taken or h in heroes else None for h in slots]
+    for h in heroes:
+        if h in out:
+            continue
+        if None not in out:
+            break
+        out[out.index(None)] = h
+    return out
+
+
 class Tracker:
     """Turns the GSI stream into session updates. Kept separate from HTTP for tests."""
 
@@ -120,6 +154,7 @@ class Tracker:
         self.last: dict = {}
         self.last_ts = 0.0
         self.has_draft_block = False
+        self.live: dict | None = None  # the in-game part of the last message (ingame.py), during a match
 
     def status(self) -> dict:
         return {"last_seen": self.last_ts or None, "match_id": self.match_id, "has_draft_block": self.has_draft_block,
@@ -136,6 +171,7 @@ class Tracker:
         side = {"radiant": "radiant", "dire": "dire"}.get(str(player.get("team_name", "")).lower())
         hero_id = _hero_id(hero.get("id")) or _hero_id(hero.get("name"))
         self.last = {"game_state": state, "team": side, "hero_id": hero_id, "phase": phase}
+        self.live = ingame.live_from_payload(payload) if phase == "game" else None
 
         changes: dict = {}
         match_id = m.get("matchid")
@@ -164,8 +200,18 @@ class Tracker:
             mine = side or current.get("side")
             if mine:
                 ours, theirs = (d["radiant"], d["dire"]) if mine == "radiant" else (d["dire"], d["radiant"])
-                pad = lambda xs: (xs + [None] * 5)[:5]
-                changes.update(allies=pad(ours), enemies=pad(theirs), bans=d["bans"][:16])
+                # the block only adds what it knows: a player's GSI carries their own team, and
+                # an empty enemy side used to wipe the enemies read from the screen on every tick
+                # (the reader then took the cleared slots for the user's edits and stopped)
+                base = {**current, **changes}
+                for key, heroes in (("allies", ours), ("enemies", theirs)):
+                    merged = merge_slots(base.get(key) or [None] * 5, heroes, taken=set(ours) | set(theirs))
+                    if merged != list(base.get(key) or [None] * 5):
+                        changes[key] = merged
+                bans = list(base.get("bans") or [])
+                new_bans = [b for b in d["bans"] if b not in bans]
+                if new_bans:
+                    changes["bans"] = (bans + new_bans)[:16]
         if changes:
             self.apply(**changes)
             return changes
@@ -174,17 +220,31 @@ class Tracker:
 
 # ---------- HTTP receiver --------------------------------------------------------------------
 
+LOG_DAYS = 7               # days of GSI messages kept (a match sends several a second)
+LOG_DAY_MAX = 20_000_000   # bytes per day; past that the day is not logged any further
+
+
 class _Log:
     def __init__(self):
         self.lock = threading.Lock()
+        self.day = ""
+
+    def _prune(self) -> None:
+        for old in sorted(LOG_DIR.glob("*.jsonl"))[:-LOG_DAYS]:
+            old.unlink(missing_ok=True)
 
     def write(self, payload: dict) -> None:
         LOG_DIR.mkdir(parents=True, exist_ok=True)
-        path = LOG_DIR / f"{time.strftime('%Y-%m-%d')}.jsonl"
+        day = time.strftime("%Y-%m-%d")
+        path = LOG_DIR / f"{day}.jsonl"
         safe = {k: v for k, v in payload.items() if k != "auth"}
         with self.lock:
-            with path.open("a", encoding="utf-8") as f:
-                f.write(json.dumps({"ts": time.time(), **safe}, ensure_ascii=False) + "\n")
+            if not (path.exists() and path.stat().st_size > LOG_DAY_MAX):
+                with path.open("a", encoding="utf-8") as f:
+                    f.write(json.dumps({"ts": time.time(), **safe}, ensure_ascii=False) + "\n")
+            if day != self.day:   # once a day (and on start): older days go, today's file included in the count
+                self.day = day
+                self._prune()
 
 
 def serve(on_payload, port: int = PORT) -> ThreadingHTTPServer:

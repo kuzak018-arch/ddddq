@@ -46,6 +46,14 @@ class Stratz:
         self.http.close()
 
     def q(self, query: str, retries: int = 5) -> dict:
+        data, errors = self.q_all(query, retries)
+        if errors:
+            raise RuntimeError(f"Stratz: {json.dumps(errors, ensure_ascii=False)[:500]}")
+        return data
+
+    def q_all(self, query: str, retries: int = 5) -> tuple[dict, list]:
+        """The data and the GraphQL errors side by side: in a query of several aliased fields one
+        bad field (a match Stratz has not got) must not throw away the others."""
         for attempt in range(retries):
             with _pace:  # one global pace across threads: the token's per-second/minute limits are shared
                 wait = self.min_interval - (time.monotonic() - _last_call[0])
@@ -67,9 +75,10 @@ class Stratz:
             if r.status_code >= 400:
                 raise RuntimeError(f"Stratz HTTP {r.status_code}: {r.text[:500]}")
             body = r.json()
-            if body.get("errors"):
-                raise RuntimeError(f"Stratz: {json.dumps(body['errors'], ensure_ascii=False)[:500]}")
-            return body["data"]
+            errors = body.get("errors") or []
+            if errors and not body.get("data"):
+                raise RuntimeError(f"Stratz: {json.dumps(errors, ensure_ascii=False)[:500]}")
+            return body.get("data") or {}, errors
         raise RuntimeError("Stratz не ответил после повторов")
 
 

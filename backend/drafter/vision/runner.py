@@ -2,7 +2,7 @@
 read the draft from the Dota window and fill the shared session.
 
 Rules that keep it from getting in the way:
-  - a slot changes only after the same hero is read in 2 frames in a row;
+  - a slot changes only after the same hero is read in 2 frames in a row (3 while cautious);
   - manual edits win: a slot the user changed (it no longer holds what the reader put there)
     is locked until the next match;
   - Radiant/Dire are mapped to my team / enemies only when my side is known (GSI or chosen);
@@ -14,10 +14,17 @@ from __future__ import annotations
 import threading
 import time
 
-from . import calibration, capture, reader
+from . import bars, calibration, capture, layout, reader
 
 INTERVAL = 0.7
 STABLE_FRAMES = 2
+# until the accuracy on the user's own drafts is proven: only confident reads, and one frame more
+CAUTIOUS_THRESHOLD = 0.62
+CAUTIOUS_MARGIN = 0.10
+# with the slots found by the players' colour bars the crops sit exactly on the portraits, and the
+# right hero scores lower in absolute terms (a portrait cut by the bar's slant) but leads clearly
+BARS_THRESHOLD = 0.5
+BARS_MARGIN = 0.08
 
 
 class Runner:
@@ -30,6 +37,8 @@ class Runner:
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
         self.on_frame = None   # the frame collector takes our frames instead of capturing the window twice
+        self.autofit = layout.AutoFit()   # no calibration: fit the built-in layout to the first good frames
+        self.cautious = True              # accuracy not proven yet (auto.finalize says when it is)
         self._reset_match(None)
 
     def _reset_match(self, match_key):
@@ -40,7 +49,23 @@ class Runner:
 
     def status(self) -> dict:
         return {"enabled": self.enabled, "running": bool(self._thread and self._thread.is_alive()),
-                "error": self.error, "last_read": self.last_read, "locked": len(self.locked)}
+                "error": self.error, "last_read": self.last_read, "locked": len(self.locked),
+                "source": (self.last_result or {}).get("source"), "fit": self.autofit.last_info,
+                "cautious": self.cautious}
+
+    def _read(self, frame):
+        h, w = frame.shape[:2]
+        found = bars.find(frame)
+        if found is not None:
+            # the slots themselves, from the colour bars: no fitting, no profile, any resolution
+            if self.cautious:
+                found = found.model_copy(update={"threshold": BARS_THRESHOLD, "margin": BARS_MARGIN})
+            return reader.read(frame, found)
+        cal = layout.for_frame(w, h)
+        if self.cautious:
+            cal = cal.model_copy(update={"threshold": max(cal.threshold, CAUTIOUS_THRESHOLD),
+                                         "margin": max(cal.margin, CAUTIOUS_MARGIN)})
+        return reader.read(frame, cal)
 
     def set_enabled(self, on: bool) -> None:
         self.enabled = on
@@ -75,6 +100,15 @@ class Runner:
                     self.error = str(e)
                     grabber = None
                     self._stop.wait(3.0)
+                except Exception as e:  # noqa: BLE001 - one bad frame must not end screen reading for the session
+                    self.error = f"{type(e).__name__}: {e}"
+                    if grabber:
+                        try:
+                            grabber.stop()
+                        except Exception:  # noqa: BLE001
+                            pass
+                    grabber = None
+                    self._stop.wait(3.0)
                 self._stop.wait(INTERVAL)
         finally:
             if grabber:
@@ -82,7 +116,10 @@ class Runner:
 
     def step(self, frame, s: dict, cal: calibration.Calibration | None = None) -> dict | None:
         """Read one frame and apply stable, non-conflicting results. Returns the applied changes."""
-        res = reader.read(frame, cal)
+        res = reader.read(frame, cal) if cal is not None else self._read(frame)
+        if cal is None and self.autofit.offer(frame, res["source"]) and self.autofit.last_info.get("saved"):
+            res = self._read(frame)             # read again with the rects just found
+        stable = STABLE_FRAMES + (1 if self.cautious else 0)
         self.last_read, self.last_result = time.time(), reader.as_json(res)
         self.publish({"status": self.status(), "result": self.last_result})
         side = s.get("side")
@@ -90,6 +127,7 @@ class Runner:
             return None   # can't tell which team is mine yet
         mine, theirs = ("radiant", "dire") if side == "radiant" else ("dire", "radiant")
         changes: dict = {}
+        placed: set[int] = set()   # heroes put in this step: one hero is never put in two places
         for team_key, group in (("allies", mine), ("enemies", theirs)):
             slots = list(s[team_key])
             changed = False
@@ -102,10 +140,11 @@ class Runner:
                 hero, seen = self.pending.get(key, (None, 0))
                 seen = seen + 1 if hero == r.hero else 1
                 self.pending[key] = (r.hero, seen)
-                taken = r.hero in (s["allies"] + s["enemies"] + s["bans"]) and slots[i] != r.hero
-                if seen >= STABLE_FRAMES and slots[i] is None and not taken:
+                taken = (r.hero in (s["allies"] + s["enemies"] + s["bans"]) and slots[i] != r.hero) or r.hero in placed
+                if seen >= stable and slots[i] is None and not taken:
                     slots[i] = r.hero
                     self.applied[key] = r.hero
+                    placed.add(r.hero)
                     changed = True
             if changed:
                 changes[team_key] = slots
@@ -116,8 +155,9 @@ class Runner:
             hero, seen = self.pending.get(("bans", i), (None, 0))
             seen = seen + 1 if hero == r.hero else 1
             self.pending[("bans", i)] = (r.hero, seen)
-            if seen >= STABLE_FRAMES and r.hero not in s["bans"] + s["allies"] + s["enemies"]:
+            if seen >= stable and r.hero not in s["bans"] + s["allies"] + s["enemies"] and r.hero not in placed:
                 new_bans.append(r.hero)
+                placed.add(r.hero)
         if new_bans:
             changes["bans"] = (s["bans"] + new_bans)[:16]
         if changes:

@@ -10,7 +10,7 @@ import pytest
 from drafter.data import constants
 from drafter.vision import auto, autocal, calibration, collector, evaluate, matcher
 
-pytestmark = pytest.mark.skipif(not (constants.DIR / "items.json").exists() or not matcher.ICONS.exists(),
+pytestmark = pytest.mark.skipif(not (constants.DIR / "items.json").exists() or not matcher.has_templates(),
                                 reason="нужны константы и иконки героев")
 
 W, H = 1920, 1080
@@ -20,7 +20,7 @@ DIRE = [[1 - r[0] - r[2], Y, SW, SH] for r in reversed(RAD)]
 
 
 def heroes_with_icons(n, seed):
-    hs = [h["id"] for h in constants.hero_index() if (matcher.ICONS / f"{h['key']}.png").exists()]
+    hs = [h["id"] for h in constants.hero_index() if matcher.template_path(h["key"])]
     return [int(h) for h in np.random.default_rng(seed).choice(hs, n, replace=False)]
 
 
@@ -34,7 +34,7 @@ def frame_with(radiant, dire, rng):
                 continue
             x, y, w, hh = calibration.to_pixels(r, W, H)
             key = constants.hero_by_id()[h]["key"]
-            art = evaluate._distort(matcher._read(matcher.ICONS / f"{key}.png"), rng, False)
+            art = evaluate._distort(matcher._read(matcher.template_path(key)), rng, False)
             art = matcher._center_crop(art, w / hh)
             img[y:y + hh, x:x + w] = cv2.resize(art, (w, hh), interpolation=cv2.INTER_AREA)
     return img
@@ -71,17 +71,17 @@ def run_draft(col, sess, state, radiant, dire, rng):
     col.tick()
 
 
-def test_collect_label_freeze_and_switch_on(sandbox, monkeypatch):
+def test_collect_label_freeze_and_become_confident(sandbox, monkeypatch):
     monkeypatch.setattr(auto, "AUTO_MIN_FRAMES", 4)
     monkeypatch.setattr(auto, "AUTO_MIN_FILLED", 10)
     rng = np.random.default_rng(3)
     sess = {"phase": "idle", "side": None, "allies": [None] * 5, "enemies": [None] * 5, "bans": [], "rev": 0}
     state = {"gs": None}
-    enabled = {"on": False}
+    cautious = {"on": True}
     finals = []
 
     def finalize(d):
-        finals.append(auto.finalize(d, lambda on: enabled.update(on=on), lambda: enabled["on"]))
+        finals.append(auto.finalize(d, lambda on: cautious.update(on=on)))
 
     settings = types.SimpleNamespace(vision_collect=True, vision_collect_mb=500)
     col = collector.Collector(lambda: sess, lambda: state["gs"], lambda: settings, on_finalize=finalize)
@@ -94,7 +94,7 @@ def test_collect_label_freeze_and_switch_on(sandbox, monkeypatch):
     first = finals[0]
     assert first["calibration"]["done"] and calibration.load().auto        # rects found on the frame
     assert first["learned"] >= 8                                             # templates from the screen
-    assert not enabled["on"]                                                 # one draft is not enough
+    assert cautious["on"] and not first["proven"]                            # one draft is not enough
 
     # the board is cleared for the next game: the frozen labels must stay
     sess.update(allies=[None] * 5, enemies=[None] * 5, rev=sess["rev"] + 1)
@@ -106,7 +106,7 @@ def test_collect_label_freeze_and_switch_on(sandbox, monkeypatch):
     run_draft(col, sess, state, hs[10:15], hs[15:20], rng)
     ev = finals[-1]["evaluation"]
     assert ev["drafts"] == 2 and ev["precision"] >= 0.98
-    assert enabled["on"] and finals[-1]["switched"] == "on"
+    assert not cautious["on"] and finals[-1]["switched"] == "confident" and auto.proven()
 
     # a frame of a known draft gives the same rects through the API helper
     f = auto.complete_frame(collector.drafts()[0])

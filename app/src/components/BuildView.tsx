@@ -3,10 +3,12 @@
  * ("or" alternatives with share), core items in order with median timings and alternatives,
  * situational items, skill order by level and talents from the same games.
  */
+import { ChevronsUp, Crosshair, Flag, Footprints, GitFork, ListOrdered, Shuffle, Sunrise } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import type { AbilityInfo, Build, BuildEntry, BuildsResponse, VsItem } from '../api/types';
 import { AbilityIcon, TalentIcon } from './Ability';
+import { Ti } from './Icons';
 import { Tip } from './Tip';
 import { fmtPct, ItemIcon, Segmented } from './ui';
 
@@ -176,7 +178,9 @@ function BuildBody({ b, vs, reliableGames, ab }: { b: Build; vs: VsItem[]; relia
 
       {vs.length > 0 && (
         <section className="build__vs">
-          <h4>Против этого драфта</h4>
+          <h4>
+          <Ti icon={Crosshair} />
+          Против этого драфта</h4>
           <ul>
             {vs.map((v) => (
               <li key={v.item} className={v.rare_on_hero ? 'is-rare' : ''}>
@@ -203,7 +207,9 @@ function BuildBody({ b, vs, reliableGames, ab }: { b: Build; vs: VsItem[]; relia
       )}
 
       <section className="build__group">
-        <h4>Старт {b.starting_share != null && <span className="muted">· ровно так начинают {fmtPct(b.starting_share, 0)}</span>}</h4>
+        <h4>
+          <Ti icon={Flag} />
+          Старт {b.starting_share != null && <span className="muted">· ровно так начинают {fmtPct(b.starting_share, 0)}</span>}</h4>
         <div className="build__items">
           {b.starting.map((s) => (
             <div key={s.key} className="build__item" title={s.name}>
@@ -216,7 +222,9 @@ function BuildBody({ b, vs, reliableGames, ab }: { b: Build; vs: VsItem[]; relia
 
       {b.early.length > 0 && (
         <section className="build__group">
-          <h4>Ранние</h4>
+          <h4>
+          <Ti icon={Sunrise} />
+          Ранние</h4>
           <ul className="bv__steps">
             {b.early.map((e) => (
               <Step key={e.key} e={e} />
@@ -226,7 +234,9 @@ function BuildBody({ b, vs, reliableGames, ab }: { b: Build; vs: VsItem[]; relia
       )}
 
       <section className="build__group">
-        <h4>Сапоги</h4>
+        <h4>
+          <Ti icon={Footprints} />
+          Сапоги</h4>
         <ul className="bv__steps">
           {b.boots && <Step e={b.boots} />}
           {b.boots_upgrade && (
@@ -246,7 +256,9 @@ function BuildBody({ b, vs, reliableGames, ab }: { b: Build; vs: VsItem[]; relia
       </section>
 
       <section className="build__group">
-        <h4>Кор по порядку</h4>
+        <h4>
+          <Ti icon={ListOrdered} />
+          Кор по порядку</h4>
         <ul className="bv__steps">
           {b.core.map((e, i) => (
             <Step key={e.key} e={e} index={i + 1} />
@@ -256,7 +268,9 @@ function BuildBody({ b, vs, reliableGames, ab }: { b: Build; vs: VsItem[]; relia
 
       {b.situational.length > 0 && (
         <section className="build__group">
-          <h4>Ситуативные</h4>
+          <h4>
+          <Ti icon={Shuffle} />
+          Ситуативные</h4>
           <div className="build__items">
             {b.situational.map((it) => (
               <div
@@ -273,12 +287,16 @@ function BuildBody({ b, vs, reliableGames, ab }: { b: Build; vs: VsItem[]; relia
       )}
 
       <section className="build__group">
-        <h4>Прокачка</h4>
+        <h4>
+          <Ti icon={ChevronsUp} />
+          Прокачка</h4>
         <Skills b={b} ab={ab} />
       </section>
 
       <section className="build__group">
-        <h4>Таланты</h4>
+        <h4>
+          <Ti icon={GitFork} />
+          Таланты</h4>
         <Talents b={b} ab={ab} />
       </section>
     </div>

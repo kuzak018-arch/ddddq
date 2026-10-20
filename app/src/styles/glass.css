@@ -1,49 +1,25 @@
 /*
- * Liquid Glass material (from dota2-tierlist):
- * translucent tint + backdrop blur/saturation, specular sheen from the top-left,
- * a gradient rim light, a wide soft shadow, and edge refraction through an SVG
- * displacement map (Chromium/WebView2 only: .is-refracting).
+ * Liquid Glass material: a thin white veil over the wallpaper with backdrop blur + saturation,
+ * a 1px rim, a top highlight, a wide soft shadow, and edge refraction through an SVG displacement
+ * map (Chromium/WebView2 only: .is-refracting). --veil darkens the glass on bright wallpapers so
+ * text stays readable (set from the wallpaper's brightness, see Wallpaper in Chrome.tsx).
  */
 
 .glass {
-  --sheen: 0.2;
+  --sheen: 0.14;
   position: relative;
   background:
-    radial-gradient(130% 80% at 12% -18%, rgba(255, 255, 255, var(--sheen)), transparent 58%),
-    var(--glass-tint);
+    radial-gradient(120% 70% at 15% -20%, rgba(255, 255, 255, var(--sheen)), transparent 60%),
+    linear-gradient(var(--glass-tint), var(--glass-tint)),
+    rgba(var(--veil-rgb), var(--veil));
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border-radius: var(--radius-xl);
   box-shadow:
-    inset 0 1px 0.5px -0.5px var(--glass-specular),
-    inset 0 -1.5px 1px -1px rgba(255, 255, 255, 0.14),
-    inset 0 0 18px -6px rgba(255, 255, 255, 0.14),
+    inset 0 1px 0 var(--glass-highlight),
+    inset 0 0 0 1px var(--glass-border),
     var(--glass-shadow);
   isolation: isolate;
-}
-
-.glass::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(
-    150deg,
-    var(--glass-rim) 0%,
-    rgba(255, 255, 255, 0.1) 24%,
-    rgba(255, 255, 255, 0) 48%,
-    rgba(255, 255, 255, 0.06) 74%,
-    rgba(255, 255, 255, 0.3) 100%
-  );
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask:
-    linear-gradient(#000 0 0) content-box exclude,
-    linear-gradient(#000 0 0);
-  pointer-events: none;
 }
 
 .glass > * {
@@ -57,10 +33,121 @@
 }
 
 .glass--strong {
-  --sheen: 0.26;
+  --sheen: 0.18;
   background:
-    radial-gradient(130% 80% at 12% -18%, rgba(255, 255, 255, var(--sheen)), transparent 58%),
-    var(--glass-tint-strong);
+    radial-gradient(120% 70% at 15% -20%, rgba(255, 255, 255, var(--sheen)), transparent 60%),
+    linear-gradient(var(--glass-tint-strong), var(--glass-tint-strong)),
+    rgba(var(--veil-rgb), calc(var(--veil) + 0.08));
+}
+
+/* The blurred wallpaper made once (lib/glassBackdrop.ts) instead of the live backdrop-filter, which
+   WebView2 re-blurred in pieces on every animated frame (light bands, flicker, lag). The picture
+   sits on ::before as a fixed background lined up with the wallpaper; the tint, sheen and rim go
+   on ::after above it; both under the panel's content (the panel is its own stacking context). */
+html.glass-img .glass:not(.glass--inset),
+html[data-material='dota'] .glass:not(.glass--inset) {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  background: none;
+  box-shadow: var(--glass-shadow);
+}
+html.glass-img .glass:not(.glass--inset)::before,
+html.glass-img .glass:not(.glass--inset)::after,
+html[data-material='dota'] .glass:not(.glass--inset)::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+}
+html.glass-img .glass:not(.glass--inset)::before {
+  background:
+    linear-gradient(rgba(0, 0, 0, var(--wall-dim, 0)), rgba(0, 0, 0, var(--wall-dim, 0))),
+    var(--glass-img);
+  background-attachment: fixed;
+}
+html.glass-pic .glass:not(.glass--inset)::before {
+  background-size: 100vw 100vh;
+  background-position: 0 0;
+  background-repeat: no-repeat;
+}
+html.glass-img .glass:not(.glass--inset)::after {
+  background:
+    var(--glass-grain, linear-gradient(transparent, transparent)),
+    radial-gradient(120% 70% at 15% -20%, rgba(255, 255, 255, var(--sheen)), transparent 60%),
+    linear-gradient(var(--glass-tint), var(--glass-tint)),
+    rgba(var(--veil-rgb), var(--veil));
+  box-shadow:
+    inset 0 1px 0 var(--glass-highlight),
+    inset 0 0 0 1px var(--glass-border);
+}
+html.glass-img .glass--strong:not(.glass--inset)::after {
+  background:
+    var(--glass-grain, linear-gradient(transparent, transparent)),
+    radial-gradient(120% 70% at 15% -20%, rgba(255, 255, 255, var(--sheen)), transparent 60%),
+    linear-gradient(var(--glass-tint-strong), var(--glass-tint-strong)),
+    rgba(var(--veil-rgb), calc(var(--veil) + 0.08));
+}
+
+/* «Матовое»: heavy frost, little of the wallpaper's detail, calm and readable */
+html[data-material='matte'] {
+  --glass-tint: rgba(20, 22, 30, 0.42);
+  --glass-tint-strong: rgba(20, 22, 30, 0.58);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-highlight: rgba(255, 255, 255, 0.16);
+  --glass-blur: 48px;
+  --glass-saturate: 120%;
+}
+html[data-material='matte'] .glass {
+  --sheen: 0.05;
+}
+html[data-material='matte'][data-theme='light'] {
+  --glass-tint: rgba(255, 255, 255, 0.66);
+  --glass-tint-strong: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(0, 0, 0, 0.06);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+}
+/* «Акрил»: Windows 11's material, the wallpaper's colour through a tint and a fine grain */
+html[data-material='acrylic'] {
+  --glass-tint: rgba(24, 26, 36, 0.3);
+  --glass-tint-strong: rgba(24, 26, 36, 0.44);
+  --glass-border: rgba(255, 255, 255, 0.13);
+  --glass-highlight: rgba(255, 255, 255, 0.22);
+  --glass-blur: 34px;
+  --glass-saturate: 140%;
+  --glass-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+html[data-material='acrylic'] .glass {
+  --sheen: 0.07;
+}
+html[data-material='acrylic'][data-theme='light'] {
+  --glass-tint: rgba(255, 255, 255, 0.5);
+  --glass-tint-strong: rgba(255, 255, 255, 0.66);
+  --glass-border: rgba(255, 255, 255, 0.6);
+}
+/* «Как в Доте»: dense slate panels with a thin rim and sharp corners, no wallpaper through them */
+html[data-material='dota'] {
+  --radius-xl: 8px;
+  --radius-lg: 6px;
+  --radius-md: 5px;
+  --radius-sm: 4px;
+  --glass-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.8), 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+html[data-material='dota'] .glass:not(.glass--inset)::after {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 34%),
+    linear-gradient(180deg, #1e232c, #141820);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.07),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5);
+}
+html[data-material='dota'][data-theme='light'] .glass:not(.glass--inset)::after {
+  background: linear-gradient(180deg, #f6f7f9, #e7e9ee);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    inset 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 
 /* recessed glass inside another glass layer: fields, tracks, slots */
@@ -68,14 +155,10 @@
   background: var(--glass-tint-inset);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
+  border-radius: var(--radius-md);
   box-shadow:
-    inset 0 1px 3px rgba(0, 0, 0, 0.18),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 1px 2px rgba(0, 0, 0, 0.14),
     inset 0 0 0 1px var(--glass-rim-2);
-}
-
-.glass--inset::before {
-  opacity: 0.4;
 }
 
 /* buttons: the highlight follows the pointer (--mx/--my set from JS) */
@@ -87,18 +170,20 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 36px;
-  padding: 0 16px;
+  height: 38px;
+  padding: 0 18px;
   border: 0;
   border-radius: var(--radius-pill);
   color: var(--text);
   font: inherit;
-  font-weight: 560;
+  font-weight: 600;
   cursor: pointer;
   background:
-    radial-gradient(110px circle at var(--mx, 30%) var(--my, -20%), rgba(255, 255, 255, 0.3), transparent 60%),
+    radial-gradient(110px circle at var(--mx, 30%) var(--my, -20%), rgba(255, 255, 255, 0.24), transparent 60%),
     var(--control-bg);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 0 0 1px var(--glass-rim-2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 0 0 1px var(--glass-rim-2);
   transition:
     transform 0.45s var(--ease-spring),
     background-color var(--dur) var(--ease-out);
@@ -106,7 +191,7 @@
 
 .btn:hover {
   background:
-    radial-gradient(110px circle at var(--mx, 30%) var(--my, -20%), rgba(255, 255, 255, 0.42), transparent 60%),
+    radial-gradient(110px circle at var(--mx, 30%) var(--my, -20%), rgba(255, 255, 255, 0.34), transparent 60%),
     var(--control-bg-hover);
 }
 
@@ -114,11 +199,18 @@
   transform: scale(0.96);
 }
 
+/* the main action: a near-white pill with dark text, like the active tab */
 .btn--accent {
   background:
-    radial-gradient(110px circle at var(--mx, 30%) var(--my, -20%), rgba(255, 255, 255, 0.45), transparent 60%),
-    linear-gradient(180deg, #2b95ff, #0a6fe0);
-  color: #fff;
+    radial-gradient(110px circle at var(--mx, 30%) var(--my, -20%), rgba(255, 255, 255, 0.9), transparent 60%),
+    var(--chip-on);
+  color: var(--chip-on-text);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 6px 18px -8px rgba(0, 0, 0, 0.45);
+}
+.btn--accent:hover {
+  background: #fff;
 }
 
 .btn:disabled {
@@ -127,10 +219,10 @@
   transform: none;
 }
 
-/* no backdrop-filter at all or performance mode: dense tint keeps text readable */
+/* no backdrop-filter at all or performance mode: a dense tint keeps text readable */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .glass {
-    background: var(--glass-tint-strong);
+    background: var(--glass-solid);
   }
 }
 
@@ -138,7 +230,7 @@
 .perf .glass.is-refracting {
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
-  background: var(--glass-tint-strong);
+  background: var(--glass-solid);
 }
 
 .perf *,

@@ -5,6 +5,7 @@ import { asset } from '../api/client';
 import { useHeroes } from '../api/hooks';
 import type { Hero } from '../api/types';
 import { searchHeroes } from '../lib/search';
+import { AttrIcon } from './DotaIcons';
 import { IconSearch } from './Icons';
 
 export interface HeroSearchHandle {
@@ -100,6 +101,7 @@ export const HeroSearch = forwardRef<HeroSearchHandle, Props>(function HeroSearc
                 }}
               >
                 <img src={asset(h.icon)} alt="" />
+                <AttrIcon attr={h.attr} size={14} />
                 <span className="hero-search__name">{h.name}</span>
                 <span className="hero-search__ru">{h.ru[0]}</span>
                 {!pickable(h) && <span className="hero-search__tag">занят</span>}

@@ -1,19 +1,22 @@
 /**
- * Screen reading setup: take (or upload) a screenshot of the draft, drag the slot rectangles onto
- * the hero portraits, check what the reader sees, correct mistakes (each correction teaches it how
- * that portrait looks in this game) and confirm frames, which also measures accuracy.
+ * Screen reading check: take (or upload) a screenshot of the draft, see the rects the reader uses on
+ * a frame of that size (built-in layout, fitted to the frame, or the user's own), check what it
+ * reads, correct mistakes (each correction teaches it how that portrait looks in this game) and
+ * confirm frames, which also measures accuracy. Dragging the rects by hand is the fallback.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ScanEye, Target } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { api, backend } from '../api/client';
+import { moveRects, resizeRects, type Rect } from '../lib/calibrate';
 import { useHeroes } from '../api/hooks';
 import { Panel } from '../components/Glass';
 import { HeroSearch } from '../components/HeroSearch';
+import { Ti } from '../components/Icons';
 import { useUi } from '../state/ui';
 import { Empty, ErrorBox, fmtPct, HeroIcon, Segmented, Slider, Toggle } from '../components/ui';
 
-type Rect = [number, number, number, number];
 type Group = 'radiant' | 'dire' | 'bans';
 interface Calibration {
   aspect: number;
@@ -23,6 +26,24 @@ interface Calibration {
   threshold: number;
   margin: number;
   preset: boolean;
+  auto?: boolean;
+  source?: string;
+}
+
+const SOURCE_LABEL: Record<string, string> = {
+  manual: 'твои ручные рамки',
+  auto: 'найдены по кадру с известными героями',
+  detected: 'встроенный профиль, подогнанный по кадру',
+  profile: 'встроенный профиль для этого разрешения',
+  'from-manual': 'твои ручные рамки, пересчитанные под это разрешение',
+  'from-auto': 'найденные рамки, пересчитанные под это разрешение',
+  edited: 'изменены, ещё не сохранены',
+};
+interface DetectInfo {
+  portraits: number;
+  score: number;
+  scale: number;
+  reason?: string;
 }
 interface SlotResult {
   hero: number | null;
@@ -34,6 +55,7 @@ interface SlotResult {
 type ReadResult = Record<Group, SlotResult[]> & { warnings: string[] };
 interface VisionStatus {
   enabled: boolean;
+  cautious: boolean;
   running: boolean;
   error: string | null;
   calibrated: boolean;
@@ -84,9 +106,15 @@ export function VisionPage() {
   const heroes = useHeroes().data;
   const status = useQuery({ queryKey: ['vision'], queryFn: () => api<VisionStatus>('/vision/status'), refetchInterval: 4000 });
   const saved = useQuery({ queryKey: ['vision-cal'], queryFn: () => api<Calibration>('/vision/calibration') });
-  const [cal, setCal] = useState<Calibration | null>(null);
+  const [cal, setCalState] = useState<Calibration | null>(null);
+  // the user changed the rects in the wizard: a new frame must not replace them
+  const [dirty, setDirty] = useState(false);
+  const setCal = (c: Calibration, edited = true) => {
+    setCalState(edited ? { ...c, source: 'edited' } : c);
+    setDirty(edited);
+  };
   useEffect(() => {
-    if (saved.data && !cal) setCal(saved.data);
+    if (saved.data && !cal) setCal(saved.data, false);
   }, [saved.data, cal]);
 
   const recent = useQuery({ queryKey: ['vision-snaps'], queryFn: () => api<string[]>('/vision/snapshots') });
@@ -101,6 +129,12 @@ export function VisionPage() {
   const [error, setError] = useState<string | null>(null);
   const file = useRef<HTMLInputElement>(null);
 
+  // the rects the reader itself would use on a frame of this size
+  useEffect(() => {
+    if (!snap || dirty) return;
+    api<Calibration>(`/vision/calibration?width=${snap.width}&height=${snap.height}`).then((c) => setCal(c, false), (e) => setError(String(e)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snap?.id]);
   useEffect(() => {
     if (!snap) return;
     let url: string | null = null;
@@ -133,7 +167,6 @@ export function VisionPage() {
     setResult(null);
     setFixes({});
     qc.invalidateQueries({ queryKey: ['vision-snaps'] });
-    if (cal && Math.abs(body.width / body.height - cal.aspect) > 0.02) setCal({ ...cal, aspect: body.width / body.height });
   };
   const read = useMutation({
     mutationFn: () => api<ReadResult>('/vision/read', { body: { snapshot: snap!.id, calibration: cal } }),
@@ -146,7 +179,7 @@ export function VisionPage() {
   const saveCal = useMutation({
     mutationFn: () => api<Calibration>('/vision/calibration', { method: 'PUT', body: cal }),
     onSuccess: (c) => {
-      setCal(c);
+      setCal(c, false);
       qc.invalidateQueries({ queryKey: ['vision'] });
     },
     onError: (e) => setError(String(e)),
@@ -187,6 +220,34 @@ export function VisionPage() {
     },
     onError: (e) => setError(String(e)),
   });
+  const [detectInfo, setDetectInfo] = useState<string | null>(null);
+  const detect = useMutation({
+    mutationFn: () => api<{ calibration: Calibration | null; info: DetectInfo; saved: boolean }>('/vision/detect', { body: { snapshot: snap!.id, save: true } }),
+    onSuccess: (r) => {
+      if (r.calibration) {
+        setCal(r.calibration, false);
+        setResult(null);
+        setDetectInfo(
+          `Нашёл ${r.info.portraits} портретов, совпадение ${Math.round(r.info.score * 100)}%, масштаб ${r.info.scale.toFixed(3)}. Рамки для ${snap!.width}×${snap!.height} сохранены — проверь распознавание.`,
+        );
+        qc.invalidateQueries({ queryKey: ['vision'] });
+      } else setDetectInfo(`Не получилось: ${r.info.reason ?? 'портреты не найдены'}.`);
+    },
+    onError: (e) => setError(String(e)),
+  });
+  const reset = useMutation({
+    mutationFn: () => api<{ removed: boolean }>('/vision/calibration', { method: 'DELETE' }),
+    onSuccess: async () => {
+      setDetectInfo(null);
+      setAutoInfo(null);
+      setResult(null);
+      const size = snap ? `?width=${snap.width}&height=${snap.height}` : '';
+      setCal(await api<Calibration>(`/vision/calibration${size}`), false);
+      qc.invalidateQueries({ queryKey: ['vision'] });
+      qc.invalidateQueries({ queryKey: ['vision-cal'] });
+    },
+    onError: (e) => setError(String(e)),
+  });
   const openSnapshot = (id: string) => {
     const im = new Image();
     snapshotUrl(id).then((u) => {
@@ -195,6 +256,7 @@ export function VisionPage() {
         setResult(null);
         setFixes({});
         setAutoInfo(null);
+        setDetectInfo(null);
         URL.revokeObjectURL(u);
       };
       im.src = u;
@@ -226,11 +288,14 @@ export function VisionPage() {
   return (
     <div className="vision">
       <Panel className="vision__side" refracting>
-        <div className="panel__head">
+        <div className="panel__head panel__head--wrap">
           <button className="btn btn--sm btn--ghost" onClick={() => useUi.getState().go('settings')} title="Вернуться в настройки">
             ← Настройки
           </button>
-          <h2>Чтение экрана</h2>
+          <h2>
+            <Ti icon={ScanEye} />
+            Чтение экрана
+          </h2>
           <span className="pill">эксперимент</span>
         </div>
         <p className="hint">
@@ -315,6 +380,21 @@ export function VisionPage() {
         )}
 
         <span className="label">Рамки</span>
+        {cal && (
+          <p className="small">
+            Сейчас: <b>{SOURCE_LABEL[cal.source ?? 'manual'] ?? cal.source}</b>
+            {snap ? <span className="muted"> · кадр {snap.width}×{snap.height}</span> : null}
+          </p>
+        )}
+        <div className="row">
+          <button className="btn btn--accent" onClick={() => detect.mutate()} disabled={!snap || detect.isPending} title="Подогнать встроенный профиль по портретам на этом кадре — герои не нужны">
+            {detect.isPending ? 'Ищу…' : 'Найти рамки по кадру'}
+          </button>
+          <button className="btn" onClick={() => reset.mutate()} disabled={reset.isPending} title="Забыть ручные и найденные рамки и читать по встроенному профилю">
+            Сбросить на автоматические
+          </button>
+        </div>
+        {detectInfo && <p className="small">{detectInfo}</p>}
         <Segmented value={group} onChange={setGroup} options={(['radiant', 'dire', 'bans'] as Group[]).map((g) => ({ value: g, label: `${GROUP_LABEL[g]} · ${cal?.[g].length ?? 0}` }))} />
         <Toggle on={together} onChange={setTogether} label="Двигать и менять размер группой" />
         <div className="row">
@@ -331,8 +411,12 @@ export function VisionPage() {
               </button>
             </>
           )}
-          <button className="btn" onClick={async () => setCal(await api<Calibration>('/vision/calibration/preset'))}>
-            Пресет 16:9
+          <button
+            className="btn"
+            title="Рамки встроенного профиля для размера этого кадра (без подгонки)"
+            onClick={async () => setCal(await api<Calibration>(`/vision/calibration/preset${snap ? `?width=${snap.width}&height=${snap.height}` : ''}`))}
+          >
+            Встроенный профиль
           </button>
         </div>
         {cal && (
@@ -357,10 +441,26 @@ export function VisionPage() {
         {result?.warnings.map((w) => <p key={w} className="warn">{w}</p>)}
         <p className="hint">
           Кликни по рамке, чтобы исправить героя (или правой кнопкой — «пусто»). Подтверждённый кадр учит распознавание и
-          проверяет точность.
+          проверяет точность. «Сохранить рамки» делает их ручными: они главнее автоматики и переносятся на другие разрешения.
         </p>
+        <details className="vision__how small">
+          <summary>Как проверить, что всё читается без калибровки</summary>
+          <ol>
+            <li>В Доте дойди до выбора героев (подойдёт и лобби с ботами), дождись, пока выберут 4–5 героев.</li>
+            <li>Здесь нажми «Снимок Доты», затем «Найти рамки по кадру» — рамки должны лечь на портреты в верхней полосе.</li>
+            <li>«Проверить распознавание»: под рамками появятся герои. Исправь ошибки кликом и нажми «Всё верно — подтвердить кадр».</li>
+            <li>Если рамки легли криво — потяни их мышью и «Сохранить рамки» (ручные). «Сбросить на автоматические» вернёт профиль.</li>
+          </ol>
+          <p className="muted">
+            Это необязательно: чтение включено сразу, во время драфта само подгоняет рамки по первым кадрам с героями и учится
+            после каждого драфта. Подтверждённые здесь кадры просто ускоряют обучение.
+          </p>
+        </details>
 
-        <h3 className="section-title">Точность</h3>
+        <h3 className="section-title">
+          <Ti icon={Target} />
+          Точность
+        </h3>
         <dl className="kv">
           <dt>Подтверждено в мастере</dt>
           <dd>
@@ -380,14 +480,15 @@ export function VisionPage() {
         </button>
         {total && (
           <p className="hint">
-            Включится само при ≥ {total.auto_rule.drafts} драфтах, ≥ {total.auto_rule.frames} кадрах, ≥ {total.auto_rule.filled} распознанных
-            героях и точности ≥ {fmtPct(total.required, 0)}.
+            Пока точность не подтверждена, чтение осторожное: вписывает героя только при высокой уверенности. Осторожность снимется
+            сама при ≥ {total.auto_rule.drafts} драфтах, ≥ {total.auto_rule.frames} кадрах, ≥ {total.auto_rule.filled} распознанных героях
+            и точности ≥ {fmtPct(total.required, 0)}. Герои, которых нет на неполной доске драфта, ошибкой не считаются.
           </p>
         )}
         <Toggle
           on={!!s?.enabled}
           onChange={(on) => enable.mutate(on)}
-          label={`Читать драфт во время выбора героев (нужно ≥ ${fmtPct(s?.required_precision ?? 0.98, 0)} на 3+ кадрах)`}
+          label={s?.enabled && s.cautious ? 'Читать драфт во время выбора героев (пока учится, осторожно)' : 'Читать драфт во время выбора героев'}
         />
         {s?.error && <p className="warn">{s.error}</p>}
       </Panel>
@@ -461,10 +562,25 @@ function SnapshotEditor({ img, snap, cal, active, together, onChange, result, fi
   const W = snap.width;
   const H = snap.height;
   const drag = useRef<{ g: Group; i: number; mode: 'move' | 'size'; x: number; y: number; start: Rect[]; moved: boolean } | null>(null);
-  const [zoomMode, setZoom] = useState<'top' | 'all'>('top');
-  const zoom = zoomMode === 'top';
-  // most slots are in the top part of the screen: show that area bigger by default
-  const view = zoom ? { y: 0, h: Math.round(H * 0.3) } : { y: 0, h: H };
+  const [zoomMode, setZoom] = useState<'slots' | 'top' | 'all'>('slots');
+  // «Рамки»: the area around all slot rectangles, so portraits are big enough to place precisely
+  // even on a 2560×1440 frame; «Верх экрана»: the top 30%; «Весь кадр»: everything.
+  const all = [...cal.radiant, ...cal.dire, ...cal.bans];
+  const box = all.length
+    ? (() => {
+        const x0 = Math.min(...all.map((r) => r[0])), x1 = Math.max(...all.map((r) => r[0] + r[2]));
+        const y0 = Math.min(...all.map((r) => r[1])), y1 = Math.max(...all.map((r) => r[1] + r[3]));
+        const mx = (x1 - x0) * 0.08 + 0.01, my = Math.max((y1 - y0) * 0.6, 0.03);
+        const bx = Math.max(0, x0 - mx), by = Math.max(0, y0 - my);
+        return { x: bx * W, y: by * H, w: (Math.min(1, x1 + mx) - bx) * W, h: (Math.min(1, y1 + my * 2.2) - by) * H };
+      })()
+    : { x: 0, y: 0, w: W, h: H };
+  // the box follows the rectangles only between drags, so it does not run away under the cursor
+  const [slotsView, setSlotsView] = useState(box);
+  useEffect(() => {
+    if (!drag.current) setSlotsView(box);
+  }, [snap.id, zoomMode]);
+  const view = zoomMode === 'slots' ? slotsView : zoomMode === 'top' ? { x: 0, y: 0, w: W, h: Math.round(H * 0.3) } : { x: 0, y: 0, w: W, h: H };
 
   const toFrac = (e: React.PointerEvent) => {
     const pt = svg.current!.createSVGPoint();
@@ -487,13 +603,8 @@ function SnapshotEditor({ img, snap, cal, active, together, onChange, result, fi
     const dx = p.x - d.x;
     const dy = p.y - d.y;
     if (Math.abs(dx) + Math.abs(dy) > 0.001) d.moved = true;
-    const clamp = (v: number) => Math.min(1, Math.max(0, v));
-    const next = d.start.map((r, k) => {
-      if (k !== d.i && !together) return r;
-      if (d.mode === 'move') return [clamp(r[0] + dx), clamp(r[1] + dy), r[2], r[3]] as Rect;
-      return [r[0], r[1], Math.max(0.004, d.start[d.i]![2] + dx), Math.max(0.004, d.start[d.i]![3] + dy)] as Rect;
-    });
-    onChange(d.g, next);
+    // a group resize scales the whole group, so the rectangles keep their spacing (see calibrate.ts)
+    onChange(d.g, d.mode === 'move' ? moveRects(d.start, d.i, dx, dy, together) : resizeRects(d.start, d.i, dx, dy, together));
   };
   const onUp = () => {
     const d = drag.current;
@@ -504,12 +615,21 @@ function SnapshotEditor({ img, snap, cal, active, together, onChange, result, fi
   return (
     <div className="snap">
       <div className="row">
-        <Segmented small value={zoomMode} onChange={setZoom} options={[{ value: 'top', label: 'Верх экрана' }, { value: 'all', label: 'Весь кадр' }]} />
+        <Segmented
+          small
+          value={zoomMode}
+          onChange={setZoom}
+          options={[
+            { value: 'slots', label: 'Рамки крупно' },
+            { value: 'top', label: 'Верх экрана' },
+            { value: 'all', label: 'Весь кадр' },
+          ]}
+        />
         <span className="hint">
           {W}×{H}
         </span>
       </div>
-      <svg ref={svg} className="snap__svg" viewBox={`0 ${view.y} ${W} ${view.h}`} onPointerMove={onMove} onPointerUp={onUp}>
+      <svg ref={svg} className="snap__svg" viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`} onPointerMove={onMove} onPointerUp={onUp}>
         <image href={img} x={0} y={0} width={W} height={H} />
         {(['radiant', 'dire', 'bans'] as Group[]).map((g) =>
           cal[g].map((r, i) => {
@@ -546,6 +666,50 @@ function SnapshotEditor({ img, snap, cal, active, together, onChange, result, fi
           }),
         )}
       </svg>
+      <CropStrip snap={snap} cal={cal} />
+    </div>
+  );
+}
+
+/**
+ * What the reader really cuts out with these rectangles: the backend crops the same frame with the
+ * same code, a moment after a rectangle stops moving. A portrait that looks cut or shifted here
+ * is read wrong in the game too.
+ */
+function CropStrip({ snap, cal }: { snap: Snapshot; cal: Calibration }) {
+  const [debounced, setDebounced] = useState(cal);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(cal), 250);
+    return () => clearTimeout(t);
+  }, [cal]);
+  const crops = useQuery({
+    queryKey: ['vision-crops', snap.id, debounced],
+    queryFn: () =>
+      api<Record<Group, (string | null)[]> & { width: number; height: number; warnings: string[] }>('/vision/crops', {
+        body: { snapshot: snap.id, calibration: debounced },
+      }),
+    placeholderData: (prev) => prev,
+  });
+  const d = crops.data;
+  return (
+    <div className="crops">
+      <span className="label">Что вырезается из кадра {d ? `${d.width}×${d.height}` : ''}</span>
+      {d?.warnings.map((w) => (
+        <p key={w} className="small warn">
+          {w}
+        </p>
+      ))}
+      {crops.error && <ErrorBox error={crops.error} />}
+      {(['radiant', 'dire', 'bans'] as Group[]).map((g) =>
+        d?.[g]?.length ? (
+          <div key={g} className="crops__row">
+            <span className="crops__group" style={{ color: GROUP_COLOR[g] }}>
+              {GROUP_LABEL[g]}
+            </span>
+            {d[g].map((src, i) => (src ? <img key={i} src={src} alt={`${GROUP_LABEL[g]} ${i + 1}`} /> : <span key={i} className="crops__none">—</span>))}
+          </div>
+        ) : null,
+      )}
     </div>
   );
 }

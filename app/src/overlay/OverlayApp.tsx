@@ -1,39 +1,52 @@
 /**
- * Compact window over the game. Draft mode: win chance, top picks for my position, bans and
- * quick hero entry. Build mode (auto once the match starts): items against the enemy draft.
+ * Compact window over the game: one glass panel ~400px. On top a «Драфт / Билд / Линия» switch,
+ * hero search (Ctrl+K), the draft in two rows of five portraits, the win bar, the lane line and the
+ * top-5 picks; at the bottom the hotkey hint and whether the draft is read from the screen.
+ * «Свернуть» turns it into a small pill: the best pick's portrait and the chances.
+ * Build mode (auto once the match starts): items against the enemy draft. Lane mode: the lane.
  * Shares the draft with the main window through the backend session.
  */
-import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useQuery } from '@tanstack/react-query';
+import { LogicalSize } from '@tauri-apps/api/dpi';
+import { isTauri } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { AnimatePresence, motion } from 'motion/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { api, waitForBackend } from '../api/client';
-import { useBans, useBuild, useHeroes, useSettings, useSuggest } from '../api/hooks';
+import { useBans, useBuild, useEvaluate, useHeroes, useSettings, useSuggest } from '../api/hooks';
 import type { DraftRequest } from '../api/types';
-import { HeroSearch } from '../components/HeroSearch';
+import { HeroSearch, type HeroSearchHandle } from '../components/HeroSearch';
 import { IconClose } from '../components/Icons';
-import { LaneMini } from '../components/LaneView';
-import { AnimatedPercent, fmtPct, fmtSigned, HeroIcon, ItemIcon, Segmented, WinBar } from '../components/ui';
-import { useEvaluate } from '../api/hooks';
+import { LaneCard, LaneView } from '../components/LaneView';
+import { fmtPct, fmtSigned, HeroIcon, ItemIcon } from '../components/ui';
 import { onOverlayStatus, overlayStatus, setClickThrough, setOverlayEffect, showOverlay } from '../lib/overlay';
+import { useResolvedTheme } from '../lib/theme';
 import { picked, useDraft } from '../state/draft';
 import { startSync } from '../state/sync';
 import { useUi } from '../state/ui';
+
+type Mode = 'draft' | 'build' | 'lane';
+const FULL = { w: 400, h: 660 };
+const PILL = { w: 320, h: 64 };
 
 export function OverlayApp() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [clickThrough, setCT] = useState(false);
   const [effectInUse, setEffectInUse] = useState<'acrylic' | 'tint'>('tint');
+  const [collapsed, setCollapsed] = useState(false);
+  const [mode, setMode] = useState<Mode | null>(null); // null: follow the setting (auto = build in a match)
   const ov = useUi((s) => s.overlay);
-  const theme = useUi((s) => s.theme);
+  const theme = useResolvedTheme(useUi((s) => s.theme));
   const phase = useDraft((s) => s.phase);
   const perf = ov.autoPerf && phase === 'game';
+  const search = useRef<HeroSearchHandle>(null);
+  const fullSize = useRef(FULL);
 
   useEffect(() => {
     document.documentElement.classList.add('is-overlay');
-    document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = theme;
   }, [theme]);
   useEffect(() => {
     waitForBackend()
@@ -44,18 +57,85 @@ export function OverlayApp() {
     return onOverlayStatus((s) => setCT(s.click_through));
   }, []);
   // Acrylic blurs the game behind the window; in a running match (or by choice) a plain tint is cheaper
+  // (the tint follows the opacity slider once it stops moving: re-applying Acrylic makes it flash)
   useEffect(() => {
     const want = perf ? 'tint' : ov.effect;
-    setOverlayEffect(want, 40 + ov.opacity * 80).then(setEffectInUse);
+    const t = setTimeout(() => void setOverlayEffect(want, 40 + ov.opacity * 80).then(setEffectInUse), 300);
+    return () => clearTimeout(t);
   }, [ov.effect, ov.opacity, perf]);
   useEffect(() => {
     document.documentElement.classList.toggle('perf', perf);
   }, [perf]);
+  // the window remembers its size: a pill size left from last time would squeeze the full panel
+  useEffect(() => {
+    if (!isTauri()) return;
+    const w = getCurrentWindow();
+    w.innerSize().then(async (s) => {
+      const f = await w.scaleFactor();
+      if (s.height / f < 300) await w.setSize(new LogicalSize(FULL.w, FULL.h));
+    });
+  }, []);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.code === 'KeyK') {
+        e.preventDefault();
+        if (collapsed) void toggleCollapsed(false);
+        setMode('draft');
+        setTimeout(() => search.current?.focus(), 30);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
 
-  const mode = ov.mode === 'auto' ? (phase === 'game' ? 'build' : 'draft') : ov.mode;
+  async function toggleCollapsed(on: boolean) {
+    if (isTauri()) {
+      const w = getCurrentWindow();
+      if (on) {
+        const s = await w.innerSize();
+        const f = await w.scaleFactor();
+        fullSize.current = { w: s.width / f, h: s.height / f };
+        await w.setSize(new LogicalSize(PILL.w, PILL.h));
+      } else {
+        await w.setSize(new LogicalSize(fullSize.current.w, Math.max(fullSize.current.h, 420)));
+      }
+    }
+    setCollapsed(on);
+  }
+
+  const auto: Mode = ov.mode === 'auto' ? (phase === 'game' ? 'build' : 'draft') : ov.mode;
+  const shown = mode ?? auto;
+  if (collapsed)
+    return (
+      <div className={`ov ov--${effectInUse} ov--pill ${clickThrough ? 'is-through' : ''}`} style={{ opacity: ov.opacity }}>
+        {ready ? <Pill onOpen={() => toggleCollapsed(false)} /> : <span className="muted">Подключаюсь…</span>}
+      </div>
+    );
   return (
     <div className={`ov ov--${effectInUse} ${clickThrough ? 'is-through' : ''}`} style={{ opacity: ov.opacity }}>
-      <OverlayHeader mode={mode} />
+      <header className="ov__head" data-tauri-drag-region>
+        <div className="ov-switch" role="tablist">
+          {(['draft', 'build', 'lane'] as Mode[]).map((m) => (
+            <button key={m} role="tab" className={`ov-switch__btn ${shown === m ? 'is-on' : ''}`} onClick={() => setMode(m)}>
+              {shown === m && <motion.span layoutId="ov-pill" className="ov-switch__pill" transition={{ type: 'spring', stiffness: 380, damping: 34 }} />}
+              <span>{m === 'draft' ? 'Драфт' : m === 'build' ? 'Билд' : 'Линия'}</span>
+            </button>
+          ))}
+        </div>
+        <button
+          className={`ov-round ${clickThrough ? 'is-on' : ''}`}
+          title={clickThrough ? `Клики проходят в игру · ${ov.interact} — управлять` : `Пропускать клики в игру (${ov.interact})`}
+          onClick={() => setClickThrough(!clickThrough)}
+        >
+          <CursorIcon />
+        </button>
+        <button className="ov-round" title="Свернуть в таблетку" onClick={() => toggleCollapsed(true)}>
+          <span className="ov-round__min" />
+        </button>
+        <button className="ov-round" title={`Скрыть (${ov.toggle})`} onClick={() => showOverlay(false)}>
+          <IconClose />
+        </button>
+      </header>
       {!ready ? (
         <div className="ov__body ov__center muted">{error ? `Бэкенд не отвечает: ${error}` : 'Подключаюсь к бэкенду…'}</div>
       ) : (
@@ -63,62 +143,72 @@ export function OverlayApp() {
           <DisplayWarning />
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
-              key={mode}
+              key={shown}
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
-              transition={{ duration: 0.22 }}
+              transition={{ duration: 0.2 }}
             >
-              {mode === 'draft' ? <DraftMode /> : <BuildMode />}
+              {shown === 'draft' ? <DraftMode search={search} /> : shown === 'build' ? <BuildMode /> : <LaneMode />}
             </motion.div>
           </AnimatePresence>
         </div>
       )}
       <footer className="ov__foot">
-        {clickThrough ? (
-          <span>Клики проходят в игру · {ov.interact} — управлять</span>
-        ) : (
-          <button className="ov__link" onClick={() => setClickThrough(true)}>
-            Пропускать клики в игру ({ov.interact})
-          </button>
-        )}
+        <span>{ov.toggle} — скрыть</span>
+        <input
+          className="ov__opacity"
+          type="range"
+          min={0.35}
+          max={1}
+          step={0.05}
+          value={ov.opacity}
+          title={`Прозрачность ${Math.round(ov.opacity * 100)}%`}
+          aria-label="Прозрачность"
+          onChange={(e) => useUi.getState().set({ overlay: { ...ov, opacity: Number(e.target.value) } })}
+        />
+        <ReadStatus />
         <span className="ov__grip" onPointerDown={() => getCurrentWindow().startResizeDragging('SouthEast')} title="Размер" />
       </footer>
     </div>
   );
 }
 
-function OverlayHeader({ mode }: { mode: 'draft' | 'build' }) {
-  const ov = useUi((s) => s.overlay);
-  const set = useUi((s) => s.set);
+function CursorIcon() {
   return (
-    <header className="ov__head" data-tauri-drag-region>
-      <span className="ov__title" data-tauri-drag-region>
-        <span className="titlebar__logo" /> Драфтер
-      </span>
-      <Segmented
-        small
-        value={ov.mode === 'auto' ? mode : ov.mode}
-        onChange={(m) => set({ overlay: { ...ov, mode: m } })}
-        options={[
-          { value: 'draft', label: 'Драфт' },
-          { value: 'build', label: 'Билд' },
-        ]}
-      />
-      <input
-        className="ov__opacity"
-        type="range"
-        min={0.35}
-        max={1}
-        step={0.05}
-        value={ov.opacity}
-        title={`Прозрачность ${Math.round(ov.opacity * 100)}%`}
-        onChange={(e) => set({ overlay: { ...ov, opacity: Number(e.target.value) } })}
-      />
-      <button className="winbtn" title={`Скрыть (${ov.toggle})`} onClick={() => showOverlay(false)}>
-        <IconClose />
-      </button>
-    </header>
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" aria-hidden>
+      <path d="M5 3l14 7-6 2-2 6z" />
+    </svg>
+  );
+}
+
+/** Whether the draft comes from the screen: «драфт распознан с экрана», waiting, or off. */
+function ReadStatus() {
+  const phase = useDraft((s) => s.phase);
+  const st = useQuery({
+    queryKey: ['vision-status-ov'],
+    queryFn: () => api<{ enabled: boolean; cautious: boolean; running: boolean; last_read: number | null; locked: number }>('/vision/status'),
+    refetchInterval: phase === 'draft' ? 4000 : 20000,
+  }).data;
+  let text = 'чтение экрана выкл.';
+  let on = false;
+  if (st?.enabled) {
+    const fresh = st.last_read && Date.now() / 1000 - st.last_read < 15;
+    if (phase === 'draft' && fresh) {
+      text = 'драфт распознан с экрана';
+      on = true;
+    } else text = phase === 'draft' ? 'читаю экран…' : 'чтение экрана ждёт драфта';
+    if (st.cautious) text += ' · учится';
+  }
+  return (
+    <span className={`ov-status ${on ? 'is-on' : ''}`} title={
+        st?.enabled
+          ? `${st.cautious ? 'Учится: вписывает героя только при уверенности, после трёх одинаковых кадров. ' : ''}Исправленных вручную слотов: ${st.locked}`
+          : 'Включается в настройках («Чтение драфта с экрана»)'
+      }>
+      <i />
+      {text}
+    </span>
   );
 }
 
@@ -153,7 +243,15 @@ function useDraftRequest(): DraftRequest {
   );
 }
 
-function DraftMode() {
+/** My hero: GSI knows it; otherwise the ally I clicked, or the only ally. */
+function useMe(req: DraftRequest) {
+  const d = useDraft();
+  if (d.myHero) return d.myHero;
+  if (d.myPick && req.allies.includes(d.myPick)) return d.myPick;
+  return req.allies.length === 1 ? req.allies[0]! : null;
+}
+
+function DraftMode({ search }: { search: React.RefObject<HeroSearchHandle | null> }) {
   const d = useDraft();
   const req = useDraftRequest();
   const ev = useEvaluate(req);
@@ -162,76 +260,107 @@ function DraftMode() {
   const heroes = useHeroes().data;
   const taken = new Set([...req.allies, ...req.enemies, ...req.bans]);
   const p = ev.data?.p_win ?? 0.5;
-  // my hero for the lane line: GSI knows it; otherwise the only ally, or the one I clicked
-  const [mine, setMine] = useState<number | null>(null);
-  const me = d.myHero ?? (mine && req.allies.includes(mine) ? mine : req.allies.length === 1 ? req.allies[0]! : null);
+  const me = useMe(req);
+  const top = s.data?.main[0]?.hero ?? null;
+  const laneHero = me ?? top;
+  const name = (h: number | null) => (h ? (heroes?.byId.get(h)?.name ?? '') : '');
   return (
     <div className="ov__draft">
-      <HeroSearch
-        compact
-        unavailable={taken}
-        placeholder="Enter — союзник, Shift — враг, Alt — бан"
-        onPick={(h, m) => d.placeIn(m.shift ? 'enemy' : m.alt ? 'ban' : 'ally', h.id)}
-      />
-      <div className="ov__win">
-        <AnimatedPercent value={p} className={`ov__pct ${p >= 0.5 ? 'c-good' : 'c-bad'}`} />
-        <WinBar p={p} />
-      </div>
-      <MiniTeam heroes={d.allies} team="ally" mine={me} onMine={setMine} />
-      <MiniTeam heroes={d.enemies} team="enemy" />
-      <LaneMini hero={me} pos={req.pos!} enemies={req.enemies} />
-      <div className="ov__row">
-        <span className="label">Позиция</span>
-        <Segmented
-          small
-          value={req.pos!}
-          onChange={(v) => d.setPos(v)}
-          options={[1, 2, 3, 4, 5].map((v) => ({ value: v, label: String(v) }))}
+      <div className="ov-search">
+        <HeroSearch
+          ref={search}
+          compact
+          unavailable={taken}
+          placeholder="Герой: ам, пудж, вр…"
+          onPick={(h, m) => d.placeIn(m.shift ? 'enemy' : m.alt ? 'ban' : 'ally', h.id)}
         />
+        <kbd>Ctrl K</kbd>
+      </div>
+      <div className="ov-board">
+        <MiniTeam heroes={d.allies} team="ally" mine={me} />
+        <MiniTeam heroes={d.enemies} team="enemy" />
+        <div className="ov-winbar">
+          <b className="c-good">{fmtPct(p)}</b>
+          <span className="ov-winbar__track">
+            <motion.i className="is-us" animate={{ width: `${p * 100}%` }} transition={{ type: 'spring', stiffness: 120, damping: 22 }} />
+          </span>
+          <b className="c-bad">{fmtPct(1 - p)}</b>
+        </div>
+      </div>
+      {req.enemies.length > 0 && laneHero && (
+        <div className="ov-lanebox">
+          <LaneCard hero={laneHero} pos={req.pos!} enemies={req.enemies} when={!me && top ? `если возьмёшь ${name(top)}` : undefined} />
+        </div>
+      )}
+      <div className="ov-picks__head">
+        <span className="kicker">Лучшие пики · pos {req.pos}</span>
+        <span className="ov-pos">
+          {[1, 2, 3, 4, 5].map((v) => (
+            <button key={v} className={v === req.pos ? 'is-on' : ''} onClick={() => d.setPos(v)} title={`Моя позиция ${v}`}>
+              {v}
+            </button>
+          ))}
+        </span>
       </div>
       <ul className="ov__list">
-        {s.data?.main.slice(0, 5).map((r) => {
-          const why = r.terms.find((t) => t.kind !== 'hero') ?? r.terms[0];
+        {s.data?.main.slice(0, 5).map((r, i) => {
+          const why = r.terms.find((t) => t.kind === 'comfort') ?? r.terms.find((t) => t.kind !== 'hero') ?? r.terms[0];
           return (
-            <motion.li layout="position" key={r.hero} onClick={() => d.placeIn('ally', r.hero)} title={`Взять: ${heroes?.byId.get(r.hero)?.name ?? ''}`}>
+            <motion.li
+              layout="position"
+              key={r.hero}
+              className={i === 0 ? 'is-best' : ''}
+              onClick={() => d.placeIn('ally', r.hero)}
+              title={`Взять: ${name(r.hero)} (${fmtSigned(r.delta * 100)})`}
+            >
               <HeroIcon id={r.hero} size="sm" />
-              <span className="ov__why">{why?.text.replace(/\s[+−-]?\d+(\.\d+)?%$/, '')}</span>
-              <b className={r.delta >= 0 ? 'c-good' : 'c-bad'}>
-                {fmtPct(r.p_win, 0)}
-                <small>{fmtSigned(r.delta * 100)}</small>
-              </b>
+              <span className="ov__who">
+                <b>{name(r.hero)}</b>
+                <small>{shortWhy(why?.text ?? '', name(r.hero))}</small>
+              </span>
+              <span className="ov__p">{fmtPct(r.p_win)}</span>
             </motion.li>
           );
         })}
       </ul>
-      <div className="ov__bans">
-        <span className="label">Банить</span>
-        {bans.data?.bans.slice(0, 4).map((b) => (
-          <span key={b.hero} onClick={() => d.placeIn('ban', b.hero)} title={`пикают ${fmtPct(b.pick_rate, 0)}`}>
-            <HeroIcon id={b.hero} size="sm" />
-          </span>
-        ))}
-      </div>
+      {!!bans.data?.bans.length && (
+        <div className="ov__bans">
+          <span className="label">Банить</span>
+          {bans.data.bans.slice(0, 4).map((b) => (
+            <span key={b.hero} onClick={() => d.placeIn('ban', b.hero)} title={`${name(b.hero)}: пикают ${fmtPct(b.pick_rate, 0)}`}>
+              <HeroIcon id={b.hero} size="sm" />
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-function MiniTeam({ heroes, team, mine, onMine }: {
-  heroes: (number | null)[];
-  team: 'ally' | 'enemy';
-  mine?: number | null;
-  onMine?: (hero: number) => void;
-}) {
-  const clear = useDraft((s) => s.clear);
-  const myHero = useDraft((s) => s.myHero);
+/** «Lone Druid хорош против Anti-Mage +4.0%» → «хорош против Anti-Mage». */
+function shortWhy(text: string, name: string): string {
+  let s = text.replace(/\s*[+−-]?\d+(?:[.,]\d+)?%$/, '');
+  if (name) s = s.split(name).join('').replace(/\s+/g, ' ').trim();
+  return s.replace(/^синергия \+ /, 'синергия с ').replace(/^сила в мете$/, 'силён в мете');
+}
+
+function MiniTeam({ heroes, team, mine }: { heroes: (number | null)[]; team: 'ally' | 'enemy'; mine?: number | null }) {
+  const { clear, myHero, setMyPick, setFocus } = useDraft();
   return (
     <div className={`ov__team ov__team--${team}`}>
+      <span className="ov__team-label">{team === 'ally' ? 'Мы' : 'Враги'}</span>
       {heroes.map((h, i) => (
         <span
           key={i}
-          className={`ov__slot ${h && h === mine ? 'is-me' : ''}`}
-          title={onMine && h && !myHero ? 'Клик — это мой герой (для линии), правый клик — убрать' : undefined}
-          onClick={() => h && onMine && !myHero && onMine(h)}
+          className={`ov__slot ${h ? 'is-filled' : ''} ${h && h === mine ? 'is-me' : ''}`}
+          title={
+            h
+              ? team === 'ally' && !myHero
+                ? 'Клик — это мой герой (для линии), правый клик — убрать'
+                : 'Правый клик — убрать'
+              : `Слот ${i + 1}: клик — вводить сюда`
+          }
+          onClick={() => (h ? team === 'ally' && !myHero && setMyPick(h) : setFocus({ team, index: i }))}
           onContextMenu={(e) => {
             e.preventDefault();
             clear({ team, index: i });
@@ -244,21 +373,128 @@ function MiniTeam({ heroes, team, mine, onMine }: {
   );
 }
 
+/** The collapsed overlay: the best pick's portrait, its chance and ours. */
+function Pill({ onOpen }: { onOpen: () => void }) {
+  const req = useDraftRequest();
+  const ev = useEvaluate(req);
+  const s = useSuggest(req);
+  const heroes = useHeroes().data;
+  const best = s.data?.main[0];
+  return (
+    <button className="ov-pill" onClick={onOpen} title="Развернуть" data-tauri-drag-region>
+      {best ? <HeroIcon id={best.hero} size="sm" /> : <span className="ov-pill__dot" />}
+      <span>
+        <b>{best ? `${heroes?.byId.get(best.hero)?.name ?? ''} ${fmtPct(best.p_win)}` : 'Драфтер'}</b>
+        <small> · шансы {fmtPct(ev.data?.p_win ?? 0.5, 0)}</small>
+      </span>
+    </button>
+  );
+}
+
+function LaneMode() {
+  const req = useDraftRequest();
+  const me = useMe(req);
+  const s = useSuggest(req);
+  const hero = me ?? s.data?.main[0]?.hero ?? null;
+  if (!hero) return <p className="muted ov__center">Возьми своего героя — здесь появится линия.</p>;
+  return (
+    <div className="ov__lane-mode">
+      <LaneView hero={hero} pos={req.pos ?? 1} enemies={req.enemies} />
+    </div>
+  );
+}
+
+interface GameLive {
+  live: { clock: number | null; gold: number | null; has_items: boolean; alive: boolean | null; respawn: number | null } | null;
+  timers: { key: string; name: string; in: number }[];
+  next: { key: string; name: string; cost: number; left: number; missing: number; ready: boolean; have: string[] } | null;
+  buyback: { cost: number; enough: boolean; missing: number; cooldown: number } | null;
+}
+
+const mmss = (s: number) => `${s < 0 ? '-' : ''}${Math.floor(Math.abs(s) / 60)}:${String(Math.abs(s) % 60).padStart(2, '0')}`;
+
+/** «Сейчас»: the next item of the top players' build with the gold still missing, the map timers
+ * and buyback, from what Dota sends over GSI (backend ingame.py), refreshed every second. */
+function LiveHints({ plan }: { plan: { key: string; name: string; minute: number | null }[] }) {
+  const targets = plan.map((p) => p.key).join(',');
+  const q = useQuery({
+    queryKey: ['game-live', targets],
+    queryFn: () => api<GameLive>(`/game/live?targets=${encodeURIComponent(targets)}`),
+    refetchInterval: 1000,
+  });
+  const g = q.data;
+  if (!g?.live) return <p className="hint">Подсказки появятся, как только Дота пришлёт данные матча.</p>;
+  const clock = g.live.clock ?? 0;
+  const n = g.next;
+  const minute = n ? plan.find((p) => p.key === n.key)?.minute : null;
+  const late = n && minute != null ? Math.floor(clock / 60 - minute) : 0;
+  const pct = n ? Math.round((100 * (n.cost - n.left + Math.min(g.live.gold ?? 0, n.left))) / Math.max(1, n.cost)) : 0;
+  return (
+    <div className="ov__live">
+      <div className="ov__live-head">
+        <span className="kicker">Сейчас · {mmss(clock)}</span>
+        {g.live.gold != null && <span className="ov__gold">{g.live.gold.toLocaleString('ru')} золота</span>}
+      </div>
+      {n ? (
+        <div className={`ov__next ${n.ready ? 'is-ready' : ''}`}>
+          <ItemIcon k={n.key} title={n.name} size={36} />
+          <div>
+            <b>{n.name}</b>
+            <span className="small">
+              {n.ready ? 'хватает — можно покупать' : `не хватает ${n.missing.toLocaleString('ru')}`}
+              {n.have.length > 0 && ' · часть уже есть'}
+            </span>
+            <div className="ov__bar">
+              <i style={{ width: `${pct}%` }} />
+            </div>
+            {minute != null && (
+              <span className={`small ${late > 0 ? 'c-bad' : 'muted'}`}>
+                у топов к {Math.round(minute)}′{late > 0 ? ` · опаздываешь на ${late} мин` : ''}
+              </span>
+            )}
+          </div>
+        </div>
+      ) : g.live.has_items ? (
+        plan.length > 0 && <p className="hint">Весь кор билда уже собран.</p>
+      ) : (
+        <p className="hint">Дота пока не присылает предметы: перезапусти её один раз (конфиг GSI обновлён).</p>
+      )}
+      <div className="ov__timers">
+        {g.timers.slice(0, 4).map((t) => (
+          <span key={t.key} className={`ov__timer ${t.in <= 15 ? 'is-soon' : ''}`}>
+            {t.name} <b>{t.key === 'night' ? `через ${mmss(t.in)}` : mmss(t.in)}</b>
+          </span>
+        ))}
+      </div>
+      {g.buyback && (
+        <p className={`small ${g.buyback.cooldown ? 'muted' : g.buyback.enough ? 'c-good' : 'c-bad'}`}>
+          Выкуп {g.buyback.cost.toLocaleString('ru')}:{' '}
+          {g.buyback.cooldown ? `перезарядка ${mmss(g.buyback.cooldown)}` : g.buyback.enough ? 'хватает' : `не хватает ${g.buyback.missing.toLocaleString('ru')}`}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function BuildMode() {
   const d = useDraft();
   const req = useDraftRequest();
   const allies = picked(d.allies);
-  const [chosen, setChosen] = useState<number | null>(null);
-  const hero = d.myHero ?? chosen ?? allies[0] ?? null;
+  const me = useMe(req);
+  const hero = me ?? allies[0] ?? null;
   const build = useBuild(hero, req.pos ?? 1, req.enemies, true);
+  const hints = useUi((s) => s.overlay.hints);
+  const top = build.data ? (build.data.build.builds[0] ?? build.data.build.approximate) : null;
+  const plan = top ? [...(top.boots ? [top.boots] : []), ...top.core] : [];
   if (!hero) return <p className="muted ov__center">Выбери своего героя в драфте — здесь появится билд против врагов.</p>;
   return (
     <div className="ov__build">
+      {d.phase === 'game' && hints && <LiveHints plan={plan} />}
       {!d.myHero && allies.length > 1 && (
         <div className="ov__row ov__row--start">
           <span className="label">Мой герой</span>
           {allies.map((a) => (
-            <span key={a} className={a === hero ? 'is-on' : ''} onClick={() => setChosen(a)}>
+            <span key={a} className={a === hero ? 'is-on' : ''} onClick={() => d.setMyPick(a)}>
               <HeroIcon id={a} size="sm" />
             </span>
           ))}
@@ -278,22 +514,22 @@ function BuildMode() {
             {r.status === 'loading' && <p className="hint">Загружаю матчи: {r.progress.have} из {r.target}…</p>}
             {b && (
               <>
-                <span className="label">
+                <span className="kicker">
                   {b.approximate ? 'Популярные предметы (приблизительно)' : `${b.title} · ${b.games} игр · ${Math.round((b.wr ?? 0) * 100)}%`}
                 </span>
                 <div className="ov__items">
-                  {b.boots && <ItemIcon k={b.boots.key} title={`${b.boots.name} ~${Math.round(b.boots.minute ?? 0)} мин`} size={30} />}
+                  {b.boots && <ItemIcon k={b.boots.key} title={`${b.boots.name} ~${Math.round(b.boots.minute ?? 0)} мин`} size={34} />}
                   {b.core.map((it) => (
-                    <ItemIcon key={it.key} k={it.key} title={`${it.name} ~${Math.round(it.minute ?? 0)} мин`} size={30} />
+                    <ItemIcon key={it.key} k={it.key} title={`${it.name} ~${Math.round(it.minute ?? 0)} мин`} size={34} />
                   ))}
                 </div>
               </>
             )}
-            {build.data.vs.length > 0 && <span className="label">Против этого драфта</span>}
+            {build.data.vs.length > 0 && <span className="kicker">Против этого драфта</span>}
             <ul className="ov__vs">
               {build.data.vs.slice(0, 5).map((v) => (
                 <li key={v.item} className={v.rare_on_hero ? 'is-rare' : ''}>
-                  <ItemIcon k={v.item} title={v.name} size={26} />
+                  <ItemIcon k={v.item} title={v.name} size={30} />
                   <span>
                     <b>{v.name}</b> {v.reasons[0]?.text}
                   </span>

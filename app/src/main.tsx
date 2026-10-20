@@ -1,4 +1,6 @@
-import '@fontsource-variable/inter';
+import '@fontsource-variable/onest';
+import '@fontsource-variable/unbounded';
+import '@fontsource-variable/jetbrains-mono';
 import './styles/tokens.css';
 import './styles/glass.css';
 import './styles/app.css';
@@ -11,6 +13,8 @@ import ReactDOM from 'react-dom/client';
 import { backend } from './api/client';
 import App from './App';
 import { installButtonSheen } from './components/Glass';
+import { installTilt } from './lib/tilt';
+import { installWheelDebug } from './lib/wheel';
 import { isOverlayWindow } from './lib/overlay';
 import { OverlayApp } from './overlay/OverlayApp';
 import { useUi } from './state/ui';
@@ -21,6 +25,11 @@ const queryClient = new QueryClient({
 });
 
 installButtonSheen();
+installTilt();
+// the focus ring shows only after Tab, not after a click or a hotkey
+window.addEventListener('keydown', (e) => e.key === 'Tab' && document.documentElement.classList.add('kbd-nav'), true);
+window.addEventListener('pointerdown', () => document.documentElement.classList.remove('kbd-nav'), true);
+installWheelDebug(); // hidden wheel-scrolling debug log (Ctrl+Alt+Shift+W), off: no listeners
 
 // Never leave the user with a blank window: if the UI crashes or doesn't start, say why.
 function showFatal(message: string) {

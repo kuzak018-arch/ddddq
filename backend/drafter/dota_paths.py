@@ -6,7 +6,7 @@ import winreg
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import kv
+from . import kv, settings
 
 DOTA_DIR_NAME = "dota 2 beta"
 
@@ -27,15 +27,66 @@ def library_paths(steam: Path) -> list[Path]:
     return [Path(v["path"]) for v in libs.values() if isinstance(v, dict) and "path" in v]
 
 
-def dota_path() -> Path | None:
+def is_dota_dir(p: Path) -> bool:
+    return (p / "game" / "dota").is_dir()
+
+
+def auto_dota_path() -> Path | None:
+    """The Dota install found through Steam's library folders."""
     steam = steam_path()
     if steam is None:
         return None
     for lib in library_paths(steam):
         p = lib / "steamapps" / "common" / DOTA_DIR_NAME
-        if (p / "game" / "dota").is_dir():
+        if is_dota_dir(p):
             return p
     return None
+
+
+def dota_path() -> Path | None:
+    """The folder the user picked in the setup (if it still is a Dota install), else the one Steam knows."""
+    manual = settings.load().dota_dir
+    if manual and is_dota_dir(Path(manual)):
+        return Path(manual)
+    return auto_dota_path()
+
+
+def find_dota_root(picked: Path) -> Path | None:
+    """The «dota 2 beta» folder from whatever the user picked inside it (game, game/dota,
+    game/bin/win64, dota2.exe) or the folder itself."""
+    for p in (picked, *picked.parents):
+        if is_dota_dir(p):
+            return p
+    return None
+
+
+STEAM64_BASE = 76561197960265728
+
+
+def steam_accounts() -> list[dict]:
+    """Steam accounts that signed in on this PC (Steam's loginusers.vdf, read only) and those with a
+    Dota folder in userdata: Friend ID, name, whether it was the last one and whether it has Dota."""
+    steam = steam_path()
+    if steam is None:
+        return []
+    out: dict[int, dict] = {}
+    vdf = steam / "config" / "loginusers.vdf"
+    if vdf.exists():
+        users = kv.loads(vdf.read_text(encoding="utf-8", errors="replace")).get("users", {})
+        for sid, u in users.items():
+            if not (isinstance(u, dict) and str(sid).isdigit()) or int(sid) <= STEAM64_BASE:
+                continue
+            acc = int(sid) - STEAM64_BASE
+            out[acc] = {"account_id": acc, "name": u.get("PersonaName") or u.get("AccountName"),
+                        "recent": u.get("MostRecent") == "1", "ts": int(u.get("Timestamp") or 0)}
+    userdata = steam / "userdata"
+    if userdata.is_dir():
+        for d in userdata.iterdir():
+            if d.name.isdigit() and int(d.name) > 0:
+                out.setdefault(int(d.name), {"account_id": int(d.name), "name": None, "recent": False, "ts": 0})
+    for acc, a in out.items():
+        a["dota"] = (userdata / str(acc) / "570").is_dir()
+    return sorted(out.values(), key=lambda a: (not a["recent"], not a["dota"], -a["ts"]))
 
 
 def gsi_dir(dota: Path) -> Path:

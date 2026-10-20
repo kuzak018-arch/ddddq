@@ -1,10 +1,16 @@
-# Builds the Windows installer on GitHub's Windows machine. Everything stays in this private
-# repository and there is no auto-update: the installer is downloaded by hand.
+# Builds the Windows installer on GitHub's Windows machine.
 #
 #   - a tag vX.Y.Z (git tag v1.0.1 && git push origin v1.0.1): the installer is a build artifact
 #     and is also attached to the GitHub Release vX.Y.Z here (artifacts are deleted after 90 days,
-#     release files are not);
+#     release files are not), with its SHA-256; and it is published for the app's own updates;
 #   - "Run workflow" (optionally with a version): only the build artifact, no release.
+#
+# Updates in the app (backend/drafter/updates.py): this repository is private, so the app reads
+# the releases of a public repository that holds only installers — the variable RELEASES_REPO
+# (default kuzak018-arch/dota-drafter-releases). Publishing there needs the secret RELEASES_TOKEN:
+# a fine-grained token with "Contents: read and write" on that repository only. Without it the
+# build still works, only the app doesn't see the new version. The notes of a version come from
+# release-notes/vX.Y.Z.md when there is one.
 #
 # Needs a release "seed-data" in this repository with seed-data.zip (scripts/publish-seed.ps1 on
 # the PC): the constants, icons, model and Stratz data the installer ships.
@@ -95,6 +101,16 @@ jobs:
           if (@($exe).Count -ne 1) { throw "ожидался один установщик версии ${{ steps.meta.outputs.version }}, найдено: $(@($exe).Count)" }
           "path=$($exe.FullName)" >> $env:GITHUB_OUTPUT
           "{0}: {1:N1} МБ" -f $exe.Name, ($exe.Length / 1MB)
+          # the app installs an update only when its SHA-256 matches this file
+          $sha = (Get-FileHash $exe.FullName -Algorithm SHA256).Hash.ToLower()
+          "$sha  $($exe.Name.Replace(' ', '.'))" | Set-Content -Path "$($exe.FullName).sha256" -Encoding ascii -NoNewline
+          "sha256=$sha" >> $env:GITHUB_OUTPUT
+          $notes = "release-notes/v${{ steps.meta.outputs.version }}.md"
+          if (-not (Test-Path $notes)) {
+            $notes = "release-notes.tmp.md"
+            "Dota Drafter ${{ steps.meta.outputs.version }}." | Set-Content -Path $notes -Encoding utf8
+          }
+          "notes=$notes" >> $env:GITHUB_OUTPUT
 
       - name: Build artifact
         uses: actions/upload-artifact@v4
@@ -118,5 +134,27 @@ jobs:
               --notes "Установщик Dota Drafter ${{ steps.meta.outputs.version }}. Закрой приложение и запусти установщик поверх старой версии: настройки и данные сохраняются."
             if ($LASTEXITCODE -ne 0) { throw "не удалось создать релиз $tag" }
           }
-          gh release upload $tag $exe --repo "${{ github.repository }}" --clobber
+          gh release upload $tag $exe "$exe.sha256" --repo "${{ github.repository }}" --clobber
           if ($LASTEXITCODE -ne 0) { throw "не удалось прикрепить установщик к релизу $tag" }
+
+      - name: Publish for in-app updates (tags only)
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          REPO: ${{ vars.RELEASES_REPO || 'kuzak018-arch/dota-drafter-releases' }}
+        run: |
+          if (-not $env:GH_TOKEN) {
+            "::warning::нет секрета RELEASES_TOKEN: версия не опубликована в $env:REPO, приложение её не увидит"
+            exit 0
+          }
+          $tag = "${{ github.ref_name }}"
+          $exe = "${{ steps.exe.outputs.path }}"
+          gh release view $tag --repo $env:REPO *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --repo $env:REPO --latest --title "Dota Drafter ${{ steps.meta.outputs.version }}" `
+              --notes-file "${{ steps.exe.outputs.notes }}"
+            if ($LASTEXITCODE -ne 0) { throw "не удалось создать выпуск $tag в $env:REPO (в репозитории должен быть хотя бы один коммит)" }
+          }
+          gh release upload $tag $exe "$exe.sha256" --repo $env:REPO --clobber
+          if ($LASTEXITCODE -ne 0) { throw "не удалось выложить установщик в $env:REPO" }

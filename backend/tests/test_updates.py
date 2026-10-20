@@ -1,0 +1,84 @@
+"""Updates: the newest release of the public releases repository, checked by SHA-256."""
+
+import hashlib
+from contextlib import contextmanager
+
+import httpx
+import pytest
+
+from drafter import updates
+
+EXE = b"MZ fake installer " * 1000
+SHA = hashlib.sha256(EXE).hexdigest()
+NAME = "Dota.Drafter_1.2.0_x64-setup.exe"
+
+
+def release(tag="v1.2.0", sha=True):
+    assets = [{"name": NAME, "browser_download_url": "https://x/exe", "size": len(EXE)}]
+    if sha:
+        assets.append({"name": NAME + ".sha256", "browser_download_url": "https://x/sha"})
+    return {"tag_name": tag, "body": "Что нового", "html_url": "https://github.com/r/releases/v1.2.0",
+            "published_at": "2026-10-20T10:00:00Z", "assets": assets}
+
+
+@pytest.fixture
+def net(monkeypatch, tmp_path):
+    state = {"release": release(), "status": 200, "sha": f"{SHA}  {NAME}\n", "body": EXE}
+    monkeypatch.setattr(updates, "DIR", tmp_path / "updates")
+
+    def get(url, **kw):
+        if url.endswith("/sha"):
+            return httpx.Response(200, text=state["sha"], request=httpx.Request("GET", url))
+        return httpx.Response(state["status"], json=state["release"], request=httpx.Request("GET", url))
+
+    @contextmanager
+    def stream(method, url, **kw):
+        yield httpx.Response(200, content=state["body"], request=httpx.Request(method, url))
+
+    monkeypatch.setattr(updates, "_get", get)
+    monkeypatch.setattr(updates.httpx, "stream", stream)
+    return state
+
+
+def test_versions():
+    assert updates.parse_version("v1.10.0") > updates.parse_version("1.9.9")
+    assert updates.parse_version("1.2") is None
+
+
+def test_check_newer_and_same(net):
+    c = updates.check("1.1.0")
+    assert c["newer"] and c["latest"] == "1.2.0" and c["notes"] == "Что нового" and c["ready"] is None
+    assert not updates.check("1.2.0")["newer"]
+    assert not updates.check("2.0.0")["newer"]
+
+
+def test_no_release_yet(net):
+    net["status"] = 404
+    with pytest.raises(updates.UpdateError, match="ещё нет"):
+        updates.check("1.1.0")
+
+
+def test_download_checks_sha_and_keeps_one(net):
+    (updates.DIR).mkdir(parents=True)
+    (updates.DIR / "Dota.Drafter_1.1.5_x64-setup.exe").write_bytes(b"old")
+    lines = []
+    got = updates.download(lines.append)
+    assert got["version"] == "1.2.0" and open(got["path"], "rb").read() == EXE
+    assert [f.name for f in updates.DIR.iterdir()] == [NAME]
+    assert lines[-1].startswith("Готово") and "100%" in lines
+    assert updates.check("1.1.0")["ready"]["path"] == got["path"]
+    # a second run doesn't download again
+    assert updates.download(lines.append) == got
+
+
+def test_download_bad_sha_removed(net):
+    net["body"] = EXE + b"tampered"
+    with pytest.raises(updates.UpdateError, match="не совпала"):
+        updates.download(lambda _: None)
+    assert updates.ready() is None and not list(updates.DIR.iterdir())
+
+
+def test_no_sha_no_download(net):
+    net["release"] = release(sha=False)
+    with pytest.raises(updates.UpdateError, match="контрольной суммы"):
+        updates.download(lambda _: None)

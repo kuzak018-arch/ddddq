@@ -1,13 +1,10 @@
-"""Download lane data for many pairs in the background ("скачать данные линий").
+"""Download lane data for the user's pool in the background ("скачать данные линий"). An option:
+off until the user starts it; the lane view loads any pair on its own when it is opened.
 
 Stratz has ready lane outcomes per pair (outcome.py, one request per hero and position), but no
-minute-by-minute numbers per pair, so those come from matches, one request each. This job walks
-the pairs that matter most and collects BULK_TARGET matches of each:
-
-1. the user's pool heroes (their usual position) against their most frequent lane opponents;
-2. then the frequent core matchups (mid against mid, carry against offlaner): the most frequent
-   pairs that together make up COVER of all such lane meetings (about 450 pairs, 3-4 days of the
-   token's daily limit; all ~20 000 possible pairs would take years).
+minute-by-minute numbers per pair, so those come from matches, several per request (pairs.py).
+This job collects BULK_TARGET matches (as many as opening the pair would) for the user's pool
+heroes (their usual position) against their most frequent lane opponents only.
 
 How often a pair meets: matches of our base (Legend+) with the two heroes on opposite teams,
 times the share of games each plays that position (expected matches of that lane). Pairs expected
@@ -37,12 +34,11 @@ from ..data import matches, me, stratz
 from ..data import stratz_matches as sm
 from . import pairs, service
 
-BULK_TARGET = 60            # matches per pair (the lane view tops a pair it shows up to service.TARGET)
+BULK_TARGET = service.TARGET   # matches per pair: the same as opening the pair
 POOL_MAIN = 12              # pool hero: this many opponents in the main facing position ...
 POOL_SECOND = 5             # ... and this many in the second one
 POOL_SIZE = 8
 RARE = 30                   # expected matches of the lane in our base below this: not worth a download
-COVER = 0.5                 # frequent core pairs: the top ones that make up this share of lane meetings
 WAIT_S = 600                # budget floor reached: wait this long, then try again
 EXHAUSTED_DAYS = 7
 RESUME_DELAY_S = 90         # after the app starts, wait this long before picking an unfinished job up
@@ -94,7 +90,7 @@ def expected(counts: np.ndarray, pos_mat, a: int, pa: int, b: int, pb: int) -> f
 
 
 def plan(pos_mat, pool: list[tuple[int, int]]) -> list[dict]:
-    """Pairs to download, most useful first: pool heroes first, then frequent core matchups."""
+    """Pairs to download: each pool hero against its most frequent lane opponents, most frequent first."""
     counts = pair_counts()
     n = min(counts.shape[0], pos_mat.shape[0])
     heroes = [h for h in range(1, n) if pos_mat[h].sum() > 0]
@@ -116,16 +112,6 @@ def plan(pos_mat, pool: list[tuple[int, int]]) -> list[dict]:
             ranked = sorted(heroes, key=lambda b: -expected(counts, pos_mat, h, ph, b, pb))
             for b in ranked[:POOL_MAIN if k == 0 else POOL_SECOND]:
                 add(h, ph, b, pb, "pool")
-    core = [(expected(counts, pos_mat, a, pa, b, pb), a, pa, b, pb)
-            for pa, pb in ((2, 2), (1, 3), (3, 1)) for a in heroes for b in heroes
-            if a != b and not (pa == pb == 2 and a > b)]
-    total = sum(x[0] for x in core) or 1.0
-    covered = 0.0
-    for e, a, pa, b, pb in sorted(core, reverse=True):
-        if covered >= COVER * total or e < RARE:
-            break
-        covered += e
-        add(a, pa, b, pb, "all")
     return out
 
 
@@ -192,8 +178,10 @@ def _run(pos_mat) -> None:
             while not _stop.is_set():
                 info = {}
                 pairs.collect(p["a"], p["pa"], p["b"], p["pb"], BULK_TARGET, stop=_stop, info=info,
-                              floor=sm.BACKGROUND_FLOOR, progress=lambda have, tgt, n: st.update(have=have),
-                              max_requests=BULK_TARGET * 3)
+                              floor=sm.BACKGROUND_FLOOR,
+                              progress=lambda have, tgt, n: st.update(have=have, requests=st.get("requests_before", 0) + n))
+                st["requests_before"] = st.get("requests_before", 0) + info.get("requests", 0)
+                st["requests"] = st["requests_before"]
                 if info["reason"] != "budget":
                     break
                 # the hour's budget is down to the floor: wait, then let the next request read fresh limits
@@ -276,5 +264,6 @@ def status() -> dict:
     out = {k: v for k, v in _state.items()}
     out["limits"] = dict(stratz.limits)
     out["target"] = BULK_TARGET
+    out["batch"] = pairs.batch_state()
     out["wanted"] = wanted()
     return out

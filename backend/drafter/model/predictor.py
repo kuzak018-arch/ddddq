@@ -67,6 +67,25 @@ class Predictor:
                     self.pos_mat[h] = v
             self.positions_source = f"Stratz, {bracket}"
         self.heroes = constants.hero_by_id()
+        self._grow_to(max(self.heroes, default=0) + 1)
+
+    def _grow_to(self, n: int) -> None:
+        """A patch brings a hero the model was trained without (constants are refreshed at once, the
+        model only after enough games): every per-hero array grows with zeros, so the new hero is
+        «no data» (neutral) instead of an IndexError in the hero list and the draft."""
+        old = self.n_ids
+        if n <= old:
+            return
+
+        def grow(a: np.ndarray) -> np.ndarray:
+            pad = [(0, n - old) if dim == old else (0, 0) for dim in a.shape]
+            return np.pad(a, pad) if any(p[1] for p in pad) else a
+
+        self.S, self.C = grow(self.S), grow(self.C)
+        self.pair_games = tuple(grow(g) for g in self.pair_games)
+        self.hero_w, self.hero_group_w = grow(self.hero_w), grow(self.hero_group_w)
+        self.pick_rate, self.lw, self.pos_mat = grow(self.pick_rate), grow(self.lw), grow(self.pos_mat)
+        self.n_ids = n
 
     # ---- basics -------------------------------------------------------------------------
 

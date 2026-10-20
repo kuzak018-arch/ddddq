@@ -11,19 +11,23 @@ import os
 import re
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Literal
 
+import httpx
 from fastapi import FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel, Field, model_validator
 
-from .. import config, dota_paths, gsi, hero_grid, keybinds, search
+from .. import config, dota_paths, gsi, hero_grid, ingame, keybinds, search, updates
 from .. import settings as user_settings
 from ..builds import counter, standard
 from ..builds import service as build_service
-from ..data import constants, matches, me, my_matches, stratz
+from ..data import constants, gridstudio, matches, me, my_matches, patchnotes, players, renders, stratz
 from ..lane import bulk as lane_bulk
 from ..lane import service as lane_service
 from ..model import draft, explain, meta, predictor, train
@@ -34,6 +38,7 @@ from ..vision import calibration as vcal
 from ..vision import capture as vcap
 from ..vision import collector as vcollect
 from ..vision import evaluate as veval
+from ..vision import layout as vlayout
 from ..vision import matcher as vmatch
 from ..vision import reader as vread
 from ..vision import runner
@@ -42,7 +47,7 @@ from .events import bus, jobs
 
 ORIGINS = ["tauri://localhost", "http://tauri.localhost", "https://tauri.localhost",
            "http://localhost:1420", "http://127.0.0.1:1420"]
-OPEN_PATHS = ("/health", "/icons/", "/docs", "/openapi.json")
+OPEN_PATHS = ("/health", "/icons/", "/mod-fonts/", "/workshop-media/", "/docs", "/openapi.json")
 
 
 def token() -> str | None:
@@ -59,12 +64,22 @@ vision_runner = runner.Runner(
 
 def _set_vision(on: bool) -> None:
     s = user_settings.load()
-    user_settings.save(s.model_copy(update={"vision_enabled": on}))
+    user_settings.save(s.model_copy(update={"vision_off": not on}))
     vision_runner.set_enabled(on)
 
 
+def _vision_wanted() -> bool:
+    """Reading is on from the first draft unless the user switched it off (now or, before this
+    setting existed, in the wizard: auto.json's manual_off)."""
+    return not user_settings.load().vision_off and not vauto.state().get("manual_off")
+
+
+def _set_cautious(on: bool) -> None:
+    vision_runner.cautious = on
+
+
 def _after_draft(d: dict) -> None:
-    out = vauto.finalize(d, _set_vision, lambda: vision_runner.enabled)
+    out = vauto.finalize(d, _set_cautious)
     bus.publish("vision", status=vision_runner.status(), auto=out)
 
 
@@ -94,7 +109,10 @@ async def lifespan(app: FastAPI):
             server = gsi.serve(_on_gsi)
         except OSError as e:  # port taken (another copy running): the app still works without GSI
             print(f"GSI-приёмник не запущен: порт {gsi.PORT} занят ({e})", flush=True)
-    if user_settings.load().vision_enabled:
+        if gsi.upgrade():
+            print("конфиг GSI обновлён (добавлены предметы для подсказок в игре): перезапусти Доту", flush=True)
+    vision_runner.cautious = not vauto.proven()
+    if _vision_wanted():
         vision_runner.set_enabled(True)
     if os.environ.get("DRAFTER_NO_GSI") != "1":   # without GSI there is never a draft phase to collect
         vision_collector.start()
@@ -129,8 +147,22 @@ async def auth(request: Request, call_next):
     return await call_next(request)
 
 
+class IconFiles(StaticFiles):
+    """Icons from the local cache; a hero or item icon that is not there yet is downloaded once."""
+
+    async def get_response(self, path, scope):
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as e:
+            if e.status_code != 404 or not await run_in_threadpool(constants.fetch_icon, path):
+                raise
+            return await super().get_response(path, scope)
+
+
 (config.DATA / "icons").mkdir(parents=True, exist_ok=True)
-app.mount("/icons", StaticFiles(directory=config.DATA / "icons"), name="icons")
+app.mount("/icons", IconFiles(directory=config.DATA / "icons"), name="icons")
+# the free fonts of «Оформление игры» (SIL OFL), for the preview in the UI
+app.mount("/mod-fonts", StaticFiles(directory=config.SHARED / "dota-fonts", check_dir=False), name="mod-fonts")
 
 
 # ---------- context ----------------------------------------------------------------------
@@ -432,13 +464,14 @@ def lane_bulk_action(body: LaneBulkIn):
 def my_profile():
     data = me.load()
     if not data:
-        raise HTTPException(404, "истории ещё нет: POST /me/refresh")
+        raise HTTPException(404, "истории ещё нет: нажми «Обновить историю»")
     pool = me.hero_pool(data)
     prof = data["profile"].get("profile") or {}
     heroes = sorted(pool["heroes"].items(), key=lambda kv: -kv[1]["games"])[:30]
     return {"account_id": data["account_id"], "name": prof.get("personaname"),
             "avatar": "/me/avatar" if me.AVATAR.exists() else None,
-            "rank_tier": me.rank_tier(data), "fetched": data["fetched"], "overall": pool["overall"],
+            "rank_tier": me.rank_tier(data), "leaderboard": data["profile"].get("leaderboard_rank"),
+            "plus": bool(prof.get("plus")), "fetched": data["fetched"], "overall": pool["overall"],
             "experience": pool["experience"],
             "heroes": [{"hero": h, **{k: (round(v, 4) if isinstance(v, float) else v) for k, v in s.items()}}
                        for h, s in heroes]}
@@ -452,6 +485,161 @@ def my_avatar():
     return FileResponse(me.AVATAR, media_type="image/jpeg")
 
 
+# ---------- patch notes (data/patchnotes.py) ---------------------------------------------------
+
+def _my_heroes() -> set[int]:
+    """The heroes the user plays (5+ games, the 20 most played): their changes come first."""
+    try:
+        pool = me.hero_pool()
+    except Exception:  # noqa: BLE001 - no history yet: nothing is «mine»
+        return set()
+    ranked = sorted(pool["heroes"].items(), key=lambda kv: -kv[1]["games"])[:20]
+    return {int(h) for h, st in ranked if st["games"] >= 5}
+
+
+@app.get("/patches")
+def patches_list(refresh: bool = False):
+    try:
+        if refresh:
+            patchnotes.ensure(refresh=True)
+        return patchnotes.patch_list(_my_heroes())
+    except patchnotes.PatchNotesError as e:
+        raise HTTPException(502, str(e))
+
+
+@app.get("/patches/{version}")
+def patch_notes(version: str):
+    if not re.fullmatch(r"\d+\.\d+[a-z]?", version):
+        raise HTTPException(422, "неверный номер патча")
+    try:
+        return patchnotes.patch(version, _my_heroes())
+    except patchnotes.PatchNotesError as e:
+        raise HTTPException(404 if "нет патча" in str(e) else 502, str(e))
+
+
+# ---------- GridStudio's workshop (data/gridstudio.py) ----------------------------------------
+
+def _workshop(fn, *a, **kw):
+    if os.environ.get("DRAFTER_NO_BUILD_LOAD") == "1":   # tests: never hit the network
+        raise HTTPException(503, "мастерская выключена в тестах")
+    try:
+        return fn(*a, **kw)
+    except gridstudio.WorkshopError as e:
+        raise HTTPException(404 if "больше нет" in str(e) else 502, str(e))
+
+
+@app.get("/workshop/meta")
+def workshop_meta():
+    return gridstudio.meta()
+
+
+@app.get("/workshop/grids")
+def workshop_grids(q: str = "", tag: str = "", sort: str = "popular", page: int = 0):
+    return _workshop(gridstudio.grids, q, tag, sort, page)
+
+
+@app.get("/workshop/grids/{work_id}")
+def workshop_grid(work_id: str):
+    return _workshop(gridstudio.grid_file, work_id)
+
+
+@app.get("/workshop/backgrounds")
+def workshop_backgrounds(q: str = "", tag: str = "", aspect: str = "", sort: str = "popular", page: int = 0):
+    return _workshop(gridstudio.backgrounds, q, tag, aspect, sort, page)
+
+
+@app.get("/workshop/arts")
+def workshop_arts():
+    return _workshop(gridstudio.arts)
+
+
+@app.get("/workshop-media/grid/{work_id}.jpg")
+def workshop_grid_preview(work_id: str, rev: str = ""):
+    from fastapi.responses import FileResponse
+    return FileResponse(_workshop(gridstudio.grid_preview, work_id, rev), media_type="image/jpeg")
+
+
+@app.get("/workshop-media/bg/{bg_id}/{name}")
+def workshop_background_file(bg_id: str, name: str):
+    from fastapi.responses import FileResponse
+    path, kind = _workshop(gridstudio.background_file, bg_id, name)
+    return FileResponse(path, media_type=kind)
+
+
+# ---------- links to the sites the app shows data from ------------------------------------------
+# The app window has no browser of its own: a link opens in the default browser, for these
+# sites only (a page can't make the backend open anything else).
+
+LINK_HOSTS = ("stratz.com", "www.dotabuff.com", "dotabuff.com", "www.opendota.com", "opendota.com",
+              "steamcommunity.com", "gridstudio.me", "github.com", "t.me")
+
+
+class OpenUrlIn(BaseModel):
+    url: str = Field(..., max_length=500)
+
+
+@app.post("/open-url")
+def open_url(body: OpenUrlIn):
+    from urllib.parse import urlparse
+    u = urlparse(body.url)
+    if u.scheme != "https" or (u.hostname or "") not in LINK_HOSTS:
+        raise HTTPException(422, "эту ссылку программа не открывает")
+    if os.environ.get("DRAFTER_NO_BUILD_LOAD") != "1":   # tests: nothing opens
+        import webbrowser
+        webbrowser.open(body.url)
+    return {"opened": body.url}
+
+
+# ---------- any player, searched by hand (data/players.py) --------------------------------------
+# Only what the user typed: players of the current match are never looked up by themselves.
+
+@app.get("/players/lookup")
+def player_lookup(q: str = Query(..., max_length=300), refresh: bool = False):
+    if os.environ.get("DRAFTER_NO_BUILD_LOAD") == "1":   # tests: never hit the network
+        raise HTTPException(503, "поиск игроков выключен в тестах")
+    try:
+        return players.lookup(q, refresh)
+    except players.PlayerError as e:
+        raise HTTPException(422, str(e))
+
+
+# ---------- hero models on a transparent background (data/renders.py) -------------------------
+# The files themselves are served from /icons/renders/ (open, like every icon).
+
+def _render_call(fn, *a):
+    try:
+        return fn(*a)
+    except renders.RenderError as e:
+        raise HTTPException(422, str(e))
+    except httpx.HTTPError as e:
+        raise HTTPException(502, f"CDN Valve не ответил: {e}")
+
+
+@app.get("/hero-render/{key}")
+def hero_render_info(key: str):
+    return _render_call(renders.info, key)
+
+
+@app.post("/hero-render/{key}/video")
+def hero_render_video(key: str):
+    """Download the animated render once (about 5-10 MB); the app takes its first frame."""
+    _render_call(renders.video, key)
+    return renders.info(key)
+
+
+@app.post("/hero-render/{key}/still")
+async def hero_render_still(key: str, request: Request):
+    """The first frame of the render as PNG with alpha, drawn by the app (raw bytes in the body)."""
+    data = await request.body()
+    return await run_in_threadpool(_render_call, renders.save_still, key, data)
+
+
+@app.post("/hero-render/{key}/segment")
+def hero_render_segment(key: str):
+    """No transparent render: remove the background locally, once."""
+    return _render_call(renders.segment, key)
+
+
 @app.get("/me/summary")
 def my_summary():
     return me.summary(_pred().pos_mat)
@@ -462,7 +650,7 @@ def my_matches_list(refresh: bool = False):
     """Recent ranked matches with an estimate of how I played. Answers from the cache at once and
     refreshes from Stratz in the background when it is stale: poll while job.status == "loading"."""
     if not config.settings().account_id:
-        raise HTTPException(409, "не указан аккаунт: введи Steam ID в первом запуске или в настройках")
+        raise HTTPException(409, "не указан аккаунт: укажи Steam ID в «Настройки → Аккаунт»")
     if os.environ.get("DRAFTER_NO_BUILD_LOAD") != "1":   # tests: never hit the network
         my_matches.ensure_fresh(force=refresh)
     return my_matches.history()
@@ -471,7 +659,7 @@ def my_matches_list(refresh: bool = False):
 @app.post("/me/refresh")
 def my_refresh():
     if not config.settings().account_id:
-        raise HTTPException(409, "не указан аккаунт: введи Steam ID в первом запуске или в настройках")
+        raise HTTPException(409, "не указан аккаунт: укажи Steam ID в «Настройки → Аккаунт»")
     d = me.refresh()
     my_matches.ensure_fresh(force=True)
     return {"matches": len(d["matches"]), "rank_tier": me.rank_tier(d)}
@@ -505,6 +693,80 @@ def put_setup(body: SetupIn):
     if values:
         config.write_env(**values)
     return get_setup()
+
+
+@app.get("/setup/dota")
+def get_setup_dota():
+    """The Dota folder in use: picked by hand in the setup, or found through Steam."""
+    manual = user_settings.load().dota_dir
+    auto = dota_paths.auto_dota_path()
+    used = dota_paths.dota_path()
+    return {"path": str(used) if used else None, "auto": str(auto) if auto else None, "manual": manual,
+            "manual_ok": bool(manual) and dota_paths.is_dota_dir(Path(manual))}
+
+
+class DotaDirIn(BaseModel):
+    path: str | None = Field(None, max_length=1000)
+
+
+@app.put("/setup/dota")
+def put_setup_dota(body: DotaDirIn):
+    """A folder picked by hand (anything inside «dota 2 beta» will do); null goes back to Steam's."""
+    root = None
+    if body.path and body.path.strip():
+        root = dota_paths.find_dota_root(Path(body.path.strip().strip('"')))
+        if root is None:
+            raise HTTPException(422, "в этой папке нет Доты: нужна «dota 2 beta» (Steam → steamapps → common)")
+    s = user_settings.load()
+    user_settings.save(s.model_copy(update={"dota_dir": str(root) if root else None}))
+    return get_setup_dota()
+
+
+@app.post("/setup/dota/browse")
+def browse_dota_dir():
+    """Windows' own folder picker (the app window has no file dialog of its own); null if cancelled."""
+    import subprocess
+    script = ("Add-Type -AssemblyName System.Windows.Forms;"
+              "$d=New-Object System.Windows.Forms.FolderBrowserDialog;"
+              "$d.Description='Папка Доты: dota 2 beta';$d.ShowNewFolderButton=$false;"
+              "if($d.ShowDialog() -eq 'OK'){[Console]::OutputEncoding=[Text.Encoding]::UTF8;$d.SelectedPath}")
+    try:
+        r = subprocess.run(["powershell", "-NoProfile", "-STA", "-Command", script], capture_output=True,
+                           timeout=600, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise HTTPException(503, f"окно выбора папки не открылось: {e}")
+    picked = r.stdout.decode("utf-8", errors="replace").strip()
+    return {"path": picked or None}
+
+
+@app.get("/setup/accounts")
+def setup_accounts():
+    """Steam accounts that signed in on this PC, the last one first (to fill the Friend ID)."""
+    return {"accounts": dota_paths.steam_accounts()}
+
+
+class StratzCheckIn(BaseModel):
+    token: str = Field(..., max_length=2000)
+
+
+@app.post("/setup/stratz-check")
+def stratz_check(body: StratzCheckIn):
+    """Whether a Stratz token works, before it is saved: one tiny query with it."""
+    token = body.token.strip()
+    if not token or not re.fullmatch(r"[A-Za-z0-9._\-]+", token):
+        return {"ok": False, "error": "токен выглядит неправильно: это длинная строка с сайта stratz.com/api"}
+    try:
+        r = httpx.post(config.STRATZ, json={"query": "{ player(steamAccountId: 86745912) { steamAccountId } }"}, timeout=20,
+                       headers={"Authorization": f"Bearer {token}", "User-Agent": "STRATZ_API"})
+    except httpx.HTTPError as e:
+        return {"ok": False, "error": f"Stratz не ответил: {e}"}
+    if r.status_code in (401, 403):
+        return {"ok": False, "error": "Stratz не принял токен: скопируй его заново (stratz.com/api → API Token)"}
+    if r.status_code == 429:
+        return {"ok": True, "error": None, "note": "токен верный, но Stratz просит подождать: лимит запросов"}
+    if r.status_code >= 400:
+        return {"ok": False, "error": f"Stratz ответил {r.status_code}"}
+    return {"ok": True, "error": None}
 
 
 # ---------- shared live draft ----------------------------------------------------------------
@@ -550,6 +812,11 @@ class GridWriteIn(BaseModel):
 
 class GridRestoreIn(BaseModel):
     name: str = Field(max_length=120)
+
+
+class GridConfigsIn(BaseModel):
+    """Grids from the editor, in the file's own shape (config_name, categories)."""
+    configs: list[dict] = Field(min_length=1, max_length=hero_grid.MAX_CONFIGS)
 
 
 def _grid_args() -> tuple[int | None, int, str | None, int]:
@@ -600,6 +867,42 @@ def hero_grids_write(body: GridWriteIn):
     return _grid_call(hero_grid.apply, account, list(built.values()))
 
 
+@app.get("/hero-grids/file")
+def hero_grids_file():
+    """Every grid of the user's file, for the editor's import (read only)."""
+    return {"prefix": hero_grid.PREFIX, **_grid_call(hero_grid.read_configs, config.settings().account_id)}
+
+
+@app.post("/hero-grids/write-configs")
+def hero_grids_write_configs(body: GridConfigsIn):
+    """The editor's grids into Dota: each gets our prefix, so only our grids are added or replaced;
+    our grids that are not among them leave the file. Same checks as /hero-grids/write."""
+    ours = _grid_call(hero_grid.clean_configs, body.configs)
+    return _grid_call(hero_grid.apply, config.settings().account_id, ours)
+
+
+@app.post("/hero-grids/export")
+def hero_grids_export(body: GridConfigsIn):
+    """A hero_grid_config.json of the editor's grids (names as they are), saved in exports/."""
+    configs = _grid_call(hero_grid.clean_configs, body.configs, False)
+    text = hero_grid.export_text(configs)
+    folder = config.ROOT / "exports"
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"hero_grid_config-{time.strftime('%Y%m%d-%H%M%S')}.json"
+    path.write_text(text, encoding="utf-8", newline="")
+    return {"path": str(path), "folder": str(folder), "text": text}
+
+
+@app.post("/hero-grids/open-exports")
+def hero_grids_open_exports():
+    folder = config.ROOT / "exports"
+    folder.mkdir(parents=True, exist_ok=True)
+    if not hasattr(os, "startfile"):
+        raise HTTPException(501, "открыть папку можно только в Windows")
+    os.startfile(folder)  # Explorer on our own folder
+    return {"folder": str(folder)}
+
+
 @app.post("/hero-grids/remove")
 def hero_grids_remove():
     return _grid_call(hero_grid.remove_ours, config.settings().account_id)
@@ -615,6 +918,17 @@ def hero_grids_restore(body: GridRestoreIn):
 @app.get("/gsi/status")
 def gsi_status():
     return {"port": gsi.PORT, **gsi.installed(), **tracker.status()}
+
+
+@app.get("/game/live")
+def game_live(targets: str = ""):
+    """In-game hints for the overlay (ingame.py): timers, the next item of the build, buyback.
+    `targets` is the build's item order, comma-separated. null live: no match or GSI silent."""
+    live = tracker.live
+    if live and time.time() - live["ts"] > 15:
+        live = None  # Dota closed or the match ended without a final message
+    keys = [k for k in targets.split(",") if re.fullmatch(r"[a-z0-9_]{1,60}", k)][:30]
+    return ingame.hints(live, keys)
 
 
 @app.post("/gsi/install")
@@ -657,10 +971,11 @@ def vision_status():
     cal = vcal.load()
     auto_state = vauto.state()
     return {**vision_runner.status(), "calibrated": vcal.PATH.exists(), "calibration_auto": cal.auto,
+            "layout_base": vlayout.base()[1], "fits": sorted(vlayout._detected()),
             "labeled_frames": labeled, "required_precision": veval.REQUIRED_PRECISION, "report": report,
             "dota_window": vcap.find_window() is not None, "collect": vision_collector.status(),
-            "auto": {"last": auto_state.get("last"), "auto_enabled": auto_state.get("auto_enabled", False),
-                     "enabled_at": auto_state.get("enabled_at"),
+            "auto": {"last": auto_state.get("last"), "proven": bool(auto_state.get("proven")),
+                     "proven_at": auto_state.get("proven_at"),
                      "rule": {"drafts": vauto.AUTO_MIN_DRAFTS, "frames": vauto.AUTO_MIN_FRAMES,
                               "filled": vauto.AUTO_MIN_FILLED}}}
 
@@ -728,18 +1043,60 @@ def vision_autocal(body: AutocalIn):
 
 
 @app.get("/vision/calibration", response_model=vcal.Calibration)
-def vision_get_calibration():
+def vision_get_calibration(width: int | None = None, height: int | None = None):
+    """The rects the reader uses on a frame of this size (saved, detected or built-in)."""
+    if width and height:
+        return vlayout.for_frame(width, height)
     return vcal.load()
 
 
 @app.put("/vision/calibration", response_model=vcal.Calibration)
 def vision_put_calibration(c: vcal.Calibration):
-    return vcal.save(c.model_copy(update={"preset": False}))
+    """Rects the user placed or approved: they win over everything automatic for this aspect."""
+    return vcal.save(c.model_copy(update={"preset": False, "auto": False, "source": "manual"}))
+
+
+@app.delete("/vision/calibration")
+def vision_reset_calibration():
+    """Back to reading without calibration: the saved rects and the detected fits are dropped."""
+    had = vcal.PATH.exists()
+    vcal.PATH.unlink(missing_ok=True)
+    vlayout.forget_fits()
+    return {"removed": had}
 
 
 @app.get("/vision/calibration/preset", response_model=vcal.Calibration)
-def vision_preset():
-    return vcal.preset_16_9()
+def vision_preset(width: int = 1920, height: int = 1080):
+    return vlayout.profile(width, height)
+
+
+@app.get("/vision/layout")
+def vision_layout():
+    """What reading without calibration knows: the built-in resolutions, the fits found on frames."""
+    _, origin = vlayout.base()
+    fits = vlayout._detected()
+    return {"base": origin,
+            "profiles": [{"width": w, "height": h, "aspect": vlayout.aspect_label(w, h),
+                          "source": vlayout.for_frame(w, h).source} for w, h in vlayout.PROFILES],
+            "fits": [{"size": k, **{f: v.get(f) for f in ("scale", "score", "portraits", "at", "base")}} for k, v in fits.items()],
+            "last_fit": vision_runner.autofit.last_info}
+
+
+class DetectIn(BaseModel):
+    snapshot: str
+    save: bool = False
+
+
+@app.post("/vision/detect")
+def vision_detect(body: DetectIn):
+    """Fit the layout to this frame by the portraits on it (no heroes need to be known)."""
+    frame = vmatch._read(_snapshot_path(body.snapshot))
+    h, w = frame.shape[:2]
+    fit, info = vlayout.detect(frame)
+    if fit and body.save:
+        vlayout.save_fit(w, h, fit)
+    cal = vlayout._make(vlayout.base()[0], w, h, "detected", fit) if fit else None
+    return {"calibration": cal, "info": info, "saved": bool(fit and body.save)}
 
 
 class ReadIn(BaseModel):
@@ -751,6 +1108,37 @@ class ReadIn(BaseModel):
 def vision_read(body: ReadIn):
     frame = vmatch._read(_snapshot_path(body.snapshot))
     return vread.as_json(vread.read(frame, body.calibration))
+
+
+class CropsIn(BaseModel):
+    snapshot: str
+    calibration: vcal.Calibration
+
+
+@app.post("/vision/crops")
+def vision_crops(body: CropsIn):
+    """Exactly what the reader cuts out of this frame with these rectangles (the same crop code),
+    as small PNGs: the wizard shows them under the frame right after a rectangle moves."""
+    import base64
+    import cv2
+    frame = vmatch._read(_snapshot_path(body.snapshot))
+    h, w = frame.shape[:2]
+    out: dict = {"width": w, "height": h, "warnings": []}
+    if abs(w / h - body.calibration.aspect) > 0.02:
+        out["warnings"].append(f"соотношение сторон кадра {w}×{h} не совпадает с этими рамками: "
+                               "нажми «Встроенный профиль» или «Найти рамки по кадру»")
+    for group, items in vread.crops(frame, body.calibration).items():
+        out[group] = []
+        for crop in items:
+            if crop.size == 0:
+                out[group].append(None)
+                continue
+            scale = min(1.0, 96 / max(crop.shape[1], 1))
+            small = cv2.resize(crop, (max(1, round(crop.shape[1] * scale)), max(1, round(crop.shape[0] * scale))),
+                               interpolation=cv2.INTER_AREA) if scale < 1 else crop
+            ok, buf = cv2.imencode(".png", small)
+            out[group].append("data:image/png;base64," + base64.b64encode(buf.tobytes()).decode() if ok else None)
+    return out
 
 
 class LabelIn(BaseModel):
@@ -806,29 +1194,219 @@ class EnableIn(BaseModel):
 
 @app.post("/vision/enable")
 def vision_enable(body: EnableIn):
-    if body.on:
-        ev = vauto.evaluate_all()   # frames confirmed in the wizard plus frames collected in drafts
-        if ev["frames"] < 3:
-            raise HTTPException(409, "сначала нужны хотя бы 3 настоящих кадра драфта: собранные в матчах "
-                                     "(с заполненной доской) или подтверждённые в мастере")
-        if ev["precision"] is None or ev["precision"] < veval.REQUIRED_PRECISION:
-            got = "—" if ev["precision"] is None else f"{ev['precision']:.0%}"
-            raise HTTPException(409, f"точность на настоящих кадрах {got}, нужно не ниже "
-                                     f"{veval.REQUIRED_PRECISION:.0%}: подтверди ещё кадры или подними порог")
+    """On or off by hand, at any time. While the accuracy is unproven the reader is cautious
+    (only confident reads), so switching it on early fills fewer slots, not wrong ones."""
     _set_vision(body.on)
-    if not body.on:   # switched off by hand: don't switch it back on by itself
-        st = vauto.state()
-        st["auto_enabled"] = False
-        st["manual_off"] = True
-        vauto._save_state(st)
+    st = vauto.state()
+    st["manual_off"] = not body.on
+    st.pop("auto_enabled", None)
+    vauto._save_state(st)
     return vision_runner.status()
 
 
 # ---------- jobs & events ----------------------------------------------------------------
 
+class DebugLogIn(BaseModel):
+    lines: list[str] = Field(..., max_length=500)
+
+
+UI_DEBUG_MAX = 2_000_000
+
+
+# ---------- «Игры топов» ----------------------------------------------------------------------
+
+@app.get("/top-games/{hero_id}")
+def top_games(hero_id: int, source: Literal["immortal", "divine", "pro"] = "immortal", refresh: bool = False):
+    """Recent current-patch matches of the hero by Immortal / Divine+ players or pros; starts a
+    background load when needed (poll while `loading`)."""
+    from .. import topgames
+    if hero_id not in constants.hero_by_id():
+        raise HTTPException(404, "нет такого героя")
+    return topgames.get(hero_id, source, refresh)
+
+
+# ---------- «Оформление игры»: the menu background and fonts (off by default) -----------------
+
+MOD_BUNDLE_MAX = 80_000_000
+
+
+def _unbundle(body: bytes) -> tuple[dict, list[bytes]]:
+    """The UI's upload: 4-byte length + JSON, then 4-byte length + data for each file (no
+    multipart parser in the bundled backend)."""
+    import struct as _struct
+    if len(body) > MOD_BUNDLE_MAX:
+        raise HTTPException(413, "слишком большой файл")
+    try:
+        n = _struct.unpack_from("<I", body, 0)[0]
+        meta = json.loads(body[4:4 + n].decode("utf-8"))
+        at, blobs = 4 + n, []
+        while at < len(body):
+            size = _struct.unpack_from("<I", body, at)[0]
+            blobs.append(body[at + 4:at + 4 + size])
+            at += 4 + size
+    except (ValueError, _struct.error, UnicodeDecodeError):
+        raise HTTPException(400, "повреждённая отправка") from None
+    if not isinstance(meta, dict):
+        raise HTTPException(400, "повреждённая отправка")
+    return meta, blobs
+
+
+def _mods_call(fn, *args):
+    from ..game_mods import fonts as mod_fonts, install as mod_install, menu as mod_menu
+    try:
+        return fn(*args)
+    except (mod_install.ModError, mod_menu.PackError, mod_fonts.FontError) as e:
+        raise HTTPException(422, str(e))
+    except hero_grid.GridError as e:
+        raise HTTPException(422, str(e))
+
+
+@app.get("/game-mods/status")
+def game_mods_status():
+    from ..game_mods import install as mod_install
+    return mod_install.status(config.settings().account_id)
+
+
+@app.get("/game-mods/fonts")
+def game_mods_fonts():
+    from ..game_mods import fonts as mod_fonts
+    return {"fonts": mod_fonts.catalog(), "families": mod_fonts.FAMILIES, "base": "/mod-fonts"}
+
+
+@app.post("/game-mods/font-check")
+async def game_mods_font_check(request: Request):
+    """A font of the user's: can Dota use it, which letters it lacks."""
+    from ..game_mods import fonts as mod_fonts
+    data = await request.body()
+    if len(data) > 30_000_000:
+        raise HTTPException(413, "файл шрифта больше 30 МБ")
+    font = _mods_call(mod_fonts.read_font, data)
+    return {"family": font.names.get(16) or font.names.get(1) or "", "style": font.names.get(17) or font.names.get(2) or "",
+            "weight": font.weight, "italic": font.italic, "missing": font.missing()}
+
+
+@app.post("/game-mods/background")
+async def game_mods_background(request: Request):
+    """meta: {clean, hero: off|menu|own, grid: menu|dim|own, grid_dim, has_menu, accept: true};
+    files in order: the menu video (if has_menu), the hero's (hero=own), the grid's (grid=own)."""
+    from ..game_mods import install as mod_install, menu as mod_menu
+    meta, blobs = _unbundle(await request.body())
+    if meta.get("accept") is not True:
+        raise HTTPException(422, "сначала включи «Оформление игры» и прочитай предупреждение")
+    queue = list(blobs)
+    take = lambda: queue.pop(0) if queue else None  # noqa: E731
+    video = take() if meta.get("has_menu") else None
+    hero, grid = str(meta.get("hero", "off")), str(meta.get("grid", "menu"))
+    hero_video = take() if hero == "own" else None
+    grid_video = take() if grid == "own" else None
+    pack = _mods_call(lambda: mod_menu.build_pack(video, clean=bool(meta.get("clean")), hero=hero, hero_video=hero_video,
+                                                  grid=grid, grid_dim=float(meta.get("grid_dim", 0.5)), grid_video=grid_video))
+    info = {"clean": bool(meta.get("clean")), "hero": hero, "grid": grid, "menu": video is not None, "label": str(meta.get("label", ""))[:120]}
+    return await run_in_threadpool(_mods_call, mod_install.install_background, config.settings().account_id, pack, info)
+
+
+@app.post("/game-mods/fonts")
+async def game_mods_install_fonts(request: Request):
+    """meta: {catalog: id | null, families: [...], keep_grid, accept: true}; files: the user's own fonts."""
+    from ..game_mods import fonts as mod_fonts, install as mod_install
+    meta, blobs = _unbundle(await request.body())
+    if meta.get("accept") is not True:
+        raise HTTPException(422, "сначала включи «Оформление игры» и прочитай предупреждение")
+    families = [f for f in meta.get("families", []) if f in mod_fonts.FAMILIES]
+    if not families:
+        raise HTTPException(422, "выбери, какой текст Доты заменить")
+    if meta.get("catalog"):
+        faces = _mods_call(mod_fonts.catalog_fonts, str(meta["catalog"]))
+        label = str(meta["catalog"])
+    else:
+        if not blobs:
+            raise HTTPException(422, "нет файла шрифта")
+        faces = [_mods_call(mod_fonts.read_font, b) for b in blobs]
+        label = "свой шрифт"
+    keep = [mod_fonts.GRID_FONT_FILE] if meta.get("keep_grid") else []
+    files = _mods_call(mod_fonts.font_pack, faces, families, keep)
+    return await run_in_threadpool(_mods_call, mod_install.install_fonts, files, {"font": label, "families": families, "keep_grid": bool(keep)})
+
+
+@app.post("/game-mods/packs")
+async def game_mods_install_pack(request: Request, name: str = Query("", max_length=200), accept: bool = False):
+    """A VPK of the user's (raw body) into the voice language folder («Свои VPK»)."""
+    from ..game_mods import install as mod_install
+    if not accept:
+        raise HTTPException(422, "сначала включи «Оформление игры» и прочитай предупреждение")
+    size = int(request.headers.get("content-length") or 0)
+    if size > mod_install.PACK_MAX:
+        raise HTTPException(413, "VPK больше 1,5 ГБ")
+    # streamed to a file: a pack can be a gigabyte, it is never held in memory whole
+    folder = mod_install.incoming_dir()
+    folder.mkdir(parents=True, exist_ok=True)
+    part = folder / f"upload-{os.getpid()}-{time.time_ns()}.vpk"
+    try:
+        written = 0
+        with part.open("wb") as f:
+            async for chunk in request.stream():
+                written += len(chunk)
+                if written > mod_install.PACK_MAX:
+                    raise HTTPException(413, "VPK больше 1,5 ГБ")
+                f.write(chunk)
+        return await run_in_threadpool(_mods_call, mod_install.install_pack, config.settings().account_id, part, name)
+    finally:
+        part.unlink(missing_ok=True)
+
+
+@app.post("/game-mods/remove")
+def game_mods_remove(body: dict):
+    from ..game_mods import install as mod_install
+    what = body.get("what", "all")
+    if what == "pack":
+        return {"removed": _mods_call(mod_install.remove_pack, str(body.get("id", "")))}
+    fn = {"all": mod_install.remove_all, "background": mod_install.remove_background, "fonts": mod_install.remove_fonts,
+          "packs": mod_install.remove_packs}.get(what)
+    if fn is None:
+        raise HTTPException(422, "непонятно, что убрать")
+    return {"removed": _mods_call(fn)}
+
+
+@app.post("/debug/log")
+def debug_log(body: DebugLogIn):
+    """The UI's hidden debug mode (wheel events and the like) appends here: logs/ui-debug.log in
+    the user's data folder. Kept under ~2 MB: the older half goes when it grows past that."""
+    path = config.ROOT / "logs" / "ui-debug.log"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists() and path.stat().st_size > UI_DEBUG_MAX:
+        data = path.read_bytes()
+        path.write_bytes(data[len(data) // 2:])
+    with path.open("a", encoding="utf-8") as f:
+        for line in body.lines:
+            f.write(line[:4000].replace("\n", " ") + "\n")
+    return {"ok": True, "path": str(path)}
+
+
 @app.post("/data/refresh")
 def data_refresh():
     return jobs.start("refresh", refresh.run).public()
+
+
+# ---------- updates of the app (updates.py) ------------------------------------------------------
+
+@app.get("/update/check")
+def update_check(current: str = Query(..., max_length=20)):
+    if os.environ.get("DRAFTER_NO_BUILD_LOAD") == "1":   # tests: never hit the network
+        raise HTTPException(503, "проверка обновлений выключена в тестах")
+    try:
+        return updates.check(current)
+    except updates.UpdateError as e:
+        raise HTTPException(502, str(e)) from e
+
+
+@app.post("/update/download")
+def update_download():
+    return jobs.start("update", updates.download).public()
+
+
+@app.get("/update/ready")
+def update_ready():
+    return {"ready": updates.ready()}
 
 
 @app.get("/jobs")

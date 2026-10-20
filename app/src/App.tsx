@@ -1,19 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { waitForBackend } from './api/client';
-import { Dock, TitleBar, Wallpaper } from './components/Chrome';
+import { TitleBar, useCalmBackground, Wallpaper } from './components/Chrome';
 import { Effects } from './components/Effects';
 import { Panel } from './components/Glass';
 import { Onboarding } from './components/Onboarding';
 import { refractionSupported } from './glass/refraction';
 import { BuildsPage } from './pages/BuildsPage';
 import { DraftPage } from './pages/DraftPage';
+import { GridsPage } from './pages/GridsPage';
 import { HeroPage } from './pages/HeroPage';
 import { MetaPage } from './pages/MetaPage';
+import { PatchesPage } from './pages/PatchesPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
+import { TopGamesPage } from './pages/TopGamesPage';
 import { VisionPage } from './pages/VisionPage';
-import { useWindowIcon } from './lib/appIcon';
+import { useAppIcon } from './lib/appIcon';
+import { LEAVE_MS, slideDir } from './lib/pageAnim';
+import { boardSound, play } from './lib/sounds';
+import { useResolvedTheme } from './lib/theme';
+import { useCloseToTray } from './lib/tray';
+import { useAutoUpdates } from './lib/updates';
 import { applyHotkeys, showOverlay } from './lib/overlay';
 import { useDraft } from './state/draft';
 import { startSync } from './state/sync';
@@ -24,31 +32,29 @@ const PAGES: Record<Page, () => React.JSX.Element> = {
   meta: MetaPage,
   hero: HeroPage,
   builds: BuildsPage,
+  top: TopGamesPage,
+  patches: PatchesPage,
+  grids: GridsPage,
   profile: ProfilePage,
   settings: SettingsPage,
   vision: VisionPage,
 };
-const ORDER: Page[] = ['draft', 'meta', 'hero', 'builds', 'profile', 'settings'];
+const ORDER: Page[] = ['draft', 'meta', 'hero', 'top', 'patches', 'grids', 'profile', 'settings'];
 
 function useAppearance() {
-  const { theme, performance, refraction } = useUi();
+  const { theme, refraction, tilt, material } = useUi();
+  const calm = useCalmBackground(); // performance mode or a running match: no blur, no animations
+  const shown = useResolvedTheme(theme);
   useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: light)');
-    const apply = () => {
-      const t = theme === 'system' ? (mq.matches ? 'light' : 'dark') : theme;
-      document.documentElement.dataset.theme = t;
-    };
-    apply();
-    mq.addEventListener('change', apply);
-    return () => mq.removeEventListener('change', apply);
-  }, [theme]);
+    document.documentElement.dataset.theme = shown;
+  }, [shown]);
   useEffect(() => {
-    document.documentElement.classList.toggle('perf', performance);
-    document.documentElement.classList.toggle('has-refraction', refractionSupported && refraction && !performance);
-  }, [performance, refraction]);
+    document.documentElement.classList.toggle('perf', calm);
+    document.documentElement.classList.toggle('has-refraction', refractionSupported && refraction && !calm);
+    document.documentElement.classList.toggle('no-tilt', !tilt);
+    document.documentElement.dataset.material = material;
+  }, [calm, refraction, tilt, material]);
 }
-
-const LEAVE_MS = 220;
 
 /** Calm motion: the system's "reduce motion" or the app's performance mode. */
 function useCalmMotion(): boolean {
@@ -64,19 +70,40 @@ function useCalmMotion(): boolean {
 }
 
 /**
- * Crossfade between pages: the page being left stays mounted for LEAVE_MS as a layer under the
- * new one while its panels fade out, and the new page's panels fade in over it. Both stay the
- * same React elements (keyed by page), so nothing remounts or refetches mid-fade.
+ * Page switch: the page being left stays mounted for a moment as a layer under the new one while
+ * its panels animate out, and the new page's panels animate in over it (the chosen animation,
+ * lib/pageAnim.ts and the CSS under .page--in / .page--out). Both stay the same React elements
+ * (keyed by page), so nothing remounts or refetches mid-animation.
  */
 function usePageStack(page: Page, calm: boolean) {
-  const [stack, setStack] = useState<{ cur: Page; prev: Page | null }>({ cur: page, prev: null });
-  if (stack.cur !== page) setStack({ cur: page, prev: calm ? null : stack.cur });
+  const anim = useUi((s) => s.pageAnim);
+  const [stack, setStack] = useState<{ cur: Page; prev: Page | null; dir: 'fwd' | 'back' }>({ cur: page, prev: null, dir: 'fwd' });
+  if (stack.cur !== page) setStack({ cur: page, prev: calm || anim === 'none' ? null : stack.cur, dir: slideDir(stack.cur, page) });
   useEffect(() => {
     if (!stack.prev) return;
-    const t = setTimeout(() => setStack((s) => ({ ...s, prev: null })), LEAVE_MS);
+    const t = setTimeout(() => setStack((s) => ({ ...s, prev: null })), LEAVE_MS[anim]);
     return () => clearTimeout(t);
-  }, [stack]);
+  }, [stack, anim]);
   return stack;
+}
+
+/** Sounds of the main window: a hero on the board, a ban, a removal, a tick on tab change. */
+function useSounds(page: Page) {
+  useEffect(
+    () =>
+      useDraft.subscribe((next, prev) => {
+        const s = useUi.getState().sounds;
+        const name = s.on ? boardSound(prev, next) : null;
+        if (name) play(name, s.volume);
+      }),
+    [],
+  );
+  const first = useRef(true);
+  useEffect(() => {
+    const s = useUi.getState().sounds;
+    if (!first.current && s.on && s.tabs) play('tab', s.volume);
+    first.current = false;
+  }, [page]);
 }
 
 export default function App() {
@@ -87,7 +114,13 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useAppearance();
-  useWindowIcon(true);
+  useAppIcon();
+  useSounds(page);
+  useEffect(() => {
+    document.documentElement.classList.toggle('page-settings', page === 'settings');
+  }, [page]);
+  useCloseToTray();
+  useAutoUpdates();
 
   useEffect(() => {
     waitForBackend()
@@ -98,7 +131,7 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const m = /^Digit([1-6])$/.exec(e.code);
+      const m = /^Digit([1-8])$/.exec(e.code);
       if (e.ctrlKey && m) {
         e.preventDefault();
         go(ORDER[Number(m[1]) - 1]!);
@@ -118,11 +151,16 @@ export default function App() {
   const phase = useDraft((s) => s.phase);
   const prevPhase = useRef(phase);
   useEffect(() => {
-    if (prevPhase.current !== 'draft' && phase === 'draft' && useUi.getState().overlay.autoShow) void showOverlay(true);
+    if (prevPhase.current !== 'draft' && phase === 'draft') {
+      const ui = useUi.getState();
+      if (ui.sounds.on) play('start', ui.sounds.volume);
+      if (ui.overlay.autoShow) void showOverlay(true);
+    }
     prevPhase.current = phase;
   }, [phase]);
 
   const pages = stack.prev ? [stack.prev, stack.cur] : [stack.cur];
+  const anim = useUi((s) => s.pageAnim);
   return (
     <>
       <Wallpaper />
@@ -130,8 +168,7 @@ export default function App() {
       <div className="app">
         <TitleBar />
         <div className="app__body">
-          <Dock />
-          <main className="app__main">
+          <main className="app__main" data-anim={anim} data-dir={stack.dir}>
             {!ready ? (
               <Panel className="boot" refracting>
                 {error ? (

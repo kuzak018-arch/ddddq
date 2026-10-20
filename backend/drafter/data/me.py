@@ -22,7 +22,7 @@ PRIOR_GAMES = 10  # comfort winrate is shrunk toward the player's overall winrat
 def refresh(account_id: int | None = None) -> dict:
     account_id = account_id or config.settings().account_id
     if not account_id:
-        raise ValueError("нет DOTA_ACCOUNT_ID в .env")
+        raise ValueError("не указан аккаунт: укажи Steam ID в «Настройки → Аккаунт»")
     od = OpenDota()
     try:
         profile = od.get(f"/players/{account_id}")

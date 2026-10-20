@@ -125,7 +125,7 @@ mod job {
 }
 
 /// Where the installed app keeps its writable files (the backend uses the same folder).
-fn user_dir() -> PathBuf {
+pub(crate) fn user_dir() -> PathBuf {
     std::env::var_os("LOCALAPPDATA").map(PathBuf::from).unwrap_or_default().join("DotaDrafter")
 }
 

@@ -34,7 +34,8 @@ def _templates(hero_id: int, learned: bool) -> list[np.ndarray]:
         paths = sorted(folder.glob("*.png"))[-3:] if folder.exists() else []
         return [img for p in paths if (img := matcher._read(p)) is not None]
     key = constants.hero_by_id()[hero_id]["key"]
-    icon = matcher._read(matcher.ICONS / f"{key}.png")
+    path = matcher.template_path(key)
+    icon = matcher._read(path) if path else None
     return [icon] if icon is not None else []
 
 

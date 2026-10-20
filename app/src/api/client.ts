@@ -19,6 +19,8 @@ async function askShell(): Promise<BackendInfo> {
     try {
       return await invoke<BackendInfo>('backend_info');
     } catch (e) {
+      // the shell could not start the backend at all (e.g. an antivirus took drafter-backend.exe)
+      if (String(e).startsWith('не удалось запустить бэкенд')) throw new Error(String(e));
       if (i >= 150) throw new Error(`оболочка не сообщила адрес бэкенда: ${e}`);
       await new Promise((r) => setTimeout(r, 200));
     }
@@ -62,6 +64,40 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
     },
     body: init.body === undefined ? undefined : JSON.stringify(init.body),
   });
+  const body = await res.json().catch(() => null);
+  if (!res.ok) throw new ApiError(res.status, detail(body));
+  return body as T;
+}
+
+/**
+ * A raw upload: 4-byte length + JSON `meta`, then 4-byte length + data per file (the backend has no
+ * multipart parser in the bundle).
+ */
+export async function apiUpload<T>(path: string, meta: unknown, files: Uint8Array[]): Promise<T> {
+  const json = new TextEncoder().encode(JSON.stringify(meta));
+  const parts: Uint8Array[] = [];
+  const length = (n: number) => {
+    const b = new Uint8Array(4);
+    new DataView(b.buffer).setUint32(0, n, true);
+    return b;
+  };
+  parts.push(length(json.length), json);
+  for (const f of files) parts.push(length(f.length), f);
+  const { url, token } = await backend();
+  const res = await fetch(url + path, {
+    method: 'POST',
+    headers: { ...(token ? { 'X-Drafter-Token': token } : {}), 'Content-Type': 'application/octet-stream' },
+    body: new Blob(parts as BlobPart[]),
+  });
+  const body = await res.json().catch(() => null);
+  if (!res.ok) throw new ApiError(res.status, detail(body));
+  return body as T;
+}
+
+/** Raw bytes in, JSON out (a font to check). */
+export async function apiBytes<T>(path: string, data: Blob): Promise<T> {
+  const { url, token } = await backend();
+  const res = await fetch(url + path, { method: 'POST', headers: { ...(token ? { 'X-Drafter-Token': token } : {}), 'Content-Type': 'application/octet-stream' }, body: data });
   const body = await res.json().catch(() => null);
   if (!res.ok) throw new ApiError(res.status, detail(body));
   return body as T;

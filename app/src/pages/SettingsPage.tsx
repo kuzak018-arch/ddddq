@@ -1,41 +1,62 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { AppWindow, Database, KeyRound, Lightbulb, Monitor, Palette, Plug, ScanEye, Volume2, Wand } from 'lucide-react';
 
 import { comboFromEvent, dotaKeyName, toggleOverlay, useHotkeyStatus } from '../lib/overlay';
 
 import { api, subscribe } from '../api/client';
 import { useHealth, useHeroes, useSaveSettings, useSettings } from '../api/hooks';
 import type { Job, Settings } from '../api/types';
-import { heroArt, PRESETS } from '../components/Chrome';
+import { BrandMark, heroArt, PRESETS } from '../components/Chrome';
+import { LIVE_WALLS, liveStill } from '../lib/liveWalls';
 import { Panel } from '../components/Glass';
-import { HeroGridCard } from '../components/HeroGridCard';
+import { Ti } from '../components/Icons';
+import { Section } from '../components/Section';
 import { HeroSearch } from '../components/HeroSearch';
 import { LaneBulkCard } from '../components/LaneBulkCard';
+import { openWizard } from '../components/Onboarding';
 import { VersionCard } from '../components/VersionCard';
 import { useEffectsBlocked } from '../components/Effects';
 import { refractionSupported } from '../glass/refraction';
 import { ErrorBox, Segmented, Slider, Toggle } from '../components/ui';
-import { LOGO_KEY, useLogoUrl } from '../lib/appIcon';
-import { saveBackgroundFile, saveFile } from '../state/bgstore';
+import { LOGO_KEY, useIconResult, useLogoUrl } from '../lib/appIcon';
+import { MATERIALS } from '../lib/glassBackdrop';
+import { PAGE_ANIMS, replayPageIn } from '../lib/pageAnim';
+import { play } from '../lib/sounds';
+import { autostartEnabled, setAutostart } from '../lib/tray';
+import { loadBackgroundFile, saveBackgroundFile, saveFile } from '../state/bgstore';
 import { useUi } from '../state/ui';
 
+/**
+ * Settings: the appearance on the left, everything else in one scrolling column on the right.
+ *
+ * The right column is deliberately plain (it would not scroll with the wheel in the installed app):
+ * one glass frame with one ordinary overflow-y:auto block inside it, the way every tab whose
+ * scrolling works is built. Inside it there are only flat sections — no glass, no backdrop-filter,
+ * no animations or transforms, no masks, no nested scrolling areas, no drag region, no wheel
+ * handlers; the background effects are drawn under the window on this page, not over it.
+ */
 export function SettingsPage() {
   return (
     <div className="settings">
       <AppearanceCard />
-      <div className="settings__col">
-        <GsiCard />
-        <VisionCard />
-        <OverlayCard />
-        <AdviceCard />
-        <HeroGridCard />
-        <DataCard />
-        <LaneBulkCard />
-        <VersionCard />
+      <div className="settings-side glass">
+        <div className="settings-scroll">
+          <AccountCard />
+          <GsiCard />
+          <VisionCard />
+          <OverlayCard />
+          <AdviceCard />
+          <AppCard />
+          <DataCard />
+          <LaneBulkCard />
+          <VersionCard />
+        </div>
       </div>
     </div>
   );
 }
+
 
 function AppearanceCard() {
   const ui = useUi();
@@ -43,9 +64,14 @@ function AppearanceCard() {
   const heroes = useHeroes().data;
   const bg = ui.background;
   const fxBlocked = useEffectsBlocked();
+  const [fileErr, setFileErr] = useState<string | null>(null);
+  const reducedMotion = useMemo(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches, []);
   return (
     <Panel refracting>
-      <h2>Оформление</h2>
+      <h2>
+        <Ti icon={Palette} />
+        Оформление
+      </h2>
       <div className="field">
         <span className="label">Тема</span>
         <Segmented
@@ -61,6 +87,17 @@ function AppearanceCard() {
       <LogoField />
       <span className="label">Фон</span>
       <div className="bg-grid">
+        {LIVE_WALLS.map((p) => (
+          <button
+            key={p.id}
+            className={`bg-tile bg-tile--live ${bg.kind === 'live' && bg.id === p.id ? 'is-on' : ''}`}
+            style={{ background: `url("${liveStill(p.id)}") center / cover` }}
+            onClick={() => ui.set({ background: { kind: 'live', id: p.id } })}
+            title="Живые обои: медленно движутся; в режиме производительности и во время матча замирают"
+          >
+            <span>{p.name}</span>
+          </button>
+        ))}
         {PRESETS.map((p) => (
           <button
             key={p.id}
@@ -72,7 +109,8 @@ function AppearanceCard() {
           </button>
         ))}
         <button className={`bg-tile ${bg.kind === 'file' ? 'is-on' : ''}`} onClick={() => file.current?.click()}>
-          <span>Свой файл…</span>
+          <span>{bg.kind === 'file' ? bg.name : 'Свой файл…'}</span>
+          <small>картинка, GIF, видео</small>
         </button>
         {bg.kind === 'hero' && (
           <button className="bg-tile is-on" style={{ background: `url("${heroArt(bg.key)}") center 20% / cover, #222` }}>
@@ -83,16 +121,21 @@ function AppearanceCard() {
       <input
         ref={file}
         type="file"
-        accept="image/*"
+        accept="image/*,video/mp4,video/webm"
         hidden
         onChange={async (e) => {
           const f = e.target.files?.[0];
+          e.target.value = '';
           if (!f) return;
+          if (f.size > 400 * 1024 * 1024) return setFileErr('Файл больше 400 МБ — возьми поменьше.');
+          setFileErr(null);
           await saveBackgroundFile(f);
-          ui.set({ background: { kind: 'file', name: f.name } });
+          ui.set({ background: { kind: 'file', name: f.name, rev: Date.now() }, bgPos: { x: 50, y: 50 } });
         }}
       />
-      <HeroSearch placeholder="Арт героя как фон…" onPick={(h) => ui.set({ background: { kind: 'hero', key: h.key } })} compact />
+      {fileErr && <p className="small c-bad">{fileErr}</p>}
+      <HeroSearch placeholder="Арт героя как фон…" onPick={(h) => ui.set({ background: { kind: 'hero', key: h.key }, bgPos: { x: 50, y: 20 } })} compact />
+      {bg.kind !== 'preset' && <WallpaperFrame />}
       <Slider label="Размытие фона" value={ui.bgBlur} min={0} max={40} step={1} onChange={(bgBlur) => ui.set({ bgBlur })} format={(v) => `${v} px`} />
       <Slider label="Затемнение фона" value={ui.bgDim} min={0} max={0.8} step={0.05} onChange={(bgDim) => ui.set({ bgDim })} format={(v) => `${Math.round(v * 100)}%`} />
       <div className="field">
@@ -127,38 +170,173 @@ function AppearanceCard() {
         Лёгкая отрисовка поверх окна; сама выключается в оверлее, во время матча, в режиме производительности и когда в Windows
         отключены эффекты анимации.
       </p>
+      <div className="field">
+        <span className="label">Материал панелей</span>
+        <Segmented small value={ui.material} onChange={(material) => ui.set({ material })} options={MATERIALS} />
+      </div>
+      <div className="field">
+        <span className="label">Переход между вкладками</span>
+        <Segmented
+          small
+          value={ui.pageAnim}
+          onChange={(pageAnim) => {
+            ui.set({ pageAnim });
+            requestAnimationFrame(replayPageIn);
+          }}
+          options={PAGE_ANIMS}
+        />
+      </div>
+      {(ui.performance || reducedMotion) && ui.pageAnim !== 'none' && (
+        <p className="small warn">
+          Сейчас переходов не видно: {ui.performance ? 'включён режим производительности' : 'в Windows отключены эффекты анимации'}.
+        </p>
+      )}
+      <Toggle on={ui.tilt} onChange={(tilt) => ui.set({ tilt })} label="Карточки с объёмом (наклон и блик под курсором)" />
+      <Toggle on={ui.sounds.on} onChange={(on) => ui.set({ sounds: { ...ui.sounds, on } })} label="Звуки: пик, бан, начало драфта" />
+      {ui.sounds.on && (
+        <>
+          <Slider
+            label="Громкость звуков"
+            value={ui.sounds.volume}
+            min={0.05}
+            max={1}
+            step={0.05}
+            onChange={(volume) => {
+              ui.set({ sounds: { ...ui.sounds, volume } });
+              play('pick', volume);
+            }}
+            format={(v) => `${Math.round(v * 100)}%`}
+          />
+          <Toggle on={ui.sounds.tabs} onChange={(tabs) => ui.set({ sounds: { ...ui.sounds, tabs } })} label="Тихий щелчок при смене вкладки" />
+          <div className="row">
+            {(
+              [
+                ['pick', 'Пик'],
+                ['ban', 'Бан'],
+                ['remove', 'Убрать'],
+                ['start', 'Начало драфта'],
+              ] as const
+            ).map(([k, label]) => (
+              <button key={k} className="btn btn--sm btn--ghost" onClick={() => play(k, ui.sounds.volume)}>
+                <Ti icon={Volume2} />
+                {label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
       <Toggle
         on={ui.refraction && refractionSupported}
         onChange={(refraction) => ui.set({ refraction })}
-        label={refractionSupported ? 'Преломление по краям стекла' : 'Преломление (недоступно в этом движке)'}
+        label={
+          refractionSupported
+            ? 'Живое стекло с преломлением по краям (тяжелее; на некоторых видеокартах мерцает полосами)'
+            : 'Преломление (недоступно в этом движке)'
+        }
       />
       <Toggle on={ui.performance} onChange={(performance) => ui.set({ performance })} label="Режим производительности (без размытия и анимаций)" />
     </Panel>
   );
 }
 
-/** The icon next to "Dota Drafter" and in the taskbar: the built-in one or the user's picture. */
+/** The visible part of the user's picture, video or hero art: drag the preview to move it. */
+function WallpaperFrame() {
+  const { background: bg, bgPos, set } = useUi();
+  const [src, setSrc] = useState<{ url: string; video: boolean } | null>(null);
+  const [pos, setPos] = useState(bgPos);
+  const box = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ x: number; y: number; bx: number; by: number } | null>(null);
+  useEffect(() => setPos(bgPos), [bgPos]);
+  useEffect(() => {
+    if (bg.kind === 'hero') {
+      setSrc({ url: heroArt(bg.key), video: false });
+      return;
+    }
+    if (bg.kind !== 'file') return setSrc(null);
+    let url: string | null = null;
+    let alive = true;
+    loadBackgroundFile().then((blob) => {
+      if (blob && alive) setSrc({ url: (url = URL.createObjectURL(blob)), video: blob.type.startsWith('video/') });
+    });
+    return () => {
+      alive = false;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [bg]);
+  if (!src) return null;
+  const clamp = (v: number) => Math.min(100, Math.max(0, v));
+  const style = { objectPosition: `${pos.x}% ${pos.y}%` };
+  return (
+    <div className="wall-frame">
+      <div
+        ref={box}
+        className="wall-frame__box"
+        onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture(e.pointerId);
+          drag.current = { x: e.clientX, y: e.clientY, bx: pos.x, by: pos.y };
+        }}
+        onPointerMove={(e) => {
+          const d = drag.current;
+          const r = box.current?.getBoundingClientRect();
+          if (!d || !r) return;
+          // dragging the picture right shows more of its left side: the position goes down
+          setPos({ x: clamp(d.bx - ((e.clientX - d.x) / r.width) * 100), y: clamp(d.by - ((e.clientY - d.y) / r.height) * 100) });
+        }}
+        onPointerUp={() => {
+          if (drag.current) set({ bgPos: { x: Math.round(pos.x), y: Math.round(pos.y) } });
+          drag.current = null;
+        }}
+      >
+        {src.video ? (
+          <video src={src.url} style={style} muted loop autoPlay playsInline />
+        ) : (
+          <img src={src.url} style={style} alt="" draggable={false} />
+        )}
+      </div>
+      <p className="hint">Перетащи картинку, чтобы выбрать видимую часть обоев.</p>
+    </div>
+  );
+}
+
+/** The app's icon everywhere Windows lets us change it: the built-in one or the user's picture. */
 function LogoField() {
   const logo = useUi((s) => s.logo);
   const set = useUi((s) => s.set);
   const url = useLogoUrl();
+  const applied = useIconResult();
   const input = useRef<HTMLInputElement>(null);
   const [err, setErr] = useState<string | null>(null);
   return (
     <div className="field">
       <span className="label">Значок приложения</span>
       <div className="logo-field">
-        {url ? <img className="logo-field__preview" src={url} alt="" /> : <span className="titlebar__logo logo-field__preview" />}
+        {url ? <img className="logo-field__preview" src={url} alt="" /> : <span className="brand-logo logo-field__preview"><BrandMark /></span>}
         <button className="btn btn--sm" onClick={() => input.current?.click()}>
           Своя картинка…
         </button>
         {logo.kind === 'file' && (
           <button className="btn btn--sm" onClick={() => set({ logo: { kind: 'default' } })}>
-            Стандартный
+            Вернуть стандартную
           </button>
         )}
       </div>
-      <p className="hint">Показывается рядом с названием и на панели задач (на панели — первый кадр GIF, обрезка по центру).</p>
+      <p className="hint">
+        Рядом с названием, у главного окна и оверлея (панель задач, Alt+Tab), в трее и на наших ярлыках: рабочий стол, «Пуск», закреплённый
+        значок на панели задач. Для значков — первый кадр GIF, обрезка по центру.
+      </p>
+      {applied.busy && <p className="hint">Меняю значки…</p>}
+      {!applied.busy && applied.result && (
+        <p className="hint">
+          {applied.result.shortcuts.length
+            ? `Ярлыки обновлены: ${applied.result.shortcuts.join(', ')}.`
+            : 'Ярлыков приложения не нашлось — окна и трей уже со значком.'}
+        </p>
+      )}
+      {(applied.error || applied.result?.error) && <p className="c-bad small">{applied.error ?? applied.result?.error}</p>}
+      <p className="hint">
+        Если на панели задач остался старый значок: открепи приложение (правый клик → «Открепить от панели задач») и закрепи снова. Значок самого
+        файла «Dota Drafter.exe» в папке установки не меняется — Windows берёт его из программы.
+      </p>
       {err && <p className="c-bad small">{err}</p>}
       <input
         ref={input}
@@ -207,6 +385,68 @@ const STATE_RU: Record<string, string> = {
   DOTA_GAMERULES_STATE_POST_GAME: 'матч окончен',
 };
 
+/** My Steam32 id (Friend ID) and the Stratz token: set at first start, changeable here any time. */
+function AccountCard() {
+  const qc = useQueryClient();
+  const setup = useQuery({ queryKey: ['setup'], queryFn: () => api<{ account_id: number | null; has_stratz_token: boolean }>('/setup') });
+  const [acc, setAcc] = useState<string | null>(null);
+  const [token, setToken] = useState('');
+  const save = useMutation({
+    mutationFn: async () => {
+      const id = Number((acc ?? '').replace(/\D/g, ''));
+      await api('/setup', {
+        method: 'PUT',
+        body: { account_id: acc === null ? null : id || null, stratz_token: token.trim() || null },
+      });
+      if (acc !== null && id) await api('/me/refresh', { method: 'POST' });
+    },
+    onSuccess: () => {
+      setToken('');
+      setAcc(null);
+      qc.invalidateQueries();
+    },
+  });
+  const s = setup.data;
+  return (
+    <Section>
+      <div className="panel__head">
+        <h2>
+          <Ti icon={KeyRound} />
+          Аккаунт
+        </h2>
+        {s && <span className="pill">{s.account_id ? `id ${s.account_id}` : 'не указан'}</span>}
+      </div>
+      <label className="field">
+        <span className="label">Steam ID (Friend ID из профиля Доты)</span>
+        <input
+          className="input"
+          inputMode="numeric"
+          value={acc ?? (s?.account_id ? String(s.account_id) : '')}
+          onChange={(e) => setAcc(e.target.value)}
+          placeholder="например 1477734386"
+        />
+      </label>
+      <label className="field">
+        <span className="label">Токен Stratz {s?.has_stratz_token && <span className="muted">— есть, впиши новый, чтобы заменить</span>}</span>
+        <input
+          className="input"
+          type="password"
+          value={token}
+          onChange={(e) => setToken(e.target.value)}
+          placeholder="stratz.com/api → вход через Steam → токен"
+        />
+      </label>
+      <div className="row">
+        <button className="btn btn--accent" onClick={() => save.mutate()} disabled={save.isPending || (acc === null && !token.trim())}>
+          {save.isPending ? 'Сохраняю…' : 'Сохранить'}
+        </button>
+      </div>
+      {save.error && <ErrorBox error={save.error} />}
+      <p className="hint">Хранится только у тебя в .env. Нужен для истории матчей и твоего пула; токен — для позиций, билдов и линий.</p>
+    </Section>
+  );
+}
+
 function GsiCard() {
   const qc = useQueryClient();
   const heroes = useHeroes().data;
@@ -219,9 +459,12 @@ function GsiCard() {
   const s = status.data;
   const fresh = s?.last_seen && Date.now() / 1000 - s.last_seen < 30;
   return (
-    <Panel>
+    <Section>
       <div className="panel__head">
-        <h2>Интеграция с игрой</h2>
+        <h2>
+          <Ti icon={Plug} />
+          Интеграция с игрой
+        </h2>
         <span className={`pill ${fresh ? 'c-good' : ''}`}>{fresh ? 'Дота на связи' : 'нет данных'}</span>
       </div>
       {s && !s.dota_found && <ErrorBox error="Не нашёл установку Dota 2." />}
@@ -254,7 +497,7 @@ function GsiCard() {
           )}
         </>
       )}
-    </Panel>
+    </Section>
   );
 }
 
@@ -277,31 +520,57 @@ function VisionCard() {
     queryFn: () =>
       api<{
         enabled: boolean;
+        cautious: boolean;
         calibrated: boolean;
         calibration_auto: boolean;
+        layout_base: 'default' | 'manual' | 'auto';
+        fits: string[];
         labeled_frames: number;
         error: string | null;
         collect: CollectStatus;
-        auto: { auto_enabled: boolean; enabled_at: number | null; last: { evaluation?: { precision: number | null; frames: number; drafts: number } } | null };
+        auto: {
+          proven: boolean;
+          last: { evaluation?: { precision: number | null; frames: number; drafts: number; filled: number } } | null;
+          rule: { drafts: number; frames: number; filled: number };
+        };
       }>('/vision/status'),
   });
+  const qc = useQueryClient();
   const s = status.data;
   const c = s?.collect;
   const ev = s?.auto.last?.evaluation;
+  const toggle = useMutation({
+    mutationFn: (on: boolean) => api('/vision/enable', { body: { on } }),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['vision'] }),
+  });
   return (
-    <Panel>
+    <Section>
       <div className="panel__head">
-        <h2>Чтение драфта с экрана</h2>
-        <span className="pill">{s?.enabled ? (s.auto.auto_enabled ? 'включено само' : 'включено') : 'выключено'}</span>
+        <h2>
+          <Ti icon={ScanEye} />
+          Чтение драфта с экрана
+        </h2>
+        <span className="pill">{!s?.enabled ? 'выключено' : s.cautious ? 'учится' : 'включено'}</span>
       </div>
       <p className="hint">
-        Экспериментально и отключаемо: захват только окна Доты и сравнение портретов с шаблонами. Включается само, когда точность
-        на кадрах из твоих матчей не ниже 98%.
+        Во время выбора героев программа смотрит на окно Доты (как скриншот, без памяти игры) и сама вписывает героев на доску.
+        Калибровка не нужна: рамки берутся из профиля под разрешение окна и подгоняются по первым кадрам с героями. Твоя правка
+        слота всегда важнее, а после каждого драфта программа учится на том, что в итоге стоит на доске, — так она запоминает,
+        как портреты выглядят именно у тебя.
       </p>
+      <Toggle on={!!s?.enabled} onChange={(on) => toggle.mutate(on)} label={<b>Читать драфт с экрана</b>} />
+      {s?.enabled && (
+        <p className="small">
+          {s.cautious
+            ? `Пока учится: вписывает героя, только когда уверено, и после трёх одинаковых кадров — лучше пустой слот, чем чужой герой. Станет смелее после ${s.auto.rule.drafts} драфтов, ${s.auto.rule.frames} кадров и ${s.auto.rule.filled} героев с точностью от 98%${ev ? ` (сейчас: ${ev.drafts} драфтов, ${ev.frames} кадров, ${ev.filled} героев${ev.precision !== null ? `, ${Math.round(ev.precision * 1000) / 10}%` : ''})` : ''}.`
+            : 'Точность на твоих драфтах подтверждена: вписывает героев сразу.'}
+        </p>
+      )}
+      {toggle.error && <ErrorBox error={toggle.error} />}
       <Toggle
         on={settings?.vision_collect ?? true}
         onChange={(vision_collect) => settings && save.mutate({ ...settings, vision_collect })}
-        label="Собирать кадры драфта для калибровки (во время выбора героев)"
+        label="Собирать кадры драфта для проверки точности (во время выбора героев)"
       />
       <Slider
         label="Место под кадры"
@@ -317,14 +586,15 @@ function VisionCard() {
         {c?.error ? ` Последняя ошибка: ${c.error}` : ''}
       </p>
       <p className="muted small">
-        Калибровка: {s?.calibrated ? (s.calibration_auto ? 'найдена автоматически' : 'сохранена вручную') : 'нет (пресет)'} · подтверждено в
-        мастере: {s?.labeled_frames ?? 0}
+        Рамки: {s?.layout_base === 'manual' ? 'твои ручные (пересчитываются под другие разрешения)' : s?.layout_base === 'auto' ? 'найдены по кадру с героями' : 'встроенный профиль'}
+        {s?.fits.length ? ` · подогнаны по кадру: ${s.fits.map((f) => f.replace('x', '×')).join(', ')}` : ''} · подтверждено в мастере:{' '}
+        {s?.labeled_frames ?? 0}
         {ev && ev.precision !== null ? ` · точность ${Math.round(ev.precision * 1000) / 10}% на ${ev.frames} кадрах` : ''}
       </p>
       <button className="btn btn--accent" onClick={() => go('vision')}>
-        Открыть мастер калибровки
+        Проверить чтение
       </button>
-    </Panel>
+    </Section>
   );
 }
 
@@ -380,9 +650,12 @@ function OverlayCard() {
   });
   const dotaKeys = useMemo(() => new Set(keys.data?.keys ?? []), [keys.data]);
   return (
-    <Panel>
+    <Section>
       <div className="panel__head">
-        <h2>Оверлей</h2>
+        <h2>
+          <Ti icon={AppWindow} />
+          Оверлей
+        </h2>
         <button className="btn btn--accent" onClick={() => toggleOverlay()}>
           Показать / скрыть
         </button>
@@ -425,12 +698,17 @@ function OverlayCard() {
       </div>
       <Slider label="Непрозрачность" value={ov.opacity} min={0.35} max={1} step={0.05} onChange={(opacity) => setOv({ opacity })} format={(v) => `${Math.round(v * 100)}%`} />
       <Toggle on={ov.autoShow} onChange={(autoShow) => setOv({ autoShow })} label="Показывать оверлей, когда начался выбор героев (GSI)" />
+      <Toggle
+        on={ov.hints}
+        onChange={(hints) => setOv({ hints })}
+        label="Подсказки в игре: следующий предмет и сколько золота не хватает, таймеры рун и лотосов, ночь, выкуп"
+      />
       <Toggle on={ov.autoPerf} onChange={(autoPerf) => setOv({ autoPerf })} label="Во время матча — режим производительности (без Acrylic и анимаций)" />
       <p className="hint">
         «Авто»: на стадии драфта — подсказки, с началом матча — билд против врагов (после подключения GSI на этапе 5).
         Позиция и размер оверлея запоминаются.
       </p>
-    </Panel>
+    </Section>
   );
 }
 
@@ -446,8 +724,11 @@ function AdviceCard() {
     save.mutate(next);
   };
   return (
-    <Panel>
-      <h2>Подсказки</h2>
+    <Section>
+      <h2>
+        <Ti icon={Lightbulb} />
+        Подсказки
+      </h2>
       <div className="field">
         <span className="label">Моя позиция по умолчанию</span>
         <Segmented value={draft.pos} onChange={(pos) => upd({ pos })} options={[1, 2, 3, 4, 5].map((p) => ({ value: p, label: String(p) }))} />
@@ -468,7 +749,41 @@ function AdviceCard() {
       </p>
       <Slider label="Тир-лист за дней" value={draft.tier_days} min={3} max={30} step={1} onChange={(tier_days) => upd({ tier_days })} />
       {save.error && <ErrorBox error={save.error} />}
-    </Panel>
+    </Section>
+  );
+}
+
+/** The window and Windows: tray on close, launch with Windows. */
+function AppCard() {
+  const ui = useUi();
+  const auto = useQuery({ queryKey: ['autostart'], queryFn: autostartEnabled });
+  const qc = useQueryClient();
+  const toggle = useMutation({
+    mutationFn: setAutostart,
+    onSettled: () => qc.invalidateQueries({ queryKey: ['autostart'] }),
+  });
+  return (
+    <Section>
+      <h2>
+        <Ti icon={Monitor} />
+        Приложение
+      </h2>
+      <Toggle on={ui.closeToTray} onChange={(closeToTray) => ui.set({ closeToTray })} label="Сворачивать в трей при закрытии окна" />
+      <Toggle
+        on={!!auto.data}
+        onChange={(on) => toggle.mutate(on)}
+        label={auto.data === null ? 'Запускать вместе с Windows (только в установленном приложении)' : 'Запускать вместе с Windows (сразу в трей)'}
+      />
+      {toggle.error && <ErrorBox error={toggle.error} />}
+      <p className="hint">
+        Значок в трее: клик — показать окно, правый клик — меню (показать, оверлей вкл/выкл, выход). «Выход» в меню трея
+        закрывает приложение совсем.
+      </p>
+      <button className="btn btn--sm" onClick={openWizard}>
+        <Ti icon={Wand} />
+        Пройти первую настройку заново
+      </button>
+    </Section>
   );
 }
 
@@ -497,8 +812,11 @@ function DataCard() {
   );
   const shown = lines.length ? lines : last?.log ?? [];
   return (
-    <Panel>
-      <h2>Данные</h2>
+    <Section>
+      <h2>
+        <Ti icon={Database} />
+        Данные
+      </h2>
       {health && (
         <dl className="kv">
           <dt>Патч</dt>
@@ -514,7 +832,7 @@ function DataCard() {
           <dt>Модель обучена</dt>
           <dd>{health.model_trained ?? 'нет'}</dd>
           <dt>Stratz</dt>
-          <dd>{health.stratz ? 'токен есть' : 'нет токена в .env'}</dd>
+          <dd>{health.stratz ? 'токен есть' : 'нет токена (Настройки → Аккаунт)'}</dd>
           <dt>Аккаунт</dt>
           <dd>{health.account_id ?? 'не указан'}</dd>
         </dl>
@@ -526,6 +844,6 @@ function DataCard() {
       {start.error && <ErrorBox error={start.error} />}
       {last?.status === 'failed' && <ErrorBox error={last.error} />}
       {shown.length > 0 && <pre className="joblog">{shown.slice(-14).join('\n')}</pre>}
-    </Panel>
+    </Section>
   );
 }
