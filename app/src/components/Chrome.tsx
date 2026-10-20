@@ -4,7 +4,7 @@ import { isTauri } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { ChartColumnIncreasing, Palette, ScrollText, Shield, Swords, Trophy, User, type LucideIcon } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 import { useHealth, useSettings } from '../api/hooks';
 import { useLogoUrl } from '../lib/appIcon';
@@ -12,6 +12,7 @@ import { blurPicture, loadPicture, setGlassPicture, type Material } from '../lib
 import { lumaOfBlob, lumaOfUrl, veilFor } from '../lib/wallLuma';
 import { useResolvedTheme } from '../lib/theme';
 import { useUpdate } from '../lib/updates';
+import { LIVE_WALLS, liveSize, runLive } from '../lib/liveWalls';
 import { refractionSupported } from '../glass/refraction';
 import { useDraft } from '../state/draft';
 import { loadBackgroundFile } from '../state/bgstore';
@@ -239,7 +240,15 @@ export function useCalmBackground(): boolean {
  * is, a picture blurred on a small canvas, a video re-blurred twice a second (paused while calm).
  * Live refraction needs the live blur, and «Как в Доте» shows no wallpaper: both clear it.
  */
-function useGlassPicture(bg: Background, presetCss: string | null, file: { url: string; video: boolean } | null, video: React.RefObject<HTMLVideoElement | null>, calm: boolean) {
+function useGlassPicture(
+  bg: Background,
+  presetCss: string | null,
+  file: { url: string; video: boolean } | null,
+  video: React.RefObject<HTMLVideoElement | null>,
+  live: React.RefObject<HTMLCanvasElement | null>,
+  liveGen: number,
+  calm: boolean,
+) {
   const { bgPos, material, refraction } = useUi();
   const [view, setView] = useState({ w: window.innerWidth, h: window.innerHeight });
   useEffect(() => {
@@ -251,10 +260,26 @@ function useGlassPicture(bg: Background, presetCss: string | null, file: { url: 
     window.addEventListener('resize', on);
     return () => window.removeEventListener('resize', on);
   }, []);
-  const live = refraction && refractionSupported;
+  const liveBlur = refraction && refractionSupported;
   useEffect(() => {
-    if (live || material === 'dota') return setGlassPicture(null);
+    if (liveBlur || material === 'dota') return setGlassPicture(null);
     if (presetCss) return setGlassPicture(presetCss);
+    if (bg.kind === 'live') {
+      // a live wallpaper: its canvas re-blurred a little more than once a second, once when calm
+      let alive = true;
+      const tick = () => {
+        const c = live.current;
+        if (!alive || !c) return;
+        const d = blurPicture(c, c.width, c.height, view, { x: 50, y: 50 }, material as Material);
+        setGlassPicture(d ? `url("${d}")` : null, true);
+      };
+      tick();
+      const timer = calm ? undefined : setInterval(tick, 700);
+      return () => {
+        alive = false;
+        clearInterval(timer);
+      };
+    }
     const url = bg.kind === 'hero' ? heroArt(bg.key) : file?.url;
     if (!url) return setGlassPicture(null);
     let alive = true;
@@ -284,8 +309,45 @@ function useGlassPicture(bg: Background, presetCss: string | null, file: { url: 
     return () => {
       alive = false;
     };
-  }, [live, material, presetCss, bg, file?.url, file?.video, video, view, bgPos, calm]);
+  }, [liveBlur, material, presetCss, bg, file?.url, file?.video, video, live, liveGen, view, bgPos, calm]);
 }
+
+/**
+ * A live wallpaper (lib/liveWalls.ts) on a canvas the size of the window (at most 1280 px across).
+ * Calm (performance mode, a match) or "reduce motion": one still frame. `onStart` after the first
+ * frame of each (re)start, so the glass can take its picture.
+ */
+const LiveCanvas = forwardRef<HTMLCanvasElement, { id: string; calm: boolean; style: React.CSSProperties; onStart: () => void }>(function LiveCanvas(
+  { id, calm, style, onStart },
+  ref,
+) {
+  const own = useRef<HTMLCanvasElement>(null);
+  useImperativeHandle(ref, () => own.current!, []);
+  const [size, setSize] = useState(() => liveSize(window.innerWidth, window.innerHeight));
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout>;
+    const on = () => {
+      clearTimeout(t);
+      t = setTimeout(() => setSize(liveSize(window.innerWidth, window.innerHeight)), 250);
+    };
+    window.addEventListener('resize', on);
+    return () => window.removeEventListener('resize', on);
+  }, []);
+  const start = useRef(onStart);
+  start.current = onStart;
+  useEffect(() => {
+    const c = own.current;
+    if (!c) return;
+    c.width = size.w;
+    c.height = size.h;
+    const still = calm || window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let first = true;
+    return runLive(c, id, still, () => {
+      if (first) (first = false), start.current();
+    });
+  }, [id, calm, size]);
+  return <canvas ref={own} className="wallpaper__image wallpaper__live" style={style} />;
+});
 
 export function Wallpaper() {
   const { background: bg, bgBlur, bgDim, bgPos, theme } = useUi();
@@ -312,9 +374,14 @@ export function Wallpaper() {
   } else if (file?.video) {
     css = '#0b0b10';
     luma = file.luma ?? 0.3;
+  } else if (bg.kind === 'live') {
+    css = '#05050b';
+    luma = LIVE_WALLS.find((x) => x.id === bg.id)?.luma ?? 0.08;
   }
 
-  useGlassPicture(bg, bg.kind === 'preset' ? css : null, file, video, calm);
+  const live = useRef<HTMLCanvasElement>(null);
+  const [liveGen, setLiveGen] = useState(0);
+  useGlassPicture(bg, bg.kind === 'preset' ? css : null, file, video, live, liveGen, calm);
   useEffect(() => {
     document.documentElement.style.setProperty('--wall-dim', String(bgDim));
   }, [bgDim]);
@@ -346,6 +413,8 @@ export function Wallpaper() {
           muted
           playsInline
         />
+      ) : bg.kind === 'live' ? (
+        <LiveCanvas ref={live} id={bg.id} calm={calm} style={style} onStart={() => setLiveGen((n) => n + 1)} />
       ) : (
         <div className="wallpaper__image" style={{ ...style, background: css }} />
       )}

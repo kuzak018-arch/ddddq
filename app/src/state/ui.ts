@@ -12,6 +12,7 @@ export type Effect = 'none' | 'rain' | 'snow' | 'stars' | 'fog' | 'particles';
  * (picture, GIF or video, in IndexedDB). */
 export type Background =
   | { kind: 'preset'; id: string }
+  | { kind: 'live'; id: string }
   | { kind: 'hero'; key: string }
   | { kind: 'file'; name: string };
 

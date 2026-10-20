@@ -8,6 +8,7 @@ import { api, subscribe } from '../api/client';
 import { useHealth, useHeroes, useSaveSettings, useSettings } from '../api/hooks';
 import type { Job, Settings } from '../api/types';
 import { BrandMark, heroArt, PRESETS } from '../components/Chrome';
+import { LIVE_WALLS, liveStill } from '../lib/liveWalls';
 import { Panel } from '../components/Glass';
 import { Ti } from '../components/Icons';
 import { Section } from '../components/Section';
@@ -86,6 +87,17 @@ function AppearanceCard() {
       <LogoField />
       <span className="label">Фон</span>
       <div className="bg-grid">
+        {LIVE_WALLS.map((p) => (
+          <button
+            key={p.id}
+            className={`bg-tile bg-tile--live ${bg.kind === 'live' && bg.id === p.id ? 'is-on' : ''}`}
+            style={{ background: `url("${liveStill(p.id)}") center / cover` }}
+            onClick={() => ui.set({ background: { kind: 'live', id: p.id } })}
+            title="Живые обои: медленно движутся; в режиме производительности и во время матча замирают"
+          >
+            <span>{p.name}</span>
+          </button>
+        ))}
         {PRESETS.map((p) => (
           <button
             key={p.id}
