@@ -14,12 +14,12 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { api, waitForBackend } from '../api/client';
-import { useBans, useBuild, useEvaluate, useHeroes, useSettings, useSuggest } from '../api/hooks';
-import type { DraftRequest } from '../api/types';
+import { useBans, useBuild, useEvaluate, useHeroes, useSettings, useSuggest, useTopVs } from '../api/hooks';
+import type { DraftRequest, TopVs } from '../api/types';
 import { HeroSearch, type HeroSearchHandle } from '../components/HeroSearch';
 import { IconClose } from '../components/Icons';
 import { LaneCard, LaneView } from '../components/LaneView';
-import { fmtPct, fmtSigned, HeroIcon, ItemIcon } from '../components/ui';
+import { fmtPct, fmtSigned, HeroIcon, ItemIcon, plural } from '../components/ui';
 import { onOverlayStatus, overlayStatus, setClickThrough, setOverlayEffect, showOverlay } from '../lib/overlay';
 import { useResolvedTheme } from '../lib/theme';
 import { picked, useDraft } from '../state/draft';
@@ -476,6 +476,28 @@ function LiveHints({ plan }: { plan: { key: string; name: string; minute: number
   );
 }
 
+/** The build of top players (Divine+, Immortal, pros) from games where the enemy team had a draft
+ * like this one (backend topgames.vs_draft). */
+function TopVsBuild({ vs }: { vs: TopVs }) {
+  const games = vs.games ?? 0;
+  const who = Object.entries(vs.sources ?? {}).map(([label, n]) => `${label} ${n}`).join(' · ');
+  const items = [...(vs.boots ? [vs.boots] : []), ...(vs.core ?? [])];
+  return (
+    <div className="ov__topvs">
+      <span className="kicker">Игры топов против такого драфта</span>
+      <p className="hint">
+        {games} {plural(games, 'игра', 'игры', 'игр')}, {vs.wins ?? 0} {plural(vs.wins ?? 0, 'победа', 'победы', 'побед')}
+        {vs.full ? ` · ${vs.full} с тем же драфтом` : ''} · {who}
+      </p>
+      <div className="ov__items">
+        {items.map((it) => (
+          <ItemIcon key={it.key} k={it.key} title={`${it.name} ~${Math.round(it.minute ?? 0)} мин · ${Math.round(it.share * 100)}% игр`} size={36} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function BuildMode() {
   const d = useDraft();
   const req = useDraftRequest();
@@ -485,7 +507,10 @@ function BuildMode() {
   const build = useBuild(hero, req.pos ?? 1, req.enemies, true);
   const hints = useUi((s) => s.overlay.hints);
   const top = build.data ? (build.data.build.builds[0] ?? build.data.build.approximate) : null;
-  const plan = top ? [...(top.boots ? [top.boots] : []), ...top.core] : [];
+  // top players' games against a draft like this one: when there are some, their build is the one shown
+  const topVs = useTopVs(hero, build.data?.build.pos ?? req.pos ?? 1, req.enemies).data;
+  const found = topVs?.found ? topVs : null;
+  const plan = found ? [...(found.boots ? [found.boots] : []), ...(found.core ?? [])] : top ? [...(top.boots ? [top.boots] : []), ...top.core] : [];
   if (!hero) return <p className="muted ov__center">Выбери своего героя в драфте — здесь появится билд против врагов.</p>;
   return (
     <div className="ov__build">
@@ -512,15 +537,17 @@ function BuildMode() {
               </p>
             )}
             {r.status === 'loading' && <p className="hint">Загружаю матчи: {r.progress.have} из {r.target}…</p>}
+            {found && <TopVsBuild vs={found} />}
+            {!found && topVs?.loading && <p className="hint">Ищу игры топов против такого драфта…</p>}
             {b && (
               <>
                 <span className="kicker">
-                  {b.approximate ? 'Популярные предметы (приблизительно)' : `${b.title} · ${b.games} игр · ${Math.round((b.wr ?? 0) * 100)}%`}
+                  {found ? 'Обычный билд героя' : b.approximate ? 'Популярные предметы (приблизительно)' : `${b.title} · ${b.games} игр · ${Math.round((b.wr ?? 0) * 100)}%`}
                 </span>
                 <div className="ov__items">
-                  {b.boots && <ItemIcon k={b.boots.key} title={`${b.boots.name} ~${Math.round(b.boots.minute ?? 0)} мин`} size={34} />}
+                  {b.boots && <ItemIcon k={b.boots.key} title={`${b.boots.name} ~${Math.round(b.boots.minute ?? 0)} мин`} size={found ? 26 : 34} />}
                   {b.core.map((it) => (
-                    <ItemIcon key={it.key} k={it.key} title={`${it.name} ~${Math.round(it.minute ?? 0)} мин`} size={34} />
+                    <ItemIcon key={it.key} k={it.key} title={`${it.name} ~${Math.round(it.minute ?? 0)} мин`} size={found ? 26 : 34} />
                   ))}
                 </div>
               </>

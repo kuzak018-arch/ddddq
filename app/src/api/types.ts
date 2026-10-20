@@ -143,6 +143,30 @@ export interface VsItem {
   reasons: { tag: string; text: string; score: number }[];
 }
 
+/** The build of top players on the hero in games against a draft like this one (POST /top-games/vs). */
+export interface TopVsItem {
+  key: string;
+  name: string;
+  minute: number | null;
+  share: number;
+}
+export interface TopVs {
+  found: boolean;
+  reason: 'few_enemies' | 'none' | null;
+  loading: boolean;
+  error: string | null;
+  checked?: number;
+  games?: number;
+  wins?: number;
+  full?: number;
+  enemies?: number;
+  need?: number;
+  sources?: Record<string, number>;
+  boots?: TopVsItem | null;
+  core?: TopVsItem[];
+  matches?: { m: number; win: boolean; overlap: number; label: string; player: string | null; team: string | null; rank: number | null; core: string[] }[];
+}
+
 export interface TierRow {
   hero: number;
   games: number;

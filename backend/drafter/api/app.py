@@ -1225,6 +1225,22 @@ def top_games(hero_id: int, source: Literal["immortal", "divine", "pro"] = "immo
     return topgames.get(hero_id, source, refresh)
 
 
+class TopVsIn(BaseModel):
+    hero: int
+    enemies: list[int] = Field(default_factory=list, max_length=5)
+    pos: int | None = Field(default=None, ge=1, le=5)
+
+
+@app.post("/top-games/vs")
+def top_games_vs(body: TopVsIn):
+    """The build of top players on the hero in games where the enemy team had this draft (the
+    overlay's Build mode); {found: false} when there is no such game. Loads in the background."""
+    from .. import topgames
+    if body.hero not in constants.hero_by_id():
+        raise HTTPException(404, "нет такого героя")
+    return topgames.vs_draft(body.hero, body.enemies, body.pos)
+
+
 # ---------- «Оформление игры»: the menu background and fonts (off by default) -----------------
 
 MOD_BUNDLE_MAX = 80_000_000
