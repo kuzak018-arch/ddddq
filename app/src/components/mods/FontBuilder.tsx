@@ -73,13 +73,15 @@ export function FontBuilder() {
   useEffect(() => {
     void backend().then((b) => setBase(b.url));
   }, []);
-  const [picked, setPicked] = useState<string>('libre-franklin');
+  // «Шрифт Доты» first: the preview starts with how the game looks now
+  const [picked, setPicked] = useState<string>('dota');
   const [own, setOwn] = useState<Checked[]>([]);
   const [roles, setRoles] = useState<Record<string, boolean>>({ Radiance: true, RadianceM: true, Reaver: true });
   const [keepGrid, setKeepGrid] = useState(true);
   const [err, setErr] = useState<unknown>(null);
 
   const faces = useMemo(() => {
+    if (picked === 'dota') return null; // the scenes show the game's own pixels, the grid Radiance
     if (picked === 'own') return own.length ? own.map((f) => ({ url: URL.createObjectURL(f.file), weight: f.weight, italic: f.italic })) : null;
     const font = catalog.data?.fonts.find((f) => f.id === picked);
     if (!font || !base) return null;
@@ -107,6 +109,11 @@ export function FontBuilder() {
       setPicked('own');
     }
   };
+
+  const restore = useMutation({
+    mutationFn: () => api<{ removed: boolean }>('/game-mods/remove', { method: 'POST', body: { what: 'fonts' } }),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['game-mods'] }),
+  });
 
   const install = useMutation({
     mutationFn: async () => {
@@ -142,6 +149,10 @@ export function FontBuilder() {
           Шрифт
         </h3>
         <div className="fontb-list">
+          <button className={`fontb-item ${picked === 'dota' ? 'is-on' : ''}`} onClick={() => setPicked('dota')}>
+            <b style={{ fontFamily: "'Dota Reaver', serif", fontWeight: 600 }}>Шрифт Доты</b>
+            <span className="muted small">{status?.fonts.length ? 'сейчас заменён — можно вернуть' : 'стоит сейчас · Radiance и Reaver'}</span>
+          </button>
           {catalog.data?.fonts.map((f) => (
             <button key={f.id} className={`fontb-item ${picked === f.id ? 'is-on' : ''}`} onClick={() => setPicked(f.id)}>
               <b>{f.family}</b>
@@ -174,9 +185,19 @@ export function FontBuilder() {
         {!!err && <ErrorBox error={err} />}
         {install.error && <ErrorBox error={install.error} />}
         {install.data && <p className="small c-good">Готово: заменено файлов Доты — {install.data.files}. Оригиналы сохранены, «Убрать всё» их вернёт. Запускай Доту.</p>}
-        <button className="btn btn--accent" disabled={!!block || none || install.isPending || (picked === 'own' && !own.length)} onClick={() => install.mutate()}>
-          {install.isPending ? 'Ставлю…' : 'Поставить шрифт в Доту'}
-        </button>
+        {picked === 'dota' ? (
+          <>
+            {restore.data && <p className="small c-good">{restore.data.removed ? 'Шрифт Доты возвращён. Запускай Доту.' : 'Шрифт Доты и так стоит.'}</p>}
+            {restore.error && <ErrorBox error={restore.error} />}
+            <button className="btn btn--accent" disabled={!!block || restore.isPending || !status?.fonts.length} onClick={() => restore.mutate()}>
+              {restore.isPending ? 'Возвращаю…' : status?.fonts.length ? 'Вернуть шрифт Доты' : 'Шрифт Доты уже стоит'}
+            </button>
+          </>
+        ) : (
+          <button className="btn btn--accent" disabled={!!block || none || install.isPending || (picked === 'own' && !own.length)} onClick={() => install.mutate()}>
+            {install.isPending ? 'Ставлю…' : 'Поставить шрифт в Доту'}
+          </button>
+        )}
         {block && <p className="hint">{block}</p>}
       </div>
     </div>

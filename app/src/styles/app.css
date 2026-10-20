@@ -23,6 +23,44 @@ body {
   user-select: none;
 }
 
+/* Dota's own fonts (public/dota-game-fonts, see its README): the grid labels and the font preview */
+@font-face {
+  font-family: 'Dota Radiance';
+  src: url('/dota-game-fonts/radiance-regular.otf') format('opentype');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Dota Radiance';
+  src: url('/dota-game-fonts/radiance-semibold.otf') format('opentype');
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Dota Radiance';
+  src: url('/dota-game-fonts/radiance-bold.otf') format('opentype');
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Dota Reaver';
+  src: url('/dota-game-fonts/reaver-regular.otf') format('opentype');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Dota Reaver';
+  src: url('/dota-game-fonts/reaver-semibold.otf') format('opentype');
+  font-weight: 600;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Dota Reaver';
+  src: url('/dota-game-fonts/reaver-bold.otf') format('opentype');
+  font-weight: 700;
+  font-display: swap;
+}
+
 h1,
 h2,
 h3,
@@ -4403,7 +4441,8 @@ label.field {
   top: 0;
   overflow: visible;
   pointer-events: none;
-  font-family: var(--font);
+  /* Radiance SemiBold, as the game draws group names: the grid's art is measured in it */
+  font-family: 'Dota Radiance', var(--font);
   font-weight: 600;
   font-size: 15.15px;
   filter: drop-shadow(2px 2px 2px rgba(0, 0, 0, 0.27));
