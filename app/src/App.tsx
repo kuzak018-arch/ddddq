@@ -40,7 +40,7 @@ const PAGES: Record<Page, () => React.JSX.Element> = {
 const ORDER: Page[] = ['draft', 'meta', 'hero', 'top', 'patches', 'grids', 'profile', 'settings'];
 
 function useAppearance() {
-  const { theme, refraction, tilt } = useUi();
+  const { theme, refraction, tilt, material } = useUi();
   const calm = useCalmBackground(); // performance mode or a running match: no blur, no animations
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: light)');
@@ -56,7 +56,8 @@ function useAppearance() {
     document.documentElement.classList.toggle('perf', calm);
     document.documentElement.classList.toggle('has-refraction', refractionSupported && refraction && !calm);
     document.documentElement.classList.toggle('no-tilt', !tilt);
-  }, [calm, refraction, tilt]);
+    document.documentElement.dataset.material = material;
+  }, [calm, refraction, tilt, material]);
 }
 
 /** Calm motion: the system's "reduce motion" or the app's performance mode. */

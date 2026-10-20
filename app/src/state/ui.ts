@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+import type { Material } from '../lib/glassBackdrop';
 import type { PageAnim } from '../lib/pageAnim';
 
 export type Page = 'draft' | 'meta' | 'hero' | 'builds' | 'top' | 'patches' | 'grids' | 'profile' | 'settings' | 'vision';
@@ -25,7 +26,9 @@ interface UiState {
   bgDim: number;       // 0..0.8 dark overlay over the wallpaper
   /** visible part of a picture, video or hero art (background-position, %) */
   bgPos: { x: number; y: number };
-  refraction: boolean; // SVG edge refraction (Chromium only)
+  refraction: boolean; // SVG edge refraction (Chromium only): needs the live blur, see lib/glassBackdrop.ts
+  /** what the panels are made of (lib/glassBackdrop.ts) */
+  material: Material;
   performance: boolean; // no blur, no refraction, no animations
   /** how one tab turns into another (lib/pageAnim.ts) */
   pageAnim: PageAnim;
@@ -89,7 +92,8 @@ export const useUi = create<UiState>()(
       bgBlur: 0,
       bgDim: 0.15,
       bgPos: { x: 50, y: 30 },
-      refraction: true,
+      refraction: false,
+      material: 'glass',
       performance: false,
       pageAnim: 'rise',
       tilt: true,
@@ -111,9 +115,11 @@ export const useUi = create<UiState>()(
     }),
     {
       name: 'drafter-ui',
-      version: 2,
+      // 3: the live refraction is off by default (it re-blurs the wallpaper every frame and
+      // flickered in WebView2); the blurred wallpaper is made once instead (lib/glassBackdrop.ts)
+      version: 3,
       // v1 had no overlay settings: keep everything else, take the defaults for the new block
-      migrate: (old) => old as UiState,
+      migrate: (old, version) => (version < 3 ? { ...(old as UiState), refraction: false } : old) as UiState,
       merge: (persisted, current) => ({
         ...current,
         ...(persisted as Partial<UiState>),

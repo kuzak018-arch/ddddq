@@ -8,7 +8,9 @@ import { useEffect, useRef, useState } from 'react';
 
 import { useHealth, useSettings } from '../api/hooks';
 import { useLogoUrl } from '../lib/appIcon';
+import { blurPicture, loadPicture, setGlassPicture, type Material } from '../lib/glassBackdrop';
 import { lumaOfBlob, lumaOfUrl, veilFor } from '../lib/wallLuma';
+import { refractionSupported } from '../glass/refraction';
 import { useDraft } from '../state/draft';
 import { loadBackgroundFile } from '../state/bgstore';
 import { useUi, type Background, type Page } from '../state/ui';
@@ -228,6 +230,59 @@ export function useCalmBackground(): boolean {
   return perf || phase === 'game';
 }
 
+/**
+ * The blurred wallpaper under the glass panels, made once (lib/glassBackdrop.ts): a gradient as it
+ * is, a picture blurred on a small canvas, a video re-blurred twice a second (paused while calm).
+ * Live refraction needs the live blur, and «Как в Доте» shows no wallpaper: both clear it.
+ */
+function useGlassPicture(bg: Background, presetCss: string | null, file: { url: string; video: boolean } | null, video: React.RefObject<HTMLVideoElement | null>, calm: boolean) {
+  const { bgPos, material, refraction } = useUi();
+  const [view, setView] = useState({ w: window.innerWidth, h: window.innerHeight });
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout>;
+    const on = () => {
+      clearTimeout(t);
+      t = setTimeout(() => setView({ w: window.innerWidth, h: window.innerHeight }), 300);
+    };
+    window.addEventListener('resize', on);
+    return () => window.removeEventListener('resize', on);
+  }, []);
+  const live = refraction && refractionSupported;
+  useEffect(() => {
+    if (live || material === 'dota') return setGlassPicture(null);
+    if (presetCss) return setGlassPicture(presetCss);
+    const url = bg.kind === 'hero' ? heroArt(bg.key) : file?.url;
+    if (!url) return setGlassPicture(null);
+    let alive = true;
+    const m = material as Material;
+    if (file?.video) {
+      const tick = () => {
+        const v = video.current;
+        if (!alive || !v || !v.videoWidth) return;
+        const d = blurPicture(v, v.videoWidth, v.videoHeight, view, bgPos, m);
+        setGlassPicture(d ? `url("${d}")` : null, true);
+      };
+      const v = video.current;
+      v?.addEventListener('loadeddata', tick);
+      tick();
+      const timer = calm ? undefined : setInterval(tick, 500);
+      return () => {
+        alive = false;
+        v?.removeEventListener('loadeddata', tick);
+        clearInterval(timer);
+      };
+    }
+    void loadPicture(url).then((img) => {
+      if (!alive) return;
+      const d = img ? blurPicture(img, img.naturalWidth, img.naturalHeight, view, bgPos, m) : null;
+      setGlassPicture(d ? `url("${d}")` : null, true); // null: the live blur stays (the picture can't be read)
+    });
+    return () => {
+      alive = false;
+    };
+  }, [live, material, presetCss, bg, file?.url, file?.video, video, view, bgPos, calm]);
+}
+
 export function Wallpaper() {
   const { background: bg, bgBlur, bgDim, bgPos, theme } = useUi();
   const calm = useCalmBackground();
@@ -253,6 +308,11 @@ export function Wallpaper() {
     css = '#0b0b10';
     luma = file.luma ?? 0.3;
   }
+
+  useGlassPicture(bg, bg.kind === 'preset' ? css : null, file, video, calm);
+  useEffect(() => {
+    document.documentElement.style.setProperty('--wall-dim', String(bgDim));
+  }, [bgDim]);
 
   // glass veil from the wallpaper's brightness: only the dark theme has white text on the glass
   useEffect(() => {

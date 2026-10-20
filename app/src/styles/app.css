@@ -85,6 +85,11 @@ input {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
+/* the focus ring only while the keyboard is used (Tab): a click or a hotkey left a blue ring
+   around the active tab that looked like a glitch (html.kbd-nav, main.tsx) */
+html:not(.kbd-nav) :focus-visible {
+  outline: none;
+}
 
 .muted {
   color: var(--text-3);

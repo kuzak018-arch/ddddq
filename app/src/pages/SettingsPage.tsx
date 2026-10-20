@@ -19,6 +19,7 @@ import { useEffectsBlocked } from '../components/Effects';
 import { refractionSupported } from '../glass/refraction';
 import { ErrorBox, Segmented, Slider, Toggle } from '../components/ui';
 import { LOGO_KEY, useIconResult, useLogoUrl } from '../lib/appIcon';
+import { MATERIALS } from '../lib/glassBackdrop';
 import { PAGE_ANIMS, replayPageIn } from '../lib/pageAnim';
 import { play } from '../lib/sounds';
 import { autostartEnabled, setAutostart } from '../lib/tray';
@@ -158,6 +159,10 @@ function AppearanceCard() {
         отключены эффекты анимации.
       </p>
       <div className="field">
+        <span className="label">Материал панелей</span>
+        <Segmented small value={ui.material} onChange={(material) => ui.set({ material })} options={MATERIALS} />
+      </div>
+      <div className="field">
         <span className="label">Переход между вкладками</span>
         <Segmented
           small
@@ -211,7 +216,11 @@ function AppearanceCard() {
       <Toggle
         on={ui.refraction && refractionSupported}
         onChange={(refraction) => ui.set({ refraction })}
-        label={refractionSupported ? 'Преломление по краям стекла' : 'Преломление (недоступно в этом движке)'}
+        label={
+          refractionSupported
+            ? 'Живое стекло с преломлением по краям (тяжелее; на некоторых видеокартах мерцает полосами)'
+            : 'Преломление (недоступно в этом движке)'
+        }
       />
       <Toggle on={ui.performance} onChange={(performance) => ui.set({ performance })} label="Режим производительности (без размытия и анимаций)" />
     </Panel>

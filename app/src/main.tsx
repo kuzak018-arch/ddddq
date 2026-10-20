@@ -26,6 +26,9 @@ const queryClient = new QueryClient({
 
 installButtonSheen();
 installTilt();
+// the focus ring shows only after Tab, not after a click or a hotkey
+window.addEventListener('keydown', (e) => e.key === 'Tab' && document.documentElement.classList.add('kbd-nav'), true);
+window.addEventListener('pointerdown', () => document.documentElement.classList.remove('kbd-nav'), true);
 installWheelDebug(); // hidden wheel-scrolling debug log (Ctrl+Alt+Shift+W), off: no listeners
 
 // Never leave the user with a blank window: if the UI crashes or doesn't start, say why.
