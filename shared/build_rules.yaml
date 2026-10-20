@@ -11,8 +11,8 @@
   weight: any
   items:
     1: [black_king_bar, manta]
-    2: [black_king_bar, eternal_shroud]
-    3: [pipe, eternal_shroud, black_king_bar]
+    2: [black_king_bar]
+    3: [pipe, black_king_bar]
     4: [glimmer_cape, pipe]
     5: [glimmer_cape, pipe]
   why: "Много магического урона ({heroes}): нужна защита от магии, без неё вас сжигают в драках."

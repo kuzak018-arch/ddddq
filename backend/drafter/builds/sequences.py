@@ -111,7 +111,7 @@ class Game:
 
 
 def parse(rec: dict) -> Game | None:
-    items = [(int(t), k) for t, k in rec.get("items") or [] if isinstance(k, str)]
+    items = [(int(t), k) for t, k in rec.get("items") or [] if isinstance(k, str) and k not in constants.RETIRED_ITEMS]
     if not items:
         return None
     items.sort()
