@@ -16,6 +16,10 @@ DIR = config.DATA / "constants"
 ICONS = config.DATA / "icons"
 CDN = "https://cdn.cloudflare.steamstatic.com"
 RAW = ("heroes", "items", "abilities", "hero_abilities", "item_ids", "ability_ids")
+# Items taken out of the game. They stay in the constants (old matches still show them), but are never
+# recommended: not in «what to build against this draft», not in builds from cached older matches,
+# not in the aggregated build. Add a key here when a patch removes an item.
+RETIRED_ITEMS = frozenset({"eternal_shroud"})
 
 
 def _save(name: str, data) -> None:

@@ -17,6 +17,7 @@ import type {
   Settings,
   SuggestResponse,
   TierList,
+  TopVs,
   VsItem,
 } from './types';
 
@@ -103,6 +104,18 @@ export function useBuild(hero: number | null, pos: number, enemies: number[], fa
         return api<{ build: BuildsResponse; vs: VsItem[] }>(`/builds/${hero}/vs`, { body: { enemies, pos, fallback, mode } });
       return { build: await api<BuildsResponse>(`/builds/${hero}?pos=${pos}&fallback=${fallback}&mode=${mode}`), vs: [] as VsItem[] };
     },
+  });
+}
+
+/** Top players' build against this enemy draft, from the cached «Игры топов» matches of the hero
+ * (loads them in the background; polls while it does). Needs 3+ known enemies. */
+export function useTopVs(hero: number | null, pos: number, enemies: number[]) {
+  return useQuery({
+    queryKey: ['top-vs', hero, pos, enemies],
+    enabled: !!hero && enemies.length >= 3,
+    retry: false,
+    refetchInterval: (q) => (q.state.data?.loading ? 4000 : false),
+    queryFn: () => api<TopVs>('/top-games/vs', { body: { hero, enemies, pos } }),
   });
 }
 

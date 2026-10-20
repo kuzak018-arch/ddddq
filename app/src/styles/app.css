@@ -5900,24 +5900,6 @@ a.btn {
   background: var(--accent);
   box-shadow: 0 0 10px var(--accent);
 }
-/* live wallpapers: a small pulsing dot on their tiles */
-.bg-tile--live::after {
-  content: '';
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #6dffb0;
-  box-shadow: 0 0 8px #6dffb0;
-  animation: live-dot 1.8s ease-in-out infinite;
-}
-@keyframes live-dot {
-  50% {
-    opacity: 0.35;
-  }
-}
 
 /* Оформление → «Свои VPK» */
 .packs {
@@ -5951,4 +5933,19 @@ a.btn {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Профиль: сколько ПТС до следующей звезды и ранга */
+.rankp {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--text-2);
+  cursor: help;
+}
+.rankp b {
+  color: var(--text);
+  font-weight: 600;
 }

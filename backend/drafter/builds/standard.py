@@ -34,7 +34,7 @@ def _maps():
 def _item(item_id: int) -> dict | None:
     item_ids, _, items, _ = _maps()
     key = item_ids.get(item_id)
-    if not key or key not in items:
+    if not key or key not in items or key in constants.RETIRED_ITEMS:
         return None
     return {"key": key, "name": items[key]["dname"], "cost": items[key].get("cost") or 0}
 

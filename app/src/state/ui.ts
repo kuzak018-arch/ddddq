@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+import { migrateUi } from './uiMigrate';
 import type { Material } from '../lib/glassBackdrop';
 import type { PageAnim } from '../lib/pageAnim';
 
@@ -12,7 +13,6 @@ export type Effect = 'none' | 'rain' | 'snow' | 'stars' | 'fog' | 'particles';
  * (picture, GIF or video, in IndexedDB). */
 export type Background =
   | { kind: 'preset'; id: string }
-  | { kind: 'live'; id: string }
   | { kind: 'hero'; key: string }
   | { kind: 'file'; name: string; rev?: number }; // rev: a new file under the same name
 
@@ -91,7 +91,7 @@ export const useUi = create<UiState>()(
       buildHero: null,
       buildPos: 1,
       theme: 'dark',
-      background: { kind: 'preset', id: 'default' },
+      background: { kind: 'preset', id: 'night' },
       bgBlur: 0,
       bgDim: 0.15,
       bgPos: { x: 50, y: 30 },
@@ -121,9 +121,9 @@ export const useUi = create<UiState>()(
       name: 'drafter-ui',
       // 3: the live refraction is off by default (it re-blurs the wallpaper every frame and
       // flickered in WebView2); the blurred wallpaper is made once instead (lib/glassBackdrop.ts)
-      version: 3,
+      version: 4,
       // v1 had no overlay settings: keep everything else, take the defaults for the new block
-      migrate: (old, version) => (version < 3 ? { ...(old as UiState), refraction: false } : old) as UiState,
+      migrate: (old, version) => migrateUi(old, version) as UiState,
       merge: (persisted, current) => keepUnchanged({
         ...current,
         ...(persisted as Partial<UiState>),

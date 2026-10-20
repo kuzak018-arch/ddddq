@@ -27,7 +27,7 @@ from .. import config, dota_paths, gsi, hero_grid, ingame, keybinds, search, upd
 from .. import settings as user_settings
 from ..builds import counter, standard
 from ..builds import service as build_service
-from ..data import constants, gridstudio, matches, me, my_matches, patchnotes, players, renders, stratz
+from ..data import constants, gridstudio, matches, me, my_matches, patchnotes, players, ranks, renders, stratz
 from ..lane import bulk as lane_bulk
 from ..lane import service as lane_service
 from ..model import draft, explain, meta, predictor, train
@@ -471,6 +471,7 @@ def my_profile():
     return {"account_id": data["account_id"], "name": prof.get("personaname"),
             "avatar": "/me/avatar" if me.AVATAR.exists() else None,
             "rank_tier": me.rank_tier(data), "leaderboard": data["profile"].get("leaderboard_rank"),
+            "rank_progress": ranks.progress(me.rank_tier(data), (data["profile"].get("mmr_estimate") or {}).get("estimate")),
             "plus": bool(prof.get("plus")), "fetched": data["fetched"], "overall": pool["overall"],
             "experience": pool["experience"],
             "heroes": [{"hero": h, **{k: (round(v, 4) if isinstance(v, float) else v) for k, v in s.items()}}
@@ -1223,6 +1224,22 @@ def top_games(hero_id: int, source: Literal["immortal", "divine", "pro"] = "immo
     if hero_id not in constants.hero_by_id():
         raise HTTPException(404, "нет такого героя")
     return topgames.get(hero_id, source, refresh)
+
+
+class TopVsIn(BaseModel):
+    hero: int
+    enemies: list[int] = Field(default_factory=list, max_length=5)
+    pos: int | None = Field(default=None, ge=1, le=5)
+
+
+@app.post("/top-games/vs")
+def top_games_vs(body: TopVsIn):
+    """The build of top players on the hero in games where the enemy team had this draft (the
+    overlay's Build mode); {found: false} when there is no such game. Loads in the background."""
+    from .. import topgames
+    if body.hero not in constants.hero_by_id():
+        raise HTTPException(404, "нет такого героя")
+    return topgames.vs_draft(body.hero, body.enemies, body.pos)
 
 
 # ---------- «Оформление игры»: the menu background and fonts (off by default) -----------------

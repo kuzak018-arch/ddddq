@@ -17,6 +17,7 @@ groups: if Stratz rejects a field, the query is sent again without its group.
 from __future__ import annotations
 
 import json
+import os
 import re
 import threading
 import time
@@ -305,6 +306,19 @@ def _ru_items() -> dict:
     return _ru_cache
 
 
+def _maybe_start(hero_id: int, source: str, data: dict, matches: list, refresh: bool = False) -> None:
+    """Starts a background load when there is nothing, the list is stale, or `refresh` (called with _lock held)."""
+    key = (hero_id, source)
+    state = _states.get(key)
+    busy = bool(state and state.get("loading"))
+    stale = time.time() - data.get("fetched", 0) > REFRESH_AFTER
+    recently_failed = state and state.get("error") and time.time() - state.get("done", 0) < 60
+    if not busy and (refresh or stale or not matches) and not (recently_failed and not refresh):
+        state = {"loading": True, "requests": 0, "players": 0, "error": None, "note": None}
+        _states[key] = state
+        threading.Thread(target=_run, args=(hero_id, source, state), daemon=True, name=f"topgames-{hero_id}-{source}").start()
+
+
 def get(hero_id: int, source: str, refresh: bool = False) -> dict:
     """What is cached now; starts a background load when there is nothing, the list is stale, or
     `refresh`. Poll while `loading`."""
@@ -315,14 +329,7 @@ def get(hero_id: int, source: str, refresh: bool = False) -> dict:
     since = patch_start()
     matches = [r for r in data["matches"] if (r.get("t") or 0) >= since]
     with _lock:
-        state = _states.get(key)
-        busy = bool(state and state.get("loading"))
-        stale = time.time() - data.get("fetched", 0) > REFRESH_AFTER
-        recently_failed = state and state.get("error") and time.time() - state.get("done", 0) < 60
-        if not busy and (refresh or stale or not matches) and not (recently_failed and not refresh):
-            state = {"loading": True, "requests": 0, "players": 0, "error": None, "note": None}
-            _states[key] = state
-            threading.Thread(target=_run, args=(hero_id, source, state), daemon=True, name=f"topgames-{hero_id}-{source}").start()
+        _maybe_start(hero_id, source, data, matches, refresh)
     state = _states.get(key) or {}
     items = load_const("items")
     keys = {k for r in matches for _, k in r["items"]} | {k for r in matches for k in (r.get("final") or []) if k}
@@ -343,3 +350,94 @@ def get(hero_id: int, source: str, refresh: bool = False) -> dict:
         "fields": {g: on for g, on in _working.items()},
         "limits": dict(stratz.limits),
     }
+
+
+# ---------- the build of top players against a draft (the overlay's Build mode) -----------------
+
+VS_MIN_ENEMIES = 3                 # fewer known enemies is not a draft yet
+VS_LOAD_SOURCES = ("divine", "pro")  # Divine+ already holds Immortal; the cache of "immortal" is read too when it exists
+VS_SHOW_MATCHES = 5
+MAX_CORE = 6
+
+
+def _need(n: int) -> int:
+    """How many of the n known enemy heroes a match must share: 60%, at least 2 (n=3 -> 2, 4 -> 3, 5 -> 3)."""
+    return min(n, max(2, -(-3 * n // 5)))
+
+
+def _median_minute(times: list[int]) -> float:
+    ordered = sorted(times)
+    mid = len(ordered) // 2
+    return round((ordered[mid] if len(ordered) % 2 else (ordered[mid - 1] + ordered[mid]) / 2) / 60, 1)
+
+
+def vs_draft(hero_id: int, enemies: list[int], pos: int | None = None, load: bool = True) -> dict:
+    """What top players (Divine+, Immortal, pros; this patch) bought on the hero in games where the
+    enemy team had this draft: matches sharing most of the known enemy heroes. Reads what is cached;
+    when the hero has not been loaded (or the list is stale) the load starts in the background and
+    `loading` says so. Nothing found is an answer too: the overlay then keeps its usual build."""
+    from .builds import sequences
+
+    enemies = sorted({int(e) for e in enemies if e})
+    if len(enemies) < VS_MIN_ENEMIES:
+        return {"found": False, "reason": "few_enemies", "loading": False, "error": None, "min_enemies": VS_MIN_ENEMIES}
+    need = _need(len(enemies))
+    since = patch_start()
+    pool: dict[int, tuple[dict, str]] = {}
+    loading, error = False, None
+    for source in SOURCES:
+        data = _read(source, hero_id)
+        matches = [r for r in data["matches"] if (r.get("t") or 0) >= since]
+        if load and source in VS_LOAD_SOURCES and os.environ.get("DRAFTER_NO_BUILD_LOAD") != "1":
+            with _lock:
+                _maybe_start(hero_id, source, data, matches)
+        state = _states.get((hero_id, source)) or {}
+        loading = loading or bool(state.get("loading"))
+        error = error or (state.get("error") if not matches else None)
+        for r in matches:
+            pool.setdefault(r["m"], (r, source))
+    hits = []
+    for rec, source in pool.values():
+        if pos is not None and rec.get("pos") not in (pos, None):
+            continue
+        overlap = len(set(rec.get("enemies") or []) & set(enemies))
+        if overlap >= need and (game := sequences.parse(rec)):
+            hits.append((overlap, rec, source, game))
+    base = {"found": False, "reason": "none", "loading": loading, "error": error, "checked": len(pool), "need": need}
+    if not hits:
+        return base
+    hits.sort(key=lambda h: (-h[0], not h[1].get("w"), -(h[1].get("t") or 0)))
+    n = len(hits)
+    items = load_const("items")
+    name = lambda k: _item_name(k, items)  # noqa: E731
+
+    boots: dict[str, list[int]] = {}
+    for _, _, _, g in hits:
+        if g.boots:
+            boots.setdefault(g.boots[0], []).append(g.boots[1])
+    boot = None
+    if boots:
+        key, times = max(boots.items(), key=lambda kv: len(kv[1]))
+        boot = {"key": key, "name": name(key), "minute": _median_minute(times), "share": round(len(times) / n, 2)}
+
+    core: dict[str, list[int]] = {}
+    for _, _, _, g in hits:
+        for key, t in g.core:
+            core.setdefault(key, []).append(t)
+    # a handful of games: every item they bought; more games: items in over a third of them
+    picked = [(k, ts) for k, ts in core.items() if n <= 3 or len(ts) / n > 0.34]
+    picked.sort(key=lambda kv: (-len(kv[1]), _median_minute(kv[1])))
+    picked = sorted(picked[:MAX_CORE], key=lambda kv: _median_minute(kv[1]))
+    core_out = [{"key": k, "name": name(k), "minute": _median_minute(ts), "share": round(len(ts) / n, 2)} for k, ts in picked]
+
+    labels: dict[str, int] = {}
+    for _, _, source, _ in hits:
+        labels[SOURCES[source]["label"]] = labels.get(SOURCES[source]["label"], 0) + 1
+    shown = [{
+        "m": rec["m"], "win": bool(rec.get("w")), "overlap": overlap, "label": SOURCES[source]["label"],
+        "player": rec.get("name"), "team": rec.get("team"), "rank": rec.get("rank"), "t": rec.get("t"),
+        "core": [k for k, _ in game.core][:MAX_CORE],
+    } for overlap, rec, source, game in hits[:VS_SHOW_MATCHES]]
+    return {**base, "found": True, "reason": None, "games": n, "wins": sum(1 for h in hits if h[1].get("w")),
+            "full": sum(1 for h in hits if h[0] == len(enemies)), "enemies": len(enemies), "sources": labels,
+            "boots": boot, "core": core_out, "matches": shown}

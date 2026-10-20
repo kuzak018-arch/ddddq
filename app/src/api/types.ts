@@ -143,6 +143,30 @@ export interface VsItem {
   reasons: { tag: string; text: string; score: number }[];
 }
 
+/** The build of top players on the hero in games against a draft like this one (POST /top-games/vs). */
+export interface TopVsItem {
+  key: string;
+  name: string;
+  minute: number | null;
+  share: number;
+}
+export interface TopVs {
+  found: boolean;
+  reason: 'few_enemies' | 'none' | null;
+  loading: boolean;
+  error: string | null;
+  checked?: number;
+  games?: number;
+  wins?: number;
+  full?: number;
+  enemies?: number;
+  need?: number;
+  sources?: Record<string, number>;
+  boots?: TopVsItem | null;
+  core?: TopVsItem[];
+  matches?: { m: number; win: boolean; overlap: number; label: string; player: string | null; team: string | null; rank: number | null; core: string[] }[];
+}
+
 export interface TierRow {
   hero: number;
   games: number;
@@ -188,6 +212,19 @@ export interface HeroPage {
   me: { games: number; wins: number; edge: number; experience: number } | null;
 }
 
+/** Points left to the next star and medal (backend data/ranks.py; Valve hides the exact rating). */
+export interface RankProgress {
+  tier: number;
+  name: string;
+  mmr: number;
+  from_estimate: boolean;
+  low: number;
+  high: number;
+  next_star: { name: string; points: number; games: number } | null;
+  next_rank: { name: string; points: number; games: number };
+  per_game: number;
+}
+
 export interface Profile {
   account_id: number;
   name: string | null;
@@ -195,6 +232,8 @@ export interface Profile {
   rank_tier: number | null;
   /** place in the leaderboard (Immortal), null when not in it */
   leaderboard?: number | null;
+  /** null: no rank, or an Immortal (their rank is a leaderboard place) */
+  rank_progress?: RankProgress | null;
   plus?: boolean;
   fetched: number;
   overall: { games: number; wins: number; wr: number } | null;

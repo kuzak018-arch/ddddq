@@ -48,7 +48,7 @@ def against(enemies: list[int], pos: int, pos_mat=None, hero_items: dict[str, fl
         heroes = ", ".join(n for _, n in sorted(who, reverse=True))
         urgency = total / rule["min"]
         for rank, key in enumerate(rule["items"].get(pos, [])):
-            if key not in items:
+            if key not in items or key in constants.RETIRED_ITEMS:
                 continue
             score = urgency / (1 + 0.5 * rank)
             share = None if hero_items is None else hero_items.get(key, 0.0)

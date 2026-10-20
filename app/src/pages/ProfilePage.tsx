@@ -21,7 +21,7 @@ import { useEffect, useRef, useState, type CSSProperties, type PointerEvent, typ
 
 import { api } from '../api/client';
 import { useAvatar, useHealth, useHeroes, useMeSummary, useProfile } from '../api/hooks';
-import type { MeSummary, Profile } from '../api/types';
+import type { MeSummary, Profile, RankProgress } from '../api/types';
 import { heroArt, PRESETS } from '../components/Chrome';
 import { useHeroModel } from '../components/HeroModel';
 import { Panel } from '../components/Glass';
@@ -31,7 +31,7 @@ import { Ti } from '../components/Icons';
 import { MatchHistory } from '../components/MatchHistory';
 import { PlayerSearch } from '../components/PlayerSearch';
 import { Sheet } from '../components/Sheet';
-import { Empty, ErrorBox, fmtPct, fmtSigned, HeroIcon, Segmented, Slider, Toggle } from '../components/ui';
+import { Empty, ErrorBox, fmtPct, fmtSigned, HeroIcon, plural, Segmented, Slider, Toggle } from '../components/ui';
 import { rankName } from '../lib/ranks';
 import { loadFile, saveFile } from '../state/bgstore';
 import { useUi } from '../state/ui';
@@ -161,6 +161,25 @@ export function ProfilePage() {
   );
 }
 
+/** Points to the next star and the next medal. Valve hides the exact rating, so these are estimates
+ * from the rank's step (and OpenDota's estimate when it fits it): said so in the tooltip. */
+function RankProgressLine({ r }: { r: RankProgress }) {
+  const how = r.from_estimate ? `внутри ступени взята оценка OpenDota (${r.mmr})` : `внутри ступени взята середина (${r.mmr})`;
+  const title = `Valve не показывает точный рейтинг, поэтому цифры примерные. Ступень «${r.name}» — это ${r.low}–${r.high} ПТС, ${how}. Победа или поражение — около ±${r.per_game}.`;
+  return (
+    <p className="rankp" title={title}>
+      {r.next_star && (
+        <span>
+          до <b>{r.next_star.name}</b> ≈ {r.next_star.points} ПТС
+        </span>
+      )}
+      <span>
+        до <b>{r.next_rank.name}</b> ≈ {r.next_rank.points} ПТС (~{r.next_rank.games} {plural(r.next_rank.games, 'победа', 'победы', 'побед')})
+      </span>
+    </p>
+  );
+}
+
 /** The header card: avatar in its frame, rank medal, name, Dota Plus, status, tiles and the showcase. */
 function ProfileCard({ p, summary }: { p: Profile; summary?: MeSummary }) {
   const b = useUi((s) => s.banner);
@@ -182,6 +201,7 @@ function ProfileCard({ p, summary }: { p: Profile; summary?: MeSummary }) {
           {rankName(p.rank_tier)}
           {p.leaderboard ? ` · #${p.leaderboard} в таблице лидеров` : ''} · ID {p.account_id}
         </p>
+        {p.rank_progress && <RankProgressLine r={p.rank_progress} />}
         <div className="pro__tiles">
           {b.tiles.games && (
             <div className="pro__tile">
