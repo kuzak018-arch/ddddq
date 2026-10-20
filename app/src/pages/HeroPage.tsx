@@ -212,7 +212,7 @@ function HeroPicks({ onPick }: { onPick: (id: number) => void }) {
           </h3>
           <div className="hero-picks__list">
             {pool.map((h) => (
-              <button key={h.hero} className="hero-picks__item" onClick={() => onPick(h.hero)}>
+              <button key={h.hero} className="hero-picks__item tilt" data-tilt="8" onClick={() => onPick(h.hero)}>
                 <HeroIcon id={h.hero} size="sm" />
                 <span>{heroes?.byId.get(h.hero)?.name}</span>
                 <small className="muted">{h.games}</small>
@@ -233,7 +233,7 @@ function HeroPicks({ onPick }: { onPick: (id: number) => void }) {
                 .filter((h) => h.attr === g.attr)
                 .sort((a, b) => a.name.localeCompare(b.name))
                 .map((h) => (
-                  <button key={h.id} className="all-heroes__item" onClick={() => onPick(h.id)} title={h.name}>
+                  <button key={h.id} className="all-heroes__item tilt" data-tilt="14" onClick={() => onPick(h.id)} title={h.name}>
                     <HeroIcon id={h.id} size="md" />
                   </button>
                 ))}

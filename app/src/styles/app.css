@@ -1918,7 +1918,7 @@ input {
   transition: transform 0.45s var(--ease-spring);
 }
 .pro__show:hover {
-  transform: translateY(-4px);
+  --press: 1.05;
 }
 .pro__show img {
   width: 100%;
@@ -3340,8 +3340,7 @@ input {
 .month__h:active,
 .form-strip__g:active,
 .tier__hero:active,
-.talent__body:active,
-.hero-picks__item:active {
+.talent__body:active {
   transform: scale(0.97);
 }
 .ban {
@@ -3905,9 +3904,6 @@ input {
 .pick__main:hover {
   background: var(--row-bg-hover);
 }
-.pick__main:active {
-  transform: scale(0.98);
-}
 .pick__who {
   display: flex;
   align-items: center;
@@ -4156,11 +4152,11 @@ input {
   width: 100%;
 }
 .all-heroes__item:hover {
-  transform: scale(1.08);
+  --press: 1.08;
   filter: brightness(1.15);
 }
 .all-heroes__item:active {
-  transform: scale(0.96);
+  --press: 0.96;
 }
 .empty-cta {
   display: flex;
@@ -5516,4 +5512,52 @@ a.btn {
   color: #c7d0df;
   background: rgba(0, 0, 0, 0.35);
   white-space: pre;
+}
+
+/* cards with depth (lib/tilt.ts): lean towards the pointer, a glare follows it; springs back */
+.tilt {
+  --rx: 0deg;
+  --ry: 0deg;
+  --press: 1;
+  position: relative;
+  transform: perspective(720px) rotateX(var(--rx)) rotateY(var(--ry)) scale(var(--press));
+  transition:
+    transform 0.6s var(--ease-spring),
+    background-color var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out);
+}
+.tilt.is-tilting {
+  transition:
+    transform 0.12s ease-out,
+    background-color var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 0 0 1px var(--glass-rim-2),
+    0 18px 34px -18px rgba(0, 0, 0, 0.6);
+}
+.tilt:active {
+  --press: 0.97;
+}
+.tilt::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(220px circle at var(--gx, 50%) var(--gy, 0%), rgba(255, 255, 255, 0.2), transparent 60%);
+  opacity: 0;
+  transition: opacity 0.3s var(--ease-out);
+  z-index: 3;
+}
+.tilt.is-tilting::after {
+  opacity: 1;
+}
+.no-tilt .tilt,
+.perf .tilt {
+  transform: none;
+}
+.no-tilt .tilt::after,
+.perf .tilt::after {
+  display: none;
 }

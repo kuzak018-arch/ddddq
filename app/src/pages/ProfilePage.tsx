@@ -220,7 +220,7 @@ function ProfileCard({ p, summary }: { p: Profile; summary?: MeSummary }) {
           <span className="label">Витрина</span>
           <div>
             {b.showcase.map((h) => (
-              <button key={h} className="pro__show" onClick={() => openHero(h)}>
+              <button key={h} className="pro__show tilt" data-tilt="12" onClick={() => openHero(h)}>
                 <img src={`/portraits/${h}.webp`} alt="" draggable={false} />
                 <HeroName id={h} />
               </button>
@@ -469,7 +469,7 @@ function Summary({ s }: { s: MeSummary }) {
           </h3>
           <div className="month">
             {s.month_heroes.map((h) => (
-              <button key={h.hero} className="month__h" onClick={() => openHero(h.hero)}>
+              <button key={h.hero} className="month__h tilt" data-tilt="6" onClick={() => openHero(h.hero)}>
                 <HeroIcon id={h.hero} size="sm" />
                 <span>{heroes?.byId.get(h.hero)?.name}</span>
                 <span className="muted">{h.games}</span>

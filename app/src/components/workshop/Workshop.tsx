@@ -143,7 +143,7 @@ function Grids({ meta, onNote }: { meta?: Meta; onNote: (s: string) => void }) {
       {list.data && !list.data.items.length && <Empty>Ничего не нашлось.</Empty>}
       <div className="ws-cards">
         {list.data?.items.map((g) => (
-          <article key={g.id} className="ws-card">
+          <article key={g.id} className="ws-card tilt" data-tilt="5">
             <img className="ws-card__img" src={asset(`/workshop-media/grid/${g.id}.jpg?rev=${g.revision ?? ''}`)} alt="" loading="lazy" />
             <div className="ws-card__body">
               <b className="ws-card__title" title={g.title}>
@@ -249,7 +249,7 @@ function Backgrounds({ meta, onNote }: { meta?: Meta; onNote: (s: string) => voi
       {list.data && !list.data.items.length && <Empty>Ничего не нашлось.</Empty>}
       <div className="ws-cards">
         {list.data?.items.map((b) => (
-          <article key={b.id} className="ws-card" onMouseEnter={() => setHover(b.id)} onMouseLeave={() => setHover(null)}>
+          <article key={b.id} className="ws-card tilt" data-tilt="5" onMouseEnter={() => setHover(b.id)} onMouseLeave={() => setHover(null)}>
             <div className="ws-card__media">
               <img className="ws-card__img" src={asset(`/workshop-media/bg/${b.id}/poster.jpg`)} alt="" loading="lazy" />
               {hover === b.id && b.has_preview && (

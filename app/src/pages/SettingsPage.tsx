@@ -173,6 +173,7 @@ function AppearanceCard() {
           Сейчас переходов не видно: {ui.performance ? 'включён режим производительности' : 'в Windows отключены эффекты анимации'}.
         </p>
       )}
+      <Toggle on={ui.tilt} onChange={(tilt) => ui.set({ tilt })} label="Карточки с объёмом (наклон и блик под курсором)" />
       <Toggle
         on={ui.refraction && refractionSupported}
         onChange={(refraction) => ui.set({ refraction })}

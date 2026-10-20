@@ -389,7 +389,7 @@ function PickCard({ r, onPick }: { r: Suggestion; onPick: () => void }) {
           </div>
         }
       >
-        <button className="pick__main" onClick={onPick} onDoubleClick={() => openHero(r.hero)} title="">
+        <button className="pick__main tilt" onClick={onPick} onDoubleClick={() => openHero(r.hero)} title="">
           <span className="pick__who">
             <HeroIcon id={r.hero} size="sm" />
             <b>{name}</b>

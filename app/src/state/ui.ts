@@ -29,6 +29,8 @@ interface UiState {
   performance: boolean; // no blur, no refraction, no animations
   /** how one tab turns into another (lib/pageAnim.ts) */
   pageAnim: PageAnim;
+  /** cards lean towards the pointer with a glare (lib/tilt.ts) */
+  tilt: boolean;
   /** closing the main window hides it into the tray instead of quitting */
   closeToTray: boolean;
   /** Background effect over the wallpaper and its intensity (0.1..1). */
@@ -87,6 +89,7 @@ export const useUi = create<UiState>()(
       refraction: true,
       performance: false,
       pageAnim: 'rise',
+      tilt: true,
       closeToTray: false,
       logo: { kind: 'default' },
       fx: { kind: 'none', intensity: 0.5 },
