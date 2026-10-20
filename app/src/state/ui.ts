@@ -14,7 +14,7 @@ export type Background =
   | { kind: 'preset'; id: string }
   | { kind: 'live'; id: string }
   | { kind: 'hero'; key: string }
-  | { kind: 'file'; name: string };
+  | { kind: 'file'; name: string; rev?: number }; // rev: a new file under the same name
 
 interface UiState {
   page: Page;
@@ -124,7 +124,7 @@ export const useUi = create<UiState>()(
       version: 3,
       // v1 had no overlay settings: keep everything else, take the defaults for the new block
       migrate: (old, version) => (version < 3 ? { ...(old as UiState), refraction: false } : old) as UiState,
-      merge: (persisted, current) => ({
+      merge: (persisted, current) => keepUnchanged({
         ...current,
         ...(persisted as Partial<UiState>),
         overlay: { ...current.overlay, ...((persisted as Partial<UiState>)?.overlay ?? {}) },
@@ -132,10 +132,25 @@ export const useUi = create<UiState>()(
         fx: { ...current.fx, ...((persisted as Partial<UiState>)?.fx ?? {}) },
         sounds: { ...current.sounds, ...((persisted as Partial<UiState>)?.sounds ?? {}) },
         bgPos: { ...current.bgPos, ...((persisted as Partial<UiState>)?.bgPos ?? {}) },
-      }),
+      }, current),
     },
   ),
 );
+
+/**
+ * Rehydrating (the other window saved its settings) builds new objects for every block: keep the
+ * old ones where nothing changed, so effects depending on e.g. the background don't re-run (the
+ * wallpaper video restarted on every step of the overlay's opacity slider).
+ */
+function keepUnchanged(next: UiState, prev: UiState): UiState {
+  const out = next as unknown as Record<string, unknown>;
+  const old = prev as unknown as Record<string, unknown>;
+  for (const k of Object.keys(out)) {
+    const v = out[k];
+    if (v !== null && typeof v === 'object' && v !== old[k] && JSON.stringify(v) === JSON.stringify(old[k])) out[k] = old[k];
+  }
+  return next;
+}
 
 // Both windows share localStorage: when one changes settings, the other picks them up.
 if (typeof window !== 'undefined') {

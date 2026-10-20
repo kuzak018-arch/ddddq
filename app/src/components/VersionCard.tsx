@@ -66,7 +66,7 @@ export function VersionCard() {
           )}
           {ready && (
             <>
-              <button className="btn btn--sm btn--accent" onClick={() => void installNow(ready)}>
+              <button className="btn btn--sm btn--accent" onClick={() => void installNow(ready)} disabled={u.installing}>
                 <Ti icon={RotateCw} />
                 Установить и перезапустить
               </button>

@@ -90,3 +90,12 @@ export function veilFor(luma: number, dim: number): number {
   const glass = 0.1 + 0.9 * wall;
   return Math.max(0, Math.min(0.65, 1 - 0.18 / glass));
 }
+
+/**
+ * The light theme's counterpart: how much white to lay under the glass so dark text stays readable
+ * on a dark wallpaper (none on bright ones). The light glass itself is a thin white over the wallpaper.
+ */
+export function lightVeilFor(luma: number, dim: number): number {
+  const wall = luma * (1 - dim);
+  return Math.max(0, Math.min(0.62, 0.64 - 0.95 * wall));
+}

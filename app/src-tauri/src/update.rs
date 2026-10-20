@@ -40,8 +40,9 @@ fn run(exe: &PathBuf, relaunch: bool) -> Result<(), String> {
 #[tauri::command]
 pub fn install_update(app: AppHandle, path: String) -> Result<(), String> {
     let exe = checked(&path)?;
-    app.state::<UpdateState>().pending.lock().unwrap().take();
     run(&exe, true)?;
+    // started: no second run on exit (a failed start keeps the one armed for exit)
+    app.state::<UpdateState>().pending.lock().unwrap().take();
     app.exit(0);
     Ok(())
 }

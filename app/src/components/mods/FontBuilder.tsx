@@ -80,13 +80,16 @@ export function FontBuilder() {
   const [keepGrid, setKeepGrid] = useState(true);
   const [err, setErr] = useState<unknown>(null);
 
+  // object URLs of the user's own fonts: one per file, let go when the files change or the page closes
+  const ownUrls = useMemo(() => own.map((f) => URL.createObjectURL(f.file)), [own]);
+  useEffect(() => () => ownUrls.forEach((u) => URL.revokeObjectURL(u)), [ownUrls]);
   const faces = useMemo(() => {
     if (picked === 'dota') return null; // the scenes show the game's own pixels, the grid Radiance
-    if (picked === 'own') return own.length ? own.map((f) => ({ url: URL.createObjectURL(f.file), weight: f.weight, italic: f.italic })) : null;
+    if (picked === 'own') return own.length ? own.map((f, i) => ({ url: ownUrls[i]!, weight: f.weight, italic: f.italic })) : null;
     const font = catalog.data?.fonts.find((f) => f.id === picked);
     if (!font || !base) return null;
     return font.files.map((f) => ({ url: `${base}${catalog.data!.base}/${font.id}/${f.file}`, weight: f.weight }));
-  }, [picked, own, catalog.data, base]);
+  }, [picked, own, ownUrls, catalog.data, base]);
   const family = usePreviewFamily(faces, picked + own.length);
 
   const check = async (files: FileList) => {

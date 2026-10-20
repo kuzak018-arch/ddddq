@@ -9,7 +9,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import { useHealth, useSettings } from '../api/hooks';
 import { useLogoUrl } from '../lib/appIcon';
 import { blurPicture, loadPicture, setGlassPicture, type Material } from '../lib/glassBackdrop';
-import { lumaOfBlob, lumaOfUrl, veilFor } from '../lib/wallLuma';
+import { lightVeilFor, lumaOfBlob, lumaOfUrl, veilFor } from '../lib/wallLuma';
 import { useResolvedTheme } from '../lib/theme';
 import { useUpdate } from '../lib/updates';
 import { LIVE_WALLS, liveSize, runLive } from '../lib/liveWalls';
@@ -244,7 +244,13 @@ function useHeroLuma(bg: Background): number | null {
 export function useCalmBackground(): boolean {
   const perf = useUi((s) => s.performance);
   const phase = useDraft((s) => s.phase);
-  return perf || phase === 'game';
+  const [hidden, setHidden] = useState(() => document.hidden);
+  useEffect(() => {
+    const on = () => setHidden(document.hidden);
+    document.addEventListener('visibilitychange', on);
+    return () => document.removeEventListener('visibilitychange', on);
+  }, []);
+  return perf || phase === 'game' || hidden;
 }
 
 /**
@@ -400,7 +406,8 @@ export function Wallpaper() {
 
   // glass veil from the wallpaper's brightness: only the dark theme has white text on the glass
   useEffect(() => {
-    document.documentElement.style.setProperty('--veil', dark ? veilFor(luma ?? 0.3, bgDim).toFixed(3) : '0');
+    // dark theme: black under white text on bright pictures; light theme: white under dark text on dark ones
+    document.documentElement.style.setProperty('--veil', (dark ? veilFor(luma ?? 0.3, bgDim) : lightVeilFor(luma ?? 0.3, bgDim)).toFixed(3));
   }, [luma, bgDim, dark]);
 
   // a video background stops in performance mode and during a match (first frame stays)

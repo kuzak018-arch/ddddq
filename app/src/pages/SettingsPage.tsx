@@ -130,7 +130,7 @@ function AppearanceCard() {
           if (f.size > 400 * 1024 * 1024) return setFileErr('Файл больше 400 МБ — возьми поменьше.');
           setFileErr(null);
           await saveBackgroundFile(f);
-          ui.set({ background: { kind: 'file', name: f.name }, bgPos: { x: 50, y: 50 } });
+          ui.set({ background: { kind: 'file', name: f.name, rev: Date.now() }, bgPos: { x: 50, y: 50 } });
         }}
       />
       {fileErr && <p className="small c-bad">{fileErr}</p>}

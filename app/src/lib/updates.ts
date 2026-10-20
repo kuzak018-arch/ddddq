@@ -43,6 +43,7 @@ interface UpdateState {
   downloading: boolean;
   progress: string | null;
   ready: Ready | null;
+  installing: boolean;
   set: (p: Partial<UpdateState>) => void;
 }
 
@@ -55,6 +56,7 @@ export const useUpdate = create<UpdateState>((set) => ({
   downloading: false,
   progress: null,
   ready: null,
+  installing: false,
   set,
 }));
 
@@ -120,8 +122,18 @@ export async function downloadUpdate(): Promise<Ready | null> {
 }
 
 /** Quits the app and installs the update now; the new version starts by itself. */
+/** Quits the app and installs the update now; the new version starts by itself. On failure (the
+ * file is gone, the installer won't start) the error shows in the card and the install on exit stays. */
 export async function installNow(ready: Ready): Promise<void> {
-  await invoke('install_update', { path: ready.path });
+  const s = useUpdate.getState();
+  if (s.installing) return;
+  s.set({ installing: true, error: null });
+  try {
+    await invoke('install_update', { path: ready.path });
+  } catch (e) {
+    s.set({ error: errText(e), installing: false });
+    void armOnExit(ready);
+  }
 }
 
 const FIRST_CHECK_MS = 20_000;

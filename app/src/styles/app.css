@@ -285,7 +285,7 @@ html:not(.kbd-nav) :focus-visible {
   /* the title sits right on the wallpaper: a stronger shadow on bright pictures */
   text-shadow:
     var(--text-on-wall-shadow),
-    0 0 calc(var(--veil) * 40px) rgba(0, 0, 0, calc(var(--veil) * 1.4));
+    0 0 calc(var(--veil) * 40px) rgba(var(--veil-rgb), calc(var(--veil) * 1.4));
 }
 .topbar__title small {
   font-family: var(--font);
@@ -4648,6 +4648,12 @@ label.field {
 .look-tabs {
   flex-shrink: 0;
   display: flex;
+}
+/* these tabs lie right on the wallpaper, not on a panel: a denser tint (and the veil) keeps them readable */
+.look-tabs > .segmented {
+  background:
+    linear-gradient(rgba(var(--veil-rgb), calc(var(--veil) + 0.06)), rgba(var(--veil-rgb), calc(var(--veil) + 0.06))),
+    var(--glass-tint-strong);
 }
 .grids-page > .geditor,
 .grids-page > .looks {
