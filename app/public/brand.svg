@@ -2,52 +2,69 @@
   <defs>
     <clipPath id="tile"><rect width="1024" height="1024" rx="232"/></clipPath>
     <clipPath id="lens"><rect x="176" y="176" width="672" height="672" rx="204"/></clipPath>
-    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="80"/></filter>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="70"/></filter>
     <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="34"/></filter>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="10"/></filter>
-    <linearGradient id="sheen" x1="0" y1="0" x2="0.35" y2="1">
-      <stop offset="0" stop-color="#fff" stop-opacity="0.42"/>
-      <stop offset="0.45" stop-color="#fff" stop-opacity="0.10"/>
-      <stop offset="1" stop-color="#fff" stop-opacity="0.04"/>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="12"/></filter>
+    <filter id="spec" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="3"/></filter>
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2a2b30"/>
+      <stop offset="1" stop-color="#040405"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.34"/>
+      <stop offset="0.5" stop-color="#fff" stop-opacity="0.07"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0.02"/>
     </linearGradient>
     <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#fff" stop-opacity="0.95"/>
-      <stop offset="0.5" stop-color="#fff" stop-opacity="0.18"/>
-      <stop offset="1" stop-color="#fff" stop-opacity="0.55"/>
+      <stop offset="0.45" stop-color="#fff" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0.6"/>
     </linearGradient>
-    <linearGradient id="blade" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#fff"/>
-      <stop offset="1" stop-color="#e8ecff"/>
+    <linearGradient id="ink" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d4d8e0"/>
+    </linearGradient>
+    <linearGradient id="arc" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="0.35" stop-color="#fff" stop-opacity="0.9"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
     </linearGradient>
     <g id="blobs">
-      <rect width="1024" height="1024" fill="#0c0d18"/>
-      <circle cx="210" cy="190" r="330" fill="#d9443b" opacity="0.92"/>
-      <circle cx="840" cy="860" r="380" fill="#2c57e4"/>
-      <circle cx="830" cy="150" r="200" fill="#6b3cc8" opacity="0.45"/>
-      <circle cx="170" cy="880" r="200" fill="#12936f" opacity="0.35"/>
+      <rect width="1024" height="1024" fill="url(#base)"/>
+      <circle cx="230" cy="190" r="300" fill="#ffffff" opacity="0.42"/>
+      <circle cx="860" cy="880" r="340" fill="#9a9ca3" opacity="0.38"/>
+      <circle cx="840" cy="170" r="170" fill="#5c5e64" opacity="0.5"/>
+      <circle cx="150" cy="900" r="210" fill="#000" opacity="0.8"/>
     </g>
+    <!-- the monogram: D, and M whose left leg starts inside the D's bowl -->
+    <path id="D" d="M360 320 V620 M360 320 H420 C570 320 610 400 610 470 C610 540 570 620 420 620 H360"/>
+    <path id="M" d="M530 720 V470 L620 650 L690 440 L750 720"/>
+    <!-- M passes over D: the D is cut where the M crosses it -->
+    <mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+      <rect width="1024" height="1024" fill="#fff"/>
+      <use href="#M" fill="none" stroke="#000" stroke-width="74" stroke-linecap="round" stroke-linejoin="round"/>
+    </mask>
   </defs>
   <g clip-path="url(#tile)">
     <g filter="url(#soft)"><use href="#blobs"/></g>
-    <!-- the lens: its shadow, then the wallpaper seen through it a little magnified and brighter -->
-    <rect x="206" y="236" width="612" height="612" rx="196" fill="#000" opacity="0.5" filter="url(#shadow)"/>
+    <rect x="206" y="240" width="612" height="612" rx="196" fill="#000" opacity="0.55" filter="url(#shadow)"/>
     <g clip-path="url(#lens)">
-      <g filter="url(#soft)" transform="translate(512 512) scale(1.22) translate(-512 -512)" opacity="0.95"><use href="#blobs"/></g>
-      <rect x="176" y="176" width="672" height="672" fill="#fff" opacity="0.12"/>
+      <g filter="url(#soft)" transform="translate(512 512) scale(1.25) translate(-512 -512)"><use href="#blobs"/></g>
+      <rect x="176" y="176" width="672" height="672" fill="#fff" opacity="0.1"/>
       <rect x="176" y="176" width="672" height="672" fill="url(#sheen)"/>
-      <!-- the DM monogram: the M's left leg runs through the D's bowl -->
-      <g stroke-linecap="round" stroke-linejoin="round" fill="none" stroke-width="42" transform="translate(512 512) scale(1.2) translate(-523 -512)">
-        <g stroke="#000" stroke-opacity="0.30" transform="translate(0 16)" filter="url(#glow)">
-          <path d="M385 331 V594 M385 331 H400 A131.5 131.5 0 0 1 400 594 H385"/>
-          <path d="M490 688 V466 L556 560 L600 452 L662 694"/>
+      <g transform="translate(-43 -8)" fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="46">
+        <g stroke="#000" stroke-opacity="0.45" transform="translate(0 14)" filter="url(#glow)">
+          <use href="#D"/>
+          <use href="#M"/>
         </g>
-        <path d="M385 331 V594 M385 331 H400 A131.5 131.5 0 0 1 400 594 H385" stroke="url(#blade)"/>
-        <path d="M490 688 V466 L556 560 L600 452 L662 694" stroke="url(#blade)" stroke-opacity="0.82"/>
+        <use href="#D" stroke="url(#ink)" mask="url(#cut)"/>
+        <use href="#M" stroke="url(#ink)"/>
       </g>
     </g>
+    <!-- specular arc and rims of the lens -->
+    <path d="M250 330 C270 250 330 200 420 190" fill="none" stroke="url(#arc)" stroke-width="10" stroke-linecap="round" filter="url(#spec)" opacity="0.9"/>
     <rect x="179" y="179" width="666" height="666" rx="201" fill="none" stroke="url(#rim)" stroke-width="7"/>
-    <rect x="194" y="194" width="636" height="636" rx="188" fill="none" stroke="#fff" stroke-opacity="0.10" stroke-width="3"/>
-    <!-- the tile's own rim -->
-    <rect x="3" y="3" width="1018" height="1018" rx="229" fill="none" stroke="#fff" stroke-opacity="0.16" stroke-width="6"/>
+    <rect x="194" y="194" width="636" height="636" rx="188" fill="none" stroke="#fff" stroke-opacity="0.08" stroke-width="3"/>
+    <rect x="3" y="3" width="1018" height="1018" rx="229" fill="none" stroke="#fff" stroke-opacity="0.14" stroke-width="6"/>
   </g>
 </svg>
