@@ -32,6 +32,8 @@ LEARNED = config.DATA / "vision" / "learned"
 CANON_W = 48           # canonical width; height follows the slot's aspect ratio
 W_NCC, W_HIST = 0.75, 0.25
 EMPTY_STD = 9.0        # a flat (empty / placeholder) slot has almost no texture
+WRONG_HERO_SCORE = 0.6  # a learned crop is thrown out when the art says it is another hero this surely...
+WRONG_HERO_GAP = 0.15   # ...and its own hero's art matches it this much worse
 
 
 @dataclass
@@ -71,6 +73,25 @@ def _features(img_bgr: np.ndarray, aspect: float) -> tuple[np.ndarray, np.ndarra
     return grey, hist
 
 
+# How the game may show the same art compared with our copy: a bit zoomed in and/or shifted (the
+# portraits are slanted and the slot rects are measured, not exact). Each art template is also
+# matched in these variants (zoom, horizontal shift and vertical shift as shares of its size); a
+# crop that is slightly off then still finds its hero. Learned crops are exact and stay as they are.
+VARIANTS = [(1.0, 0.0, 0.0), (1.15, 0.0, 0.0), (1.3, 0.0, 0.0), (1.0, -0.08, 0.0), (1.0, 0.08, 0.0),
+            (1.15, -0.08, 0.0), (1.15, 0.08, 0.0), (1.0, 0.0, 0.06), (1.0, 0.0, -0.06), (1.0, -0.14, 0.0), (1.0, 0.14, 0.0)]
+
+
+def _variant(img: np.ndarray, aspect: float, zoom: float, dx: float, dy: float) -> np.ndarray:
+    h, w = img.shape[:2]
+    ch = h / zoom
+    cw = ch * aspect
+    if cw > w:
+        cw, ch = w, w / aspect
+    x0 = int(np.clip(w / 2 + dx * w - cw / 2, 0, w - cw))
+    y0 = int(np.clip(h / 2 + dy * h - ch / 2, 0, h - ch))
+    return img[y0:y0 + max(1, int(ch)), x0:x0 + max(1, int(cw))]
+
+
 def _read(path: Path) -> np.ndarray | None:
     data = np.fromfile(str(path), dtype=np.uint8)  # cv2.imread can't open non-ASCII paths on Windows
     img = cv2.imdecode(data, cv2.IMREAD_UNCHANGED)
@@ -84,14 +105,51 @@ def _read(path: Path) -> np.ndarray | None:
 
 def template_path(key: str) -> Path | None:
     """The hero's art: the copy shipped with the program, else the downloaded one."""
-    for p in (TEMPLATES / f"{key}.jpg", ICONS / f"{key}.png"):
-        if p.exists():
-            return p
-    return None
+    return next(iter(template_paths(key)), None)
+
+
+def template_paths(key: str) -> list[Path]:
+    """All copies of the hero's art: the one shipped with the program and the one downloaded from the
+    CDN (newer when Valve redrew the hero; both are templates, the better match wins)."""
+    return [p for p in (TEMPLATES / f"{key}.jpg", ICONS / f"{key}.png") if p.exists()]
 
 
 def has_templates() -> bool:
     return TEMPLATES.exists() or ICONS.exists()
+
+
+@lru_cache(maxsize=16)
+def _art(aspect_key: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Feature matrices of the art templates alone (every hero in every VARIANT) at one aspect."""
+    ids, greys, hists = [], [], []
+    for h in constants.hero_index():
+        for art in template_paths(h["key"]):
+            img = _read(art)
+            if img is None:
+                continue
+            for v in VARIANTS:
+                g, hh = _features(_variant(img, aspect_key, *v), aspect_key)
+                ids.append(h["id"])
+                greys.append(g)
+                hists.append(hh)
+    if not ids:
+        return np.zeros(0, int), np.zeros((0, 1), np.float32), np.zeros((0, 1), np.float32)
+    return np.array(ids), np.stack(greys), np.stack(hists)
+
+
+def _contradicts(art_ids: np.ndarray, art_grey: np.ndarray, hero_id: int, grey_feature: np.ndarray) -> bool:
+    """The crop clearly shows another hero by the art templates: it was filed under the wrong name
+    (a mislabelled slot). Without art for comparison nothing is judged."""
+    if not len(art_ids):
+        return False
+    score = art_grey @ grey_feature
+    best_hero, best, own = None, -9.0, -9.0
+    for hid, sc in zip(art_ids.tolist(), score.tolist()):
+        if sc > best:
+            best_hero, best = hid, sc
+        if hid == hero_id and sc > own:
+            own = sc
+    return best_hero != hero_id and best >= WRONG_HERO_SCORE and own < best - WRONG_HERO_GAP
 
 
 class TemplateBank:
@@ -100,17 +158,23 @@ class TemplateBank:
 
     def __init__(self, aspect: float, exclude: str | None = None):
         self.aspect = aspect
-        ids, greys, hists = [], [], []
+        art_ids, art_grey, art_hist = _art(aspect)
+        ids, greys, hists = list(art_ids.tolist()), list(art_grey), list(art_hist)
+        # learned crops: how a portrait looks in the user's game, but only those that really are the
+        # hero they are filed under: one wrong crop would otherwise win for every later look-alike
+        self.dropped = 0
         for h in constants.hero_index():
             learned = sorted((LEARNED / str(h["id"])).glob("*.png"))
             if exclude:
                 learned = [p for p in learned if not p.name.startswith(f"{exclude}__")]
-            sources = [template_path(h["key"]), *learned]
-            for p in sources:
-                img = _read(p) if p else None
-                if img is None:
+            for p in learned:
+                crop = _read(p)
+                if crop is None:
                     continue
-                g, hh = _features(img, aspect)
+                g, hh = _features(crop, aspect)
+                if _contradicts(art_ids, art_grey, h["id"], g):
+                    self.dropped += 1
+                    continue
                 ids.append(h["id"])
                 greys.append(g)
                 hists.append(hh)
@@ -145,15 +209,32 @@ def _bank(aspect_key: float, version: float, exclude: str | None) -> TemplateBan
 _learned_version = 0.0
 
 
+def reload() -> None:
+    """Forget the cached template banks (the art on disk changed)."""
+    _art.cache_clear()
+    _bank.cache_clear()
+
+
 def bank(aspect: float, exclude: str | None = None) -> TemplateBank:
     """Banks are cached per slot aspect (rounded) and rebuilt when a learned template is added."""
     return _bank(round(aspect, 2), _learned_version, exclude)
 
 
-def learn(hero_id: int, crop_bgr: np.ndarray, tag: str | None = None) -> Path:
+def contradicts_art(hero_id: int, crop_bgr: np.ndarray) -> bool:
+    """Would this crop, filed under hero_id, be thrown out: the art says it is another hero."""
+    aspect = round(crop_bgr.shape[1] / crop_bgr.shape[0], 2)
+    art_ids, art_grey, _ = _art(aspect)
+    g, _ = _features(crop_bgr, aspect)
+    return _contradicts(art_ids, art_grey, hero_id, g)
+
+
+def learn(hero_id: int, crop_bgr: np.ndarray, tag: str | None = None) -> Path | None:
     """Save how this hero's portrait looks in the user's game; used as a template from now on.
-    `tag`: the draft an automatic template came from (see TemplateBank's exclude)."""
+    `tag`: the draft an automatic template came from (see TemplateBank's exclude). None: the crop
+    is not this hero by the art (a mislabelled slot) and is not saved."""
     global _learned_version
+    if contradicts_art(hero_id, crop_bgr):
+        return None
     folder = LEARNED / str(hero_id)
     folder.mkdir(parents=True, exist_ok=True)
     prefix = f"{tag}__" if tag else ""

@@ -45,6 +45,7 @@ def live_from_payload(payload: dict) -> dict:
     return {
         "clock": m.get("clock_time"), "daytime": m.get("daytime"), "paused": bool(m.get("paused")),
         "gold": p.get("gold"), "gpm": p.get("gpm"), "xpm": p.get("xpm"), "last_hits": p.get("last_hits"),
+        "net_worth": p.get("net_worth"), "hero_id": h.get("id"),
         "level": h.get("level"), "alive": h.get("alive"), "respawn": h.get("respawn_seconds"),
         "buyback_cost": h.get("buyback_cost"), "buyback_cooldown": h.get("buyback_cooldown"),
         "has_items": isinstance(items, dict), "items": owned, "ts": time.time(),

@@ -9,6 +9,7 @@ import hmac
 import json
 import os
 import re
+import threading
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -23,7 +24,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel, Field, model_validator
 
-from .. import config, dota_paths, gsi, hero_grid, ingame, keybinds, search, updates
+from .. import config, dota_paths, gsi, hero_grid, ingame, keybinds, pace, search, updates
 from .. import settings as user_settings
 from ..builds import counter, standard
 from ..builds import service as build_service
@@ -118,6 +119,15 @@ async def lifespan(app: FastAPI):
         vision_collector.start()
     build_service.publish = lambda **data: bus.publish("builds", **data)
     if os.environ.get("DRAFTER_NO_PREFETCH") != "1":
+        def _hero_art():
+            time.sleep(20)   # after the app is up; at most once a week
+            try:
+                with httpx.Client(timeout=30, headers={"User-Agent": config.USER_AGENT}) as http:
+                    if constants.refresh_hero_art(http):
+                        vmatch.reload()   # the draft reader picks the new art up
+            except Exception:  # noqa: BLE001 - never a reason to disturb the app
+                pass
+        threading.Thread(target=_hero_art, name="hero-art", daemon=True).start()
         try:
             build_service.start_prefetch(_pred().pos_mat)
         except HTTPException:
@@ -922,14 +932,16 @@ def gsi_status():
 
 
 @app.get("/game/live")
-def game_live(targets: str = ""):
+def game_live(targets: str = "", pos: int | None = Query(None, ge=1, le=5)):
     """In-game hints for the overlay (ingame.py): timers, the next item of the build, buyback.
     `targets` is the build's item order, comma-separated. null live: no match or GSI silent."""
     live = tracker.live
     if live and time.time() - live["ts"] > 15:
         live = None  # Dota closed or the match ended without a final message
     keys = [k for k in targets.split(",") if re.fullmatch(r"[a-z0-9_]{1,60}", k)][:30]
-    return ingame.hints(live, keys)
+    out = ingame.hints(live, keys)
+    out["pace"] = pace.pace(live, (live or {}).get("hero_id"), pos)
+    return out
 
 
 @app.post("/gsi/install")
@@ -1165,8 +1177,7 @@ def vision_label(body: LabelIn):
     learned = 0
     for group in ("radiant", "dire", "bans"):
         for crop, hero in zip(crops[group], getattr(body, group)):
-            if hero and crop.size:
-                vmatch.learn(hero, crop)
+            if hero and crop.size and vmatch.learn(hero, crop):
                 learned += 1
     veval.LABELED.mkdir(parents=True, exist_ok=True)
     shutil.copy(src, veval.LABELED / src.name)

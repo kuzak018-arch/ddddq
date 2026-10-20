@@ -106,8 +106,8 @@ def learn(d: dict, cal: calibration.Calibration | None = None) -> int:
         for i, j in zip(rows, cols):
             others = np.delete(score[i], j)
             if score[i, j] >= LEARN_MIN_SCORE and (not others.size or score[i, j] - others.max() >= LEARN_MIN_GAP):
-                matcher.learn(heroes[j], items[i], tag=d["id"])
-                learned += 1
+                if matcher.learn(heroes[j], items[i], tag=d["id"]):
+                    learned += 1
     return learned
 
 

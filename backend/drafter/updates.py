@@ -1,12 +1,11 @@
-"""Updates of the app: a newer installer from the public releases repository, downloaded, checked
+"""Updates of the app: a newer installer from this project's GitHub releases, downloaded, checked
 and handed to the shell to install.
 
-The code and its own releases live in a private repository the app can't read without a token. So
-the release build also publishes each installer to a small public repository that holds only
-installers (RELEASES_REPO; the build's variable of the same name): its newest release is vX.Y.Z
-with `Dota.Drafter_X.Y.Z_x64-setup.exe` and `….exe.sha256`. A download is kept only when its
-SHA-256 matches that file. The shell (Rust, `install_update`) then runs the installer over the old
-version in passive mode, which keeps the settings and data in %LOCALAPPDATA%\\DotaDrafter.
+The repository is public, so its releases can be read without a token: the newest vX.Y.Z release
+with `Dota.Drafter_X.Y.Z_x64-setup.exe` and `….exe.sha256` (the release build attaches both). A
+download is kept only when its SHA-256 matches that file. The shell (Rust, `install_update`) then
+runs the installer over the old version in passive mode, which keeps the settings and data in
+%LOCALAPPDATA%\\DotaDrafter. Another repository can be named in DRAFTER_RELEASES_REPO.
 """
 
 from __future__ import annotations
@@ -20,8 +19,8 @@ import httpx
 
 from . import config
 
-RELEASES_REPO = os.environ.get("DRAFTER_RELEASES_REPO", "kuzak018-arch/dota-drafter-releases")
-API = "https://api.github.com/repos/{repo}/releases/latest"
+RELEASES_REPO = os.environ.get("DRAFTER_RELEASES_REPO", "kuzak018-arch/ddddq")
+API = "https://api.github.com/repos/{repo}/releases?per_page=30"
 DIR = config.DATA / "updates"
 EXE = re.compile(r"^Dota[ .]Drafter_(\d+\.\d+\.\d+)_x64-setup\.exe$")
 _lock = threading.Lock()
@@ -42,7 +41,7 @@ def _get(url: str, **kw) -> httpx.Response:
 
 
 def latest() -> dict:
-    """The newest release of RELEASES_REPO: version, notes and the installer with its checksum."""
+    """The newest version release of RELEASES_REPO: version, notes and the installer with its checksum."""
     try:
         r = _get(API.format(repo=RELEASES_REPO))
     except httpx.HTTPError as e:
@@ -53,20 +52,29 @@ def latest() -> dict:
         raise UpdateError("GitHub временно ограничил запросы, попробуй через час")
     if r.status_code != 200:
         raise UpdateError(f"GitHub ответил {r.status_code}")
-    rel = r.json()
-    version = parse_version(rel.get("tag_name"))
-    assets = {a.get("name"): a for a in rel.get("assets") or []}
-    exe = next((a for n, a in assets.items() if n and EXE.match(n)), None)
-    if not version or not exe:
-        raise UpdateError(f"в выпуске {rel.get('tag_name')} нет установщика")
-    sha = assets.get(exe["name"] + ".sha256")
+    releases = r.json()
+    if not isinstance(releases, list):
+        raise UpdateError("GitHub ответил в непонятном виде")
+    best = None   # (version, release, installer, checksum): the highest vX.Y.Z that carries both files
+    for rel in releases:
+        version = parse_version(rel.get("tag_name"))
+        if not version or rel.get("draft") or rel.get("prerelease"):
+            continue   # «seed-data» and the like are not versions
+        assets = {a.get("name"): a for a in rel.get("assets") or []}
+        exe = next((a for n, a in assets.items() if n and EXE.match(n)), None)
+        sha = assets.get(exe["name"] + ".sha256") if exe else None
+        if exe and sha and (best is None or version > best[0]):
+            best = (version, rel, exe, sha)
+    if best is None:
+        raise UpdateError(f"в {RELEASES_REPO} ещё нет выпуска с установщиком и контрольной суммой")
+    version, rel, exe, sha = best
     return {
         "version": ".".join(map(str, version)),
         "notes": (rel.get("body") or "").strip(),
         "published": rel.get("published_at"),
         "page": rel.get("html_url"),
         "exe": {"name": exe["name"], "url": exe["browser_download_url"], "size": exe.get("size")},
-        "sha_url": sha["browser_download_url"] if sha else None,
+        "sha_url": sha["browser_download_url"],
     }
 
 

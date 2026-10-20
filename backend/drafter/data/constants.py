@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import time
 from datetime import datetime, timezone
 from functools import cache
 from pathlib import Path
@@ -70,6 +71,43 @@ def build_hero_index() -> list[dict]:
     if missing:
         print(f"  ! нет русского имени: {', '.join(missing)} — допиши в shared/hero_names.json")
     return out
+
+
+HERO_ART_CHECK_EVERY = 7 * 24 * 3600
+
+
+def _http_date(ts: float) -> str:
+    return datetime.fromtimestamp(ts, timezone.utc).strftime("%a, %d %b %Y %H:%M:%S GMT")
+
+
+def refresh_hero_art(http: httpx.Client, force: bool = False) -> int:
+    """Re-downloads the heroes' art that changed on the CDN (Valve redraws heroes: Tinker, Ember
+    Spirit…), asking with If-Modified-Since so unchanged files cost almost nothing. The draft
+    reader matches portraits against this art; a stale copy makes a changed hero unrecognisable.
+    At most once a week unless `force`. Returns how many files were replaced; never raises on the network."""
+    stamp = ICONS / "heroes_checked"
+    try:
+        if not force and time.time() - stamp.stat().st_mtime < HERO_ART_CHECK_EVERY:
+            return 0
+    except OSError:
+        pass
+    n = 0
+    try:
+        for h in _load("heroes").values():
+            key = h["name"].removeprefix("npc_dota_hero_")
+            dest = ICONS / "heroes" / f"{key}.png"
+            headers = {"If-Modified-Since": _http_date(dest.stat().st_mtime)} if dest.exists() else {}
+            r = http.get(f"{CDN}/apps/dota2/images/dota_react/heroes/{key}.png", headers=headers)
+            if r.status_code == 200 and r.headers.get("content-type", "").startswith("image") and r.content != (
+                    dest.read_bytes() if dest.exists() else None):
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                dest.write_bytes(r.content)
+                n += 1
+        stamp.parent.mkdir(parents=True, exist_ok=True)
+        stamp.write_text(str(time.time()))
+    except (httpx.HTTPError, OSError):
+        pass   # offline: next start tries again
+    return n
 
 
 def download_icons(http: httpx.Client, force: bool = False) -> int:
@@ -182,6 +220,7 @@ def refresh(icons: bool = True) -> None:
         print(f"  ✓ описания Valve на русском: {fetch_valve_heroes(http)}")
         if icons:
             print(f"  ✓ иконок скачано: {download_icons(http)}")
+            print(f"  ✓ арт героев обновлён: {refresh_hero_art(http, force=True)}")
             from . import abilities  # needs the constants saved above
             abilities._hero.cache_clear()
             print(f"  ✓ иконок способностей: {len(abilities.ensure_icons(abilities.all_ability_keys()))}")

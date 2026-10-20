@@ -21,9 +21,14 @@ def release(tag="v1.2.0", sha=True):
             "published_at": "2026-10-20T10:00:00Z", "assets": assets}
 
 
+def listing(*rels):
+    """GitHub's list of releases, newest first; a service release without a version among them."""
+    return [*rels, {"tag_name": "seed-data", "assets": [{"name": "seed-data.zip", "browser_download_url": "https://x/seed"}]}]
+
+
 @pytest.fixture
 def net(monkeypatch, tmp_path):
-    state = {"release": release(), "status": 200, "sha": f"{SHA}  {NAME}\n", "body": EXE}
+    state = {"release": listing(release()), "status": 200, "sha": f"{SHA}  {NAME}\n", "body": EXE}
     monkeypatch.setattr(updates, "DIR", tmp_path / "updates")
 
     def get(url, **kw):
@@ -79,6 +84,20 @@ def test_download_bad_sha_removed(net):
 
 
 def test_no_sha_no_download(net):
-    net["release"] = release(sha=False)
-    with pytest.raises(updates.UpdateError, match="контрольной суммы"):
+    net["release"] = listing(release(sha=False))
+    with pytest.raises(updates.UpdateError, match="контрольной сумм"):
         updates.download(lambda _: None)
+
+
+def test_the_highest_version_wins_whatever_the_order_and_service_releases_are_skipped(net):
+    old = release("v1.0.2", sha=False)                                      # an old release without a checksum
+    newer = release("v1.10.0")
+    newer["assets"][0]["browser_download_url"] = "https://x/exe110"
+    net["release"] = [{"tag_name": "seed-data", "assets": []}, release("v1.9.0"), newer, old, {**release("v2.0.0"), "prerelease": True}]
+    c = updates.check("1.9.0")
+    assert c["latest"] == "1.10.0" and c["newer"]                           # 1.10 > 1.9 as numbers, the pre-release is ignored
+    assert updates.latest()["exe"]["url"] == "https://x/exe110"
+
+
+def test_default_source_is_this_repository():
+    assert updates.RELEASES_REPO == "kuzak018-arch/ddddq" or "DRAFTER_RELEASES_REPO" in __import__("os").environ
