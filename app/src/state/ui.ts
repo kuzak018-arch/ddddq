@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 
 import type { PageAnim } from '../lib/pageAnim';
 
-export type Page = 'draft' | 'meta' | 'hero' | 'builds' | 'top' | 'grids' | 'profile' | 'settings' | 'vision';
+export type Page = 'draft' | 'meta' | 'hero' | 'builds' | 'top' | 'patches' | 'grids' | 'profile' | 'settings' | 'vision';
 export type Theme = 'system' | 'light' | 'dark';
 export type Effect = 'none' | 'rain' | 'snow' | 'stars' | 'fog' | 'particles';
 

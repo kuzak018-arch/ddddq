@@ -2,7 +2,7 @@
  * wallpaper behind everything (picture, GIF, video, hero art or a built-in one). */
 import { isTauri } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { ChartColumnIncreasing, Palette, Shield, Swords, Trophy, User, type LucideIcon } from 'lucide-react';
+import { ChartColumnIncreasing, Palette, ScrollText, Shield, Swords, Trophy, User, type LucideIcon } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -21,6 +21,7 @@ export const NAV: { page: Page; label: string; icon: LucideIcon; also?: Page[] }
   { page: 'meta', label: 'Мета', icon: ChartColumnIncreasing },
   { page: 'hero', label: 'Герои', icon: Shield, also: ['builds'] },
   { page: 'top', label: 'Игры топов', icon: Trophy },
+  { page: 'patches', label: 'Патчи', icon: ScrollText },
   { page: 'grids', label: 'Оформление', icon: Palette },
   { page: 'profile', label: 'Профиль', icon: User },
 ];
@@ -73,7 +74,7 @@ export function TitleBar() {
         <button
           className={`round-btn glass ${page === 'settings' || page === 'vision' ? 'is-active' : ''}`}
           onClick={() => go('settings')}
-          title="Настройки (Ctrl+7)"
+          title="Настройки (Ctrl+8)"
           aria-label="Настройки"
         >
           <IconSettings />

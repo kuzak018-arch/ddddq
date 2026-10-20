@@ -11,6 +11,7 @@ import { DraftPage } from './pages/DraftPage';
 import { GridsPage } from './pages/GridsPage';
 import { HeroPage } from './pages/HeroPage';
 import { MetaPage } from './pages/MetaPage';
+import { PatchesPage } from './pages/PatchesPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { TopGamesPage } from './pages/TopGamesPage';
@@ -30,12 +31,13 @@ const PAGES: Record<Page, () => React.JSX.Element> = {
   hero: HeroPage,
   builds: BuildsPage,
   top: TopGamesPage,
+  patches: PatchesPage,
   grids: GridsPage,
   profile: ProfilePage,
   settings: SettingsPage,
   vision: VisionPage,
 };
-const ORDER: Page[] = ['draft', 'meta', 'hero', 'top', 'grids', 'profile', 'settings'];
+const ORDER: Page[] = ['draft', 'meta', 'hero', 'top', 'patches', 'grids', 'profile', 'settings'];
 
 function useAppearance() {
   const { theme, refraction, tilt } = useUi();
@@ -131,7 +133,7 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const m = /^Digit([1-7])$/.exec(e.code);
+      const m = /^Digit([1-8])$/.exec(e.code);
       if (e.ctrlKey && m) {
         e.preventDefault();
         go(ORDER[Number(m[1]) - 1]!);

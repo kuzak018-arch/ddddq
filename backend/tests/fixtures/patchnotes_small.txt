@@ -1,0 +1,14 @@
+"patch"
+{
+	"DOTA_Patch_7_40_General_1"		"Глобальная строка"
+	"DOTA_Patch_7_41_Map_Title"		"Цели на карте"
+	"DOTA_Patch_7_41_General_1"		"Рошан <font color='#e03e2e'>сильнее</font>"
+	"DOTA_Patch_7_41_General_1_2"		"<br>"
+	"DOTA_Patch_7_41f_item_bfury"		"Chop Tree: перезарядка уменьшена с 4 до 3 секунд"
+	"DOTA_Patch_7_41f_item_bfury_2"		"<br>"
+	"DOTA_Patch_7_41f_antimage_antimage_mana_break"		"Урон от сожжённой маны увеличен с 60% до 65%"
+	"DOTA_Patch_7_41f_bane"		"Базовая броня уменьшена на 1"
+	"DOTA_Patch_7_41f_bounty_hunter_talent_2"		"Талант 20 уровня: заменён"
+	"DOTA_Patch_7_41f_bounty_hunter"		"Скорость передвижения увеличена"
+	"DOTA_Patch_7_41f_bounty_hunter_bounty_hunter_track_2"		"Золото уменьшено"
+}

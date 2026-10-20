@@ -27,7 +27,7 @@ from .. import config, dota_paths, gsi, hero_grid, keybinds, search
 from .. import settings as user_settings
 from ..builds import counter, standard
 from ..builds import service as build_service
-from ..data import constants, gridstudio, matches, me, my_matches, players, renders, stratz
+from ..data import constants, gridstudio, matches, me, my_matches, patchnotes, players, renders, stratz
 from ..lane import bulk as lane_bulk
 from ..lane import service as lane_service
 from ..model import draft, explain, meta, predictor, train
@@ -481,6 +481,38 @@ def my_avatar():
     if not me.AVATAR.exists():
         raise HTTPException(404, "аватар ещё не загружен: обнови историю")
     return FileResponse(me.AVATAR, media_type="image/jpeg")
+
+
+# ---------- patch notes (data/patchnotes.py) ---------------------------------------------------
+
+def _my_heroes() -> set[int]:
+    """The heroes the user plays (5+ games, the 20 most played): their changes come first."""
+    try:
+        pool = me.hero_pool()
+    except Exception:  # noqa: BLE001 - no history yet: nothing is «mine»
+        return set()
+    ranked = sorted(pool["heroes"].items(), key=lambda kv: -kv[1]["games"])[:20]
+    return {int(h) for h, st in ranked if st["games"] >= 5}
+
+
+@app.get("/patches")
+def patches_list(refresh: bool = False):
+    try:
+        if refresh:
+            patchnotes.ensure(refresh=True)
+        return patchnotes.patch_list(_my_heroes())
+    except patchnotes.PatchNotesError as e:
+        raise HTTPException(502, str(e))
+
+
+@app.get("/patches/{version}")
+def patch_notes(version: str):
+    if not re.fullmatch(r"\d+\.\d+[a-z]?", version):
+        raise HTTPException(422, "неверный номер патча")
+    try:
+        return patchnotes.patch(version, _my_heroes())
+    except patchnotes.PatchNotesError as e:
+        raise HTTPException(404 if "нет патча" in str(e) else 502, str(e))
 
 
 # ---------- GridStudio's workshop (data/gridstudio.py) ----------------------------------------

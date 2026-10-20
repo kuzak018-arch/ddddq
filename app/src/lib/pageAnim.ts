@@ -20,7 +20,7 @@ export const PAGE_ANIMS: { value: PageAnim; label: string; title: string }[] = [
 export const LEAVE_MS: Record<PageAnim, number> = { none: 0, fade: 220, rise: 220, slide: 300, zoom: 260, blur: 260 };
 
 /** Tab order of the top bar; builds sit under «Герои», the screen reader under the settings. */
-const ORDER: Page[] = ['draft', 'meta', 'hero', 'top', 'grids', 'profile', 'settings'];
+const ORDER: Page[] = ['draft', 'meta', 'hero', 'top', 'patches', 'grids', 'profile', 'settings'];
 const place = (p: Page) => ORDER.indexOf(p === 'builds' ? 'hero' : p === 'vision' ? 'settings' : p);
 
 /** Which way a slide goes: to a tab further right the new page comes in from the right. */
