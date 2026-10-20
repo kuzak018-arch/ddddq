@@ -5821,3 +5821,76 @@ a.btn {
 .patch__item b {
   font-size: 13.5px;
 }
+
+/* Settings → «Версия и обновления» */
+.update {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+.update__state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+}
+.update__notes {
+  margin: 0;
+  max-height: 140px;
+  overflow: auto;
+  white-space: pre-line;
+  font-size: 12.5px;
+  color: var(--text-2);
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--control-bg);
+}
+.contact {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  align-self: flex-start;
+  padding: 8px 14px 8px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--control-bg);
+  color: var(--text);
+  text-decoration: none;
+  transition: background var(--dur) var(--ease-out);
+}
+.contact:hover {
+  background: var(--control-bg-hover);
+}
+.contact > span:last-child {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+/* white plane on a dark disc in both themes: Telegram's own look, without its colour */
+.contact__icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  color: #fff;
+  background: rgba(20, 22, 30, 0.85);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+}
+.contact__icon svg {
+  margin-left: -1px;
+}
+/* the settings button tells that an update is there */
+.round-btn:has(.round-btn__dot) {
+  position: relative;
+}
+.round-btn__dot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+}

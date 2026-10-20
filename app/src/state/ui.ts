@@ -26,6 +26,8 @@ interface UiState {
   bgDim: number;       // 0..0.8 dark overlay over the wallpaper
   /** visible part of a picture, video or hero art (background-position, %) */
   bgPos: { x: number; y: number };
+  /** check, download in the background and install on exit (lib/updates.ts) */
+  autoUpdate: boolean;
   refraction: boolean; // SVG edge refraction (Chromium only): needs the live blur, see lib/glassBackdrop.ts
   /** what the panels are made of (lib/glassBackdrop.ts) */
   material: Material;
@@ -92,6 +94,7 @@ export const useUi = create<UiState>()(
       bgBlur: 0,
       bgDim: 0.15,
       bgPos: { x: 50, y: 30 },
+      autoUpdate: true,
       refraction: false,
       material: 'glass',
       performance: false,

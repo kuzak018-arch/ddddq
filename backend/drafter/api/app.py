@@ -23,7 +23,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel, Field, model_validator
 
-from .. import config, dota_paths, gsi, hero_grid, ingame, keybinds, search
+from .. import config, dota_paths, gsi, hero_grid, ingame, keybinds, search, updates
 from .. import settings as user_settings
 from ..builds import counter, standard
 from ..builds import service as build_service
@@ -571,7 +571,7 @@ def workshop_background_file(bg_id: str, name: str):
 # sites only (a page can't make the backend open anything else).
 
 LINK_HOSTS = ("stratz.com", "www.dotabuff.com", "dotabuff.com", "www.opendota.com", "opendota.com",
-              "steamcommunity.com", "gridstudio.me", "github.com")
+              "steamcommunity.com", "gridstudio.me", "github.com", "t.me")
 
 
 class OpenUrlIn(BaseModel):
@@ -1356,6 +1356,28 @@ def debug_log(body: DebugLogIn):
 @app.post("/data/refresh")
 def data_refresh():
     return jobs.start("refresh", refresh.run).public()
+
+
+# ---------- updates of the app (updates.py) ------------------------------------------------------
+
+@app.get("/update/check")
+def update_check(current: str = Query(..., max_length=20)):
+    if os.environ.get("DRAFTER_NO_BUILD_LOAD") == "1":   # tests: never hit the network
+        raise HTTPException(503, "проверка обновлений выключена в тестах")
+    try:
+        return updates.check(current)
+    except updates.UpdateError as e:
+        raise HTTPException(502, str(e)) from e
+
+
+@app.post("/update/download")
+def update_download():
+    return jobs.start("update", updates.download).public()
+
+
+@app.get("/update/ready")
+def update_ready():
+    return {"ready": updates.ready()}
 
 
 @app.get("/jobs")

@@ -6,6 +6,7 @@ mod appicon;
 mod backend;
 mod overlay;
 mod tray;
+mod update;
 
 use std::sync::Mutex;
 use tauri::{Manager, RunEvent, WindowEvent};
@@ -55,6 +56,7 @@ pub fn run() {
         .manage(overlay::OverlayState::default())
         .manage(AppState::default())
         .manage(tray::TrayState::default())
+        .manage(update::UpdateState::default())
         .setup(|app| {
             tray::create(app.handle())?;
             appicon::restore(app.handle());
@@ -103,12 +105,15 @@ pub fn run() {
             tray::set_close_to_tray,
             appicon::app_icon_state,
             appicon::set_app_icon,
+            update::install_update,
+            update::set_pending_update,
         ])
         .build(tauri::generate_context!())
         .expect("не удалось запустить приложение");
 
     app.run(|handle, event| {
         if let RunEvent::Exit = event {
+            update::on_exit(handle);
             if let Some(state) = handle.try_state::<AppState>() {
                 if let Some(mut child) = state.child.lock().unwrap().take() {
                     let _ = child.kill();

@@ -21,6 +21,7 @@ import { LEAVE_MS, slideDir } from './lib/pageAnim';
 import { boardSound, play } from './lib/sounds';
 import { useResolvedTheme } from './lib/theme';
 import { useCloseToTray } from './lib/tray';
+import { useAutoUpdates } from './lib/updates';
 import { applyHotkeys, showOverlay } from './lib/overlay';
 import { useDraft } from './state/draft';
 import { startSync } from './state/sync';
@@ -119,6 +120,7 @@ export default function App() {
     document.documentElement.classList.toggle('page-settings', page === 'settings');
   }, [page]);
   useCloseToTray();
+  useAutoUpdates();
 
   useEffect(() => {
     waitForBackend()

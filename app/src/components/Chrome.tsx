@@ -11,6 +11,7 @@ import { useLogoUrl } from '../lib/appIcon';
 import { blurPicture, loadPicture, setGlassPicture, type Material } from '../lib/glassBackdrop';
 import { lumaOfBlob, lumaOfUrl, veilFor } from '../lib/wallLuma';
 import { useResolvedTheme } from '../lib/theme';
+import { useUpdate } from '../lib/updates';
 import { refractionSupported } from '../glass/refraction';
 import { useDraft } from '../state/draft';
 import { loadBackgroundFile } from '../state/bgstore';
@@ -35,6 +36,7 @@ export function TitleBar() {
   const logo = useLogoUrl();
   const page = useUi((s) => s.page);
   const go = useUi((s) => s.go);
+  const update = useUpdate((s) => (s.check?.newer ? s.check.latest : null));
   return (
     <header className="topbar" data-tauri-drag-region>
       <div className="topbar__brand" data-tauri-drag-region>
@@ -77,10 +79,11 @@ export function TitleBar() {
         <button
           className={`round-btn glass ${page === 'settings' || page === 'vision' ? 'is-active' : ''}`}
           onClick={() => go('settings')}
-          title="Настройки (Ctrl+8)"
+          title={update ? `Настройки (Ctrl+8) · доступна версия ${update}` : 'Настройки (Ctrl+8)'}
           aria-label="Настройки"
         >
           <IconSettings />
+          {update && <span className="round-btn__dot" />}
         </button>
         {win && (
           <div className="winbtns">

@@ -30,10 +30,10 @@ npm run dev                            # из app/, http://localhost:1420
 - Сборка установщика в облачной сессии невозможна (Linux). Его собирает GitHub Actions на Windows.
 
 ## Выпуск версии
-Релизы приватные (всё в `ddddq`), автообновления в приложении нет: новую версию ставят вручную.
+Код и релизы приватные (`ddddq`). Обновления в приложении (Настройки → «Версия и обновления», по умолчанию автоматически) берутся из публичного репозитория только с установщиками `RELEASES_REPO` (по умолчанию `kuzak018-arch/dota-drafter-releases`): `backend/drafter/updates.py` скачивает и сверяет SHA-256, `app/src-tauri/src/update.rs` ставит поверх (`/P /UPDATE`).
 1. Изменения в ветке → PR в `main` (проверка `check.yml`: тесты и `tsc`).
 2. После слияния — тег `vX.Y.Z` (больше предыдущего): `git tag v1.0.1 && git push origin v1.0.1`.
-3. `release.yml` на Windows собирает установщик `Dota Drafter_X.Y.Z_x64-setup.exe` и выкладывает его артефактом сборки (Actions → запуск Release → Artifacts, хранится 90 дней) и прикрепляет к GitHub Release `vX.Y.Z` в `ddddq` (хранится всегда). «Run workflow» без тега даёт только артефакт.
+3. `release.yml` на Windows собирает установщик `Dota Drafter_X.Y.Z_x64-setup.exe` и выкладывает его артефактом сборки (Actions → запуск Release → Artifacts, хранится 90 дней), прикрепляет к GitHub Release `vX.Y.Z` в `ddddq` (хранится всегда) вместе с `.sha256` и публикует в `RELEASES_REPO` для обновлений (нужен секрет `RELEASES_TOKEN`: fine-grained токен с Contents: read and write только на этот репозиторий; без него шаг пропускается с предупреждением). Описание версии — `release-notes/vX.Y.Z.md`. «Run workflow» без тега даёт только артефакт.
 - Скачать новую версию: github.com/kuzak018-arch/ddddq → Releases → `vX.Y.Z` → `Dota.Drafter_X.Y.Z_x64-setup.exe` (GitHub меняет пробел в имени на точку) (нужен вход в GitHub: репозиторий приватный). Закрыть приложение и запустить установщик поверх старой версии: настройки и данные в `%LOCALAPPDATA%\DotaDrafter` сохраняются.
 - Стартовые данные сборка берёт из релиза `seed-data` в `ddddq`. Без него сборка падает с подсказкой. Если менялись модель или данные Stratz, сначала на ПК пользователя: `scripts/publish-seed.ps1`.
-- Подпись обновлений не нужна: плагина updater в приложении нет, секреты `RELEASES_TOKEN`, `TAURI_SIGNING_PRIVATE_KEY` и переменная `RELEASES_REPO` не используются.
+- Плагин updater Tauri не используется (и подпись `TAURI_SIGNING_PRIVATE_KEY` не нужна): целостность — SHA-256 из выпуска по HTTPS.
