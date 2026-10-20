@@ -71,6 +71,25 @@ def _features(img_bgr: np.ndarray, aspect: float) -> tuple[np.ndarray, np.ndarra
     return grey, hist
 
 
+# How the game may show the same art compared with our copy: a bit zoomed in and/or shifted (the
+# portraits are slanted and the slot rects are measured, not exact). Each art template is also
+# matched in these variants (zoom, horizontal shift and vertical shift as shares of its size); a
+# crop that is slightly off then still finds its hero. Learned crops are exact and stay as they are.
+VARIANTS = [(1.0, 0.0, 0.0), (1.15, 0.0, 0.0), (1.3, 0.0, 0.0), (1.0, -0.08, 0.0), (1.0, 0.08, 0.0),
+            (1.15, -0.08, 0.0), (1.15, 0.08, 0.0), (1.0, 0.0, 0.06), (1.0, 0.0, -0.06), (1.0, -0.14, 0.0), (1.0, 0.14, 0.0)]
+
+
+def _variant(img: np.ndarray, aspect: float, zoom: float, dx: float, dy: float) -> np.ndarray:
+    h, w = img.shape[:2]
+    ch = h / zoom
+    cw = ch * aspect
+    if cw > w:
+        cw, ch = w, w / aspect
+    x0 = int(np.clip(w / 2 + dx * w - cw / 2, 0, w - cw))
+    y0 = int(np.clip(h / 2 + dy * h - ch / 2, 0, h - ch))
+    return img[y0:y0 + max(1, int(ch)), x0:x0 + max(1, int(cw))]
+
+
 def _read(path: Path) -> np.ndarray | None:
     data = np.fromfile(str(path), dtype=np.uint8)  # cv2.imread can't open non-ASCII paths on Windows
     img = cv2.imdecode(data, cv2.IMREAD_UNCHANGED)
@@ -105,15 +124,16 @@ class TemplateBank:
             learned = sorted((LEARNED / str(h["id"])).glob("*.png"))
             if exclude:
                 learned = [p for p in learned if not p.name.startswith(f"{exclude}__")]
-            sources = [template_path(h["key"]), *learned]
-            for p in sources:
+            art = template_path(h["key"])
+            for p in [art, *learned]:
                 img = _read(p) if p else None
                 if img is None:
                     continue
-                g, hh = _features(img, aspect)
-                ids.append(h["id"])
-                greys.append(g)
-                hists.append(hh)
+                for v in (VARIANTS if p is art else VARIANTS[:1]):
+                    g, hh = _features(_variant(img, aspect, *v) if p is art else img, aspect)
+                    ids.append(h["id"])
+                    greys.append(g)
+                    hists.append(hh)
         self.ids = np.array(ids)
         self.grey = np.stack(greys)
         self.hist = np.stack(hists)
