@@ -10,8 +10,6 @@ use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
 pub const LABEL: &str = "overlay";
-/// Corner radius of the overlay panel in CSS px (`.ov` in overlay.css).
-const RADIUS: f64 = 26.0;
 
 #[derive(Default)]
 pub struct OverlayState {
@@ -98,38 +96,36 @@ pub fn overlay_set_effect(app: AppHandle, effect: String, alpha: u8) -> Result<S
     #[cfg(target_os = "windows")]
     {
         let _ = window_vibrancy::clear_acrylic(&w);
-        if effect == "acrylic" {
-            return match window_vibrancy::apply_acrylic(&w, Some((14, 15, 20, alpha))) {
-                Ok(()) => Ok("acrylic".into()),
-                Err(_) => Ok("tint".into()),
-            };
+        if effect == "acrylic" && window_vibrancy::apply_acrylic(&w, Some((14, 15, 20, alpha))).is_ok() {
+            round_corners(&w, true);
+            return Ok("acrylic".into());
         }
+        round_corners(&w, false);
     }
     let _ = (&w, alpha);
     Ok("tint".into())
 }
 
-/// Cuts the window to the panel's rounded shape. The page is transparent, but Acrylic fills the
-/// whole window rectangle, so without this its square corners stick out past the panel's rounding.
-/// Called on start and on every resize or DPI change (the region is in physical pixels).
+/// Acrylic fills the whole window rectangle, so its corners must be rounded by Windows itself: an
+/// undecorated window with a shadow keeps the system frame (tao trims it in WM_NCCALCSIZE), and
+/// Windows 11 rounds such windows (8 px; the page's panel uses the same radius, overlay.css). With
+/// the plain tint the page draws everything, so no shadow: the transparent corners stay invisible
+/// and the panel keeps its own larger rounding. (A window region, SetWindowRgn, must not be used:
+/// it switches the window to the classic non-client frame — an XP-style title bar.)
 #[cfg(target_os = "windows")]
-pub fn round_corners(w: &WebviewWindow) {
-    use windows_sys::Win32::Graphics::Gdi::{CreateRoundRectRgn, SetWindowRgn};
-    let (Ok(hwnd), Ok(size), Ok(scale)) = (w.hwnd(), w.outer_size(), w.scale_factor()) else {
-        return;
+fn round_corners(w: &WebviewWindow, on: bool) {
+    use windows_sys::Win32::Graphics::Dwm::{
+        DwmSetWindowAttribute, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_DEFAULT, DWMWCP_ROUND,
     };
-    let d = (2.0 * RADIUS * scale).round() as i32;
-    unsafe {
-        let rgn = CreateRoundRectRgn(0, 0, size.width as i32 + 1, size.height as i32 + 1, d, d);
-        if !rgn.is_null() {
-            // the system owns the region from here on
-            SetWindowRgn(hwnd.0 as _, rgn, 1);
+    let _ = w.set_shadow(on);
+    if let Ok(hwnd) = w.hwnd() {
+        let pref = if on { DWMWCP_ROUND } else { DWMWCP_DEFAULT };
+        // Windows 10 has no such attribute and returns an error: the corners just stay square there
+        unsafe {
+            DwmSetWindowAttribute(hwnd.0 as _, DWMWA_WINDOW_CORNER_PREFERENCE as u32, (&pref as *const i32).cast(), 4);
         }
     }
 }
-
-#[cfg(not(target_os = "windows"))]
-pub fn round_corners(_w: &WebviewWindow) {}
 
 fn parse(s: &str) -> Result<Shortcut, String> {
     Shortcut::from_str(s).map_err(|e| format!("не понимаю сочетание «{s}»: {e}"))

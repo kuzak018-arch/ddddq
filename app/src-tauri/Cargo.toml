@@ -31,8 +31,8 @@ tauri-plugin-autostart = "2"
 
 [target.'cfg(windows)'.dependencies]
 # Job Object: the backend dies with the shell however the shell ends (exit, crash, killed);
-# Shell: tell Explorer that shortcut icons changed; Gdi: the overlay window's rounded shape
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Security", "Win32_System_JobObjects", "Win32_UI_Shell"] }
+# Shell: tell Explorer that shortcut icons changed; Dwm: the overlay window's rounded corners
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Dwm", "Win32_Security", "Win32_System_JobObjects", "Win32_UI_Shell"] }
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

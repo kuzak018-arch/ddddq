@@ -13,7 +13,7 @@ html.is-overlay body {
   height: 100%;
   display: flex;
   flex-direction: column;
-  border-radius: 26px; /* the window is cut to the same radius (RADIUS in overlay.rs) */
+  border-radius: 26px;
   overflow: hidden;
   color: var(--text);
   box-shadow:
@@ -21,8 +21,11 @@ html.is-overlay body {
     inset 0 0 0 1px rgba(255, 255, 255, 0.22);
   transition: opacity var(--dur) var(--ease-out);
 }
-/* Acrylic already blurs and tints the game: a light white veil keeps text readable */
+/* Acrylic already blurs and tints the game: a light white veil keeps text readable. Acrylic fills
+   the window rectangle, which Windows 11 rounds by 8 px (round_corners in overlay.rs): the panel
+   takes the same radius so no corner of the blur shows past it. */
 .ov--acrylic {
+  border-radius: 8px;
   background:
     radial-gradient(130% 70% at 10% -10%, rgba(255, 255, 255, 0.16), transparent 55%),
     linear-gradient(rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.06)),
