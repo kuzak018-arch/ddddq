@@ -580,3 +580,13 @@ html.is-overlay body {
 .ov--acrylic.ov--pill {
   border-radius: 8px;
 }
+
+/* темп игры: нетворс и добивания */
+.ov__pace {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ov__pace p {
+  margin: 0;
+}

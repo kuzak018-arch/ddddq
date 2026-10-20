@@ -404,7 +404,13 @@ function LaneMode() {
   );
 }
 
+interface Pace {
+  networth: { minute: number; now: number; top: number; diff: number; ratio: number; games: number; estimated: boolean; verdict: 'bad' | 'ok' | 'good' } | null;
+  last_hits: { minute: number; last_hits: number; per_min: number; median: number | null; expected: number | null; percentile: number | null; few: boolean } | null;
+}
+
 interface GameLive {
+  pace: Pace | null;
   live: { clock: number | null; gold: number | null; has_items: boolean; alive: boolean | null; respawn: number | null } | null;
   timers: { key: string; name: string; in: number }[];
   next: { key: string; name: string; cost: number; left: number; missing: number; ready: boolean; have: string[] } | null;
@@ -413,13 +419,37 @@ interface GameLive {
 
 const mmss = (s: number) => `${s < 0 ? '-' : ''}${Math.floor(Math.abs(s) / 60)}:${String(Math.abs(s) % 60).padStart(2, '0')}`;
 
+/** Net worth against the top players of the hero at this minute, and few last hits (backend pace.py). */
+function PaceLines({ pace }: { pace: Pace }) {
+  const nw = pace.networth;
+  const lh = pace.last_hits;
+  const fmt = (n: number) => n.toLocaleString('ru');
+  return (
+    <div className="ov__pace">
+      {nw && (
+        <p className={`small ${nw.verdict === 'bad' ? 'c-bad' : nw.verdict === 'good' ? 'c-good' : 'muted'}`} title={`по ${nw.games} играм топов на этом герое${nw.estimated ? '; нетворс оценён по GPM' : ''}`}>
+          {nw.verdict === 'bad' ? 'Нетворс ниже топов' : nw.verdict === 'good' ? 'Нетворс выше топов' : 'Нетворс как у топов'}: {nw.estimated ? '≈ ' : ''}
+          {fmt(nw.now)} к {nw.minute}-й минуте, у них {fmt(nw.top)} ({nw.diff > 0 ? '+' : ''}
+          {Math.round((nw.ratio - 1) * 100)}%)
+        </p>
+      )}
+      {lh?.few && (
+        <p className="small c-bad" title="сравнение с игроками этого героя по данным OpenDota">
+          Мало добиваний: {lh.last_hits} к {lh.minute}-й минуте ({lh.per_min.toLocaleString('ru')} в минуту)
+          {lh.expected ? `, обычно около ${lh.expected}` : ''}
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** «Сейчас»: the next item of the top players' build with the gold still missing, the map timers
  * and buyback, from what Dota sends over GSI (backend ingame.py), refreshed every second. */
-function LiveHints({ plan }: { plan: { key: string; name: string; minute: number | null }[] }) {
+function LiveHints({ plan, pos }: { plan: { key: string; name: string; minute: number | null }[]; pos: number }) {
   const targets = plan.map((p) => p.key).join(',');
   const q = useQuery({
-    queryKey: ['game-live', targets],
-    queryFn: () => api<GameLive>(`/game/live?targets=${encodeURIComponent(targets)}`),
+    queryKey: ['game-live', targets, pos],
+    queryFn: () => api<GameLive>(`/game/live?targets=${encodeURIComponent(targets)}&pos=${pos}`),
     refetchInterval: 1000,
   });
   const g = q.data;
@@ -472,6 +502,7 @@ function LiveHints({ plan }: { plan: { key: string; name: string; minute: number
           {g.buyback.cooldown ? `перезарядка ${mmss(g.buyback.cooldown)}` : g.buyback.enough ? 'хватает' : `не хватает ${g.buyback.missing.toLocaleString('ru')}`}
         </p>
       )}
+      {g.pace && <PaceLines pace={g.pace} />}
     </div>
   );
 }
@@ -514,7 +545,7 @@ function BuildMode() {
   if (!hero) return <p className="muted ov__center">Выбери своего героя в драфте — здесь появится билд против врагов.</p>;
   return (
     <div className="ov__build">
-      {d.phase === 'game' && hints && <LiveHints plan={plan} />}
+      {d.phase === 'game' && hints && <LiveHints plan={plan} pos={build.data?.build.pos ?? req.pos ?? 1} />}
       {!d.myHero && allies.length > 1 && (
         <div className="ov__row ov__row--start">
           <span className="label">Мой герой</span>

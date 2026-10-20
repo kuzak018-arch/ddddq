@@ -23,7 +23,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel, Field, model_validator
 
-from .. import config, dota_paths, gsi, hero_grid, ingame, keybinds, search, updates
+from .. import config, dota_paths, gsi, hero_grid, ingame, keybinds, pace, search, updates
 from .. import settings as user_settings
 from ..builds import counter, standard
 from ..builds import service as build_service
@@ -922,14 +922,16 @@ def gsi_status():
 
 
 @app.get("/game/live")
-def game_live(targets: str = ""):
+def game_live(targets: str = "", pos: int | None = Query(None, ge=1, le=5)):
     """In-game hints for the overlay (ingame.py): timers, the next item of the build, buyback.
     `targets` is the build's item order, comma-separated. null live: no match or GSI silent."""
     live = tracker.live
     if live and time.time() - live["ts"] > 15:
         live = None  # Dota closed or the match ended without a final message
     keys = [k for k in targets.split(",") if re.fullmatch(r"[a-z0-9_]{1,60}", k)][:30]
-    return ingame.hints(live, keys)
+    out = ingame.hints(live, keys)
+    out["pace"] = pace.pace(live, (live or {}).get("hero_id"), pos)
+    return out
 
 
 @app.post("/gsi/install")
