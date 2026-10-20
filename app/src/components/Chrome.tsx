@@ -10,6 +10,7 @@ import { useHealth, useSettings } from '../api/hooks';
 import { useLogoUrl } from '../lib/appIcon';
 import { blurPicture, loadPicture, setGlassPicture, type Material } from '../lib/glassBackdrop';
 import { lumaOfBlob, lumaOfUrl, veilFor } from '../lib/wallLuma';
+import { useResolvedTheme } from '../lib/theme';
 import { refractionSupported } from '../glass/refraction';
 import { useDraft } from '../state/draft';
 import { loadBackgroundFile } from '../state/bgstore';
@@ -285,6 +286,7 @@ function useGlassPicture(bg: Background, presetCss: string | null, file: { url: 
 
 export function Wallpaper() {
   const { background: bg, bgBlur, bgDim, bgPos, theme } = useUi();
+  const dark = useResolvedTheme(theme) === 'dark';
   const calm = useCalmBackground();
   const file = useWallFile(bg);
   const heroLuma = useHeroLuma(bg);
@@ -316,9 +318,8 @@ export function Wallpaper() {
 
   // glass veil from the wallpaper's brightness: only the dark theme has white text on the glass
   useEffect(() => {
-    const dark = document.documentElement.dataset.theme !== 'light';
     document.documentElement.style.setProperty('--veil', dark ? veilFor(luma ?? 0.3, bgDim).toFixed(3) : '0');
-  }, [luma, bgDim, theme]);
+  }, [luma, bgDim, dark]);
 
   // a video background stops in performance mode and during a match (first frame stays)
   useEffect(() => {

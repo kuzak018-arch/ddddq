@@ -19,6 +19,7 @@ import { VisionPage } from './pages/VisionPage';
 import { useAppIcon } from './lib/appIcon';
 import { LEAVE_MS, slideDir } from './lib/pageAnim';
 import { boardSound, play } from './lib/sounds';
+import { useResolvedTheme } from './lib/theme';
 import { useCloseToTray } from './lib/tray';
 import { applyHotkeys, showOverlay } from './lib/overlay';
 import { useDraft } from './state/draft';
@@ -42,16 +43,10 @@ const ORDER: Page[] = ['draft', 'meta', 'hero', 'top', 'patches', 'grids', 'prof
 function useAppearance() {
   const { theme, refraction, tilt, material } = useUi();
   const calm = useCalmBackground(); // performance mode or a running match: no blur, no animations
+  const shown = useResolvedTheme(theme);
   useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: light)');
-    const apply = () => {
-      const t = theme === 'system' ? (mq.matches ? 'light' : 'dark') : theme;
-      document.documentElement.dataset.theme = t;
-    };
-    apply();
-    mq.addEventListener('change', apply);
-    return () => mq.removeEventListener('change', apply);
-  }, [theme]);
+    document.documentElement.dataset.theme = shown;
+  }, [shown]);
   useEffect(() => {
     document.documentElement.classList.toggle('perf', calm);
     document.documentElement.classList.toggle('has-refraction', refractionSupported && refraction && !calm);
