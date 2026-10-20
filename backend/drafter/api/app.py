@@ -9,6 +9,7 @@ import hmac
 import json
 import os
 import re
+import threading
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -118,6 +119,15 @@ async def lifespan(app: FastAPI):
         vision_collector.start()
     build_service.publish = lambda **data: bus.publish("builds", **data)
     if os.environ.get("DRAFTER_NO_PREFETCH") != "1":
+        def _hero_art():
+            time.sleep(20)   # after the app is up; at most once a week
+            try:
+                with httpx.Client(timeout=30, headers={"User-Agent": config.USER_AGENT}) as http:
+                    if constants.refresh_hero_art(http):
+                        vmatch.reload()   # the draft reader picks the new art up
+            except Exception:  # noqa: BLE001 - never a reason to disturb the app
+                pass
+        threading.Thread(target=_hero_art, name="hero-art", daemon=True).start()
         try:
             build_service.start_prefetch(_pred().pos_mat)
         except HTTPException:
@@ -1167,8 +1177,7 @@ def vision_label(body: LabelIn):
     learned = 0
     for group in ("radiant", "dire", "bans"):
         for crop, hero in zip(crops[group], getattr(body, group)):
-            if hero and crop.size:
-                vmatch.learn(hero, crop)
+            if hero and crop.size and vmatch.learn(hero, crop):
                 learned += 1
     veval.LABELED.mkdir(parents=True, exist_ok=True)
     shutil.copy(src, veval.LABELED / src.name)

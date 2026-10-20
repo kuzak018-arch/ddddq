@@ -36,3 +36,61 @@ def test_shifted_zoomed_dimmed_portraits_are_still_recognised(kw):
     right = sum(g == h["id"] for g, h in zip(got, heroes))
     wrong = sum(g is not None and g != h["id"] for g, h in zip(got, heroes))
     assert right >= 0.95 * len(heroes) and wrong == 0
+
+
+# ---------- learned crops that are filed under the wrong hero ----------------------------------
+
+from pathlib import Path
+
+from drafter.vision import bars, reader
+
+REAL = Path(__file__).parent / "fixtures" / "draft_2000x514.png"     # the user's draft screen, top bar only (nicknames blanked)
+LION, DAZZLE, MAGNUS, DISRUPTOR, OD, WARLOCK, WITCH_DOCTOR = "lion", "dazzle", "magnataur", "disruptor", "obsidian_destroyer", "warlock", "witch_doctor"
+
+
+def _ids():
+    return {h["key"]: h["id"] for h in constants.hero_index()}
+
+
+@needs_heroes
+def test_the_real_draft_frame_is_read():
+    ids = _ids()
+    frame = cv2.imread(str(REAL))
+    res = reader.read(frame, bars.find(frame))
+    got = {g: [r.hero for r in res[g]] for g in ("radiant", "dire")}
+    assert got["radiant"][0] == ids[LION] and got["radiant"][1] == ids[DAZZLE] and got["radiant"][2] == ids[MAGNUS]
+    assert got["radiant"][4] == ids[DISRUPTOR]
+    assert got["dire"][0] == ids[OD] and got["dire"][3] == ids[WARLOCK] and got["dire"][4] == ids[WITCH_DOCTOR]
+
+
+@needs_heroes
+def test_a_mislabelled_learned_crop_does_not_take_over(tmp_path, monkeypatch):
+    """Warlock's portrait once saved as Crystal Maiden used to make every Warlock read as CM for ever."""
+    ids = _ids()
+    frame = cv2.imread(str(REAL))
+    cal = bars.find(frame)
+    warlock_crop = reader.crops(frame, cal)["dire"][3]
+    monkeypatch.setattr(matcher, "LEARNED", tmp_path / "learned")
+    matcher._bank.cache_clear()
+    # the poison, as old versions could write it: straight into the learned folder
+    bad = tmp_path / "learned" / str(ids["crystal_maiden"])
+    bad.mkdir(parents=True)
+    cv2.imwrite(str(bad / "1.png"), warlock_crop)
+    bank = matcher.bank(warlock_crop.shape[1] / warlock_crop.shape[0])
+    assert bank.dropped == 1                                                  # recognised as someone else and left out
+    assert reader.read(frame, cal)["dire"][3].hero == ids[WARLOCK]
+    # and the same crop is refused when something tries to save it under the wrong name
+    assert matcher.learn(ids["crystal_maiden"], warlock_crop) is None
+    assert matcher.learn(ids[WARLOCK], warlock_crop) is not None              # under its own name it is welcome
+    matcher._bank.cache_clear()
+
+
+@needs_heroes
+def test_a_hero_whose_art_is_stale_can_still_be_learned_from_the_screen():
+    """Tinker's art in the program is the old model; the game shows the new one. His crop matches no
+    art well, but nothing else claims it either: it is welcome as a learned template."""
+    ids = _ids()
+    frame = cv2.imread(str(REAL))
+    tinker = reader.crops(frame, bars.find(frame))["radiant"][3]
+    assert not matcher.contradicts_art(ids["tinker"], tinker)
+    assert matcher.contradicts_art(ids["crystal_maiden"], reader.crops(frame, bars.find(frame))["dire"][3])   # Warlock's face is not CM
