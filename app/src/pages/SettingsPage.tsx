@@ -677,6 +677,11 @@ function OverlayCard() {
       </div>
       <Slider label="Непрозрачность" value={ov.opacity} min={0.35} max={1} step={0.05} onChange={(opacity) => setOv({ opacity })} format={(v) => `${Math.round(v * 100)}%`} />
       <Toggle on={ov.autoShow} onChange={(autoShow) => setOv({ autoShow })} label="Показывать оверлей, когда начался выбор героев (GSI)" />
+      <Toggle
+        on={ov.hints}
+        onChange={(hints) => setOv({ hints })}
+        label="Подсказки в игре: следующий предмет и сколько золота не хватает, таймеры рун и лотосов, ночь, выкуп"
+      />
       <Toggle on={ov.autoPerf} onChange={(autoPerf) => setOv({ autoPerf })} label="Во время матча — режим производительности (без Acrylic и анимаций)" />
       <p className="hint">
         «Авто»: на стадии драфта — подсказки, с началом матча — билд против врагов (после подключения GSI на этапе 5).

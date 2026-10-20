@@ -401,6 +401,78 @@ function LaneMode() {
   );
 }
 
+interface GameLive {
+  live: { clock: number | null; gold: number | null; has_items: boolean; alive: boolean | null; respawn: number | null } | null;
+  timers: { key: string; name: string; in: number }[];
+  next: { key: string; name: string; cost: number; left: number; missing: number; ready: boolean; have: string[] } | null;
+  buyback: { cost: number; enough: boolean; missing: number; cooldown: number } | null;
+}
+
+const mmss = (s: number) => `${s < 0 ? '-' : ''}${Math.floor(Math.abs(s) / 60)}:${String(Math.abs(s) % 60).padStart(2, '0')}`;
+
+/** «Сейчас»: the next item of the top players' build with the gold still missing, the map timers
+ * and buyback, from what Dota sends over GSI (backend ingame.py), refreshed every second. */
+function LiveHints({ plan }: { plan: { key: string; name: string; minute: number | null }[] }) {
+  const targets = plan.map((p) => p.key).join(',');
+  const q = useQuery({
+    queryKey: ['game-live', targets],
+    queryFn: () => api<GameLive>(`/game/live?targets=${encodeURIComponent(targets)}`),
+    refetchInterval: 1000,
+  });
+  const g = q.data;
+  if (!g?.live) return <p className="hint">Подсказки появятся, как только Дота пришлёт данные матча.</p>;
+  const clock = g.live.clock ?? 0;
+  const n = g.next;
+  const minute = n ? plan.find((p) => p.key === n.key)?.minute : null;
+  const late = n && minute != null ? Math.floor(clock / 60 - minute) : 0;
+  const pct = n ? Math.round((100 * (n.cost - n.left + Math.min(g.live.gold ?? 0, n.left))) / Math.max(1, n.cost)) : 0;
+  return (
+    <div className="ov__live">
+      <div className="ov__live-head">
+        <span className="kicker">Сейчас · {mmss(clock)}</span>
+        {g.live.gold != null && <span className="ov__gold">{g.live.gold.toLocaleString('ru')} золота</span>}
+      </div>
+      {n ? (
+        <div className={`ov__next ${n.ready ? 'is-ready' : ''}`}>
+          <ItemIcon k={n.key} title={n.name} size={36} />
+          <div>
+            <b>{n.name}</b>
+            <span className="small">
+              {n.ready ? 'хватает — можно покупать' : `не хватает ${n.missing.toLocaleString('ru')}`}
+              {n.have.length > 0 && ' · часть уже есть'}
+            </span>
+            <div className="ov__bar">
+              <i style={{ width: `${pct}%` }} />
+            </div>
+            {minute != null && (
+              <span className={`small ${late > 0 ? 'c-bad' : 'muted'}`}>
+                у топов к {Math.round(minute)}′{late > 0 ? ` · опаздываешь на ${late} мин` : ''}
+              </span>
+            )}
+          </div>
+        </div>
+      ) : g.live.has_items ? (
+        plan.length > 0 && <p className="hint">Весь кор билда уже собран.</p>
+      ) : (
+        <p className="hint">Дота пока не присылает предметы: перезапусти её один раз (конфиг GSI обновлён).</p>
+      )}
+      <div className="ov__timers">
+        {g.timers.slice(0, 4).map((t) => (
+          <span key={t.key} className={`ov__timer ${t.in <= 15 ? 'is-soon' : ''}`}>
+            {t.name} <b>{t.key === 'night' ? `через ${mmss(t.in)}` : mmss(t.in)}</b>
+          </span>
+        ))}
+      </div>
+      {g.buyback && (
+        <p className={`small ${g.buyback.cooldown ? 'muted' : g.buyback.enough ? 'c-good' : 'c-bad'}`}>
+          Выкуп {g.buyback.cost.toLocaleString('ru')}:{' '}
+          {g.buyback.cooldown ? `перезарядка ${mmss(g.buyback.cooldown)}` : g.buyback.enough ? 'хватает' : `не хватает ${g.buyback.missing.toLocaleString('ru')}`}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function BuildMode() {
   const d = useDraft();
   const req = useDraftRequest();
@@ -408,9 +480,13 @@ function BuildMode() {
   const me = useMe(req);
   const hero = me ?? allies[0] ?? null;
   const build = useBuild(hero, req.pos ?? 1, req.enemies, true);
+  const hints = useUi((s) => s.overlay.hints);
+  const top = build.data ? (build.data.build.builds[0] ?? build.data.build.approximate) : null;
+  const plan = top ? [...(top.boots ? [top.boots] : []), ...top.core] : [];
   if (!hero) return <p className="muted ov__center">Выбери своего героя в драфте — здесь появится билд против врагов.</p>;
   return (
     <div className="ov__build">
+      {d.phase === 'game' && hints && <LiveHints plan={plan} />}
       {!d.myHero && allies.length > 1 && (
         <div className="ov__row ov__row--start">
           <span className="label">Мой герой</span>

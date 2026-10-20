@@ -17,7 +17,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-from . import config, dota_paths, kv
+from . import config, dota_paths, ingame, kv
 from .data import constants
 
 PORT = 47831
@@ -48,7 +48,7 @@ def cfg_text(port: int = PORT) -> str:
     return kv.dumps({"Dota Drafter": {
         "uri": f"http://127.0.0.1:{port}/",
         "timeout": "5.0", "buffer": "0.1", "throttle": "0.25", "heartbeat": "10.0",
-        "data": {"provider": "1", "map": "1", "player": "1", "hero": "1", "draft": "1"},
+        "data": {"provider": "1", "map": "1", "player": "1", "hero": "1", "items": "1", "draft": "1"},
         "auth": {"token": _token()},
     }})
 
@@ -80,7 +80,22 @@ def installed() -> dict:
     ok = p.exists() and f"127.0.0.1:{PORT}" in p.read_text(encoding="utf-8", errors="replace") \
         and _token() in p.read_text(encoding="utf-8", errors="replace")
     others = sorted(x.name for x in folder.glob("*.cfg") if x.name != CFG_NAME) if folder.is_dir() else []
-    return {"dota_found": True, "installed": ok, "path": str(p), "other_cfgs": others}
+    # an older cfg of ours without the items block: the in-game hints need it
+    outdated = ok and '"items"' not in p.read_text(encoding="utf-8", errors="replace")
+    return {"dota_found": True, "installed": ok, "outdated": outdated, "path": str(p), "other_cfgs": others}
+
+
+def upgrade() -> bool:
+    """Rewrites our own cfg when it is an older version (same port and token, fewer data blocks).
+    Only our file is touched; Dota picks it up at its next start."""
+    try:
+        st = installed()
+        if st.get("installed") and st.get("outdated"):
+            install()
+            return True
+    except OSError:
+        pass
+    return False
 
 
 # ---------- payload -> session ---------------------------------------------------------------
@@ -134,6 +149,7 @@ class Tracker:
         self.last: dict = {}
         self.last_ts = 0.0
         self.has_draft_block = False
+        self.live: dict | None = None  # the in-game part of the last message (ingame.py), during a match
 
     def status(self) -> dict:
         return {"last_seen": self.last_ts or None, "match_id": self.match_id, "has_draft_block": self.has_draft_block,
@@ -150,6 +166,7 @@ class Tracker:
         side = {"radiant": "radiant", "dire": "dire"}.get(str(player.get("team_name", "")).lower())
         hero_id = _hero_id(hero.get("id")) or _hero_id(hero.get("name"))
         self.last = {"game_state": state, "team": side, "hero_id": hero_id, "phase": phase}
+        self.live = ingame.live_from_payload(payload) if phase == "game" else None
 
         changes: dict = {}
         match_id = m.get("matchid")

@@ -23,7 +23,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel, Field, model_validator
 
-from .. import config, dota_paths, gsi, hero_grid, keybinds, search
+from .. import config, dota_paths, gsi, hero_grid, ingame, keybinds, search
 from .. import settings as user_settings
 from ..builds import counter, standard
 from ..builds import service as build_service
@@ -109,6 +109,8 @@ async def lifespan(app: FastAPI):
             server = gsi.serve(_on_gsi)
         except OSError as e:  # port taken (another copy running): the app still works without GSI
             print(f"GSI-приёмник не запущен: порт {gsi.PORT} занят ({e})", flush=True)
+        if gsi.upgrade():
+            print("конфиг GSI обновлён (добавлены предметы для подсказок в игре): перезапусти Доту", flush=True)
     vision_runner.cautious = not vauto.proven()
     if _vision_wanted():
         vision_runner.set_enabled(True)
@@ -916,6 +918,17 @@ def hero_grids_restore(body: GridRestoreIn):
 @app.get("/gsi/status")
 def gsi_status():
     return {"port": gsi.PORT, **gsi.installed(), **tracker.status()}
+
+
+@app.get("/game/live")
+def game_live(targets: str = ""):
+    """In-game hints for the overlay (ingame.py): timers, the next item of the build, buyback.
+    `targets` is the build's item order, comma-separated. null live: no match or GSI silent."""
+    live = tracker.live
+    if live and time.time() - live["ts"] > 15:
+        live = None  # Dota closed or the match ended without a final message
+    keys = [k for k in targets.split(",") if re.fullmatch(r"[a-z0-9_]{1,60}", k)][:30]
+    return ingame.hints(live, keys)
 
 
 @app.post("/gsi/install")
