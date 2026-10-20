@@ -6,7 +6,7 @@ from dataclasses import asdict
 
 import numpy as np
 
-from . import calibration, layout, matcher
+from . import bars, calibration, layout, matcher
 
 
 def crops(frame: np.ndarray, cal: calibration.Calibration) -> dict[str, list[np.ndarray]]:
@@ -23,9 +23,10 @@ def crops(frame: np.ndarray, cal: calibration.Calibration) -> dict[str, list[np.
 def read(frame: np.ndarray, cal: calibration.Calibration | None = None, exclude: str | None = None) -> dict:
     """{radiant: [SlotResult x5], dire: [...], bans: [...], warnings: [...]}
     `exclude`: leave out templates learned from that draft (fair accuracy on its own frames).
-    Without `cal` the rects are the ones for this frame's size (layout.for_frame)."""
+    Without `cal` the slots are found by the players' colour bars (bars.find), else the rects for
+    this frame's size (layout.for_frame)."""
     h, w = frame.shape[:2]
-    cal = cal or layout.for_frame(w, h)
+    cal = cal or bars.find(frame) or layout.for_frame(w, h)
     warnings = []
     if abs(w / h - cal.aspect) > 0.02:
         warnings.append(f"соотношение сторон окна {w}×{h} отличается от этих рамок — для этого размера есть встроенный профиль")

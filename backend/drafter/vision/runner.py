@@ -14,13 +14,17 @@ from __future__ import annotations
 import threading
 import time
 
-from . import calibration, capture, layout, reader
+from . import bars, calibration, capture, layout, reader
 
 INTERVAL = 0.7
 STABLE_FRAMES = 2
 # until the accuracy on the user's own drafts is proven: only confident reads, and one frame more
 CAUTIOUS_THRESHOLD = 0.62
 CAUTIOUS_MARGIN = 0.10
+# with the slots found by the players' colour bars the crops sit exactly on the portraits, and the
+# right hero scores lower in absolute terms (a portrait cut by the bar's slant) but leads clearly
+BARS_THRESHOLD = 0.5
+BARS_MARGIN = 0.08
 
 
 class Runner:
@@ -51,6 +55,12 @@ class Runner:
 
     def _read(self, frame):
         h, w = frame.shape[:2]
+        found = bars.find(frame)
+        if found is not None:
+            # the slots themselves, from the colour bars: no fitting, no profile, any resolution
+            if self.cautious:
+                found = found.model_copy(update={"threshold": BARS_THRESHOLD, "margin": BARS_MARGIN})
+            return reader.read(frame, found)
         cal = layout.for_frame(w, h)
         if self.cautious:
             cal = cal.model_copy(update={"threshold": max(cal.threshold, CAUTIOUS_THRESHOLD),
