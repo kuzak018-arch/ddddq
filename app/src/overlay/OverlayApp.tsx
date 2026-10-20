@@ -21,6 +21,7 @@ import { IconClose } from '../components/Icons';
 import { LaneCard, LaneView } from '../components/LaneView';
 import { fmtPct, fmtSigned, HeroIcon, ItemIcon } from '../components/ui';
 import { onOverlayStatus, overlayStatus, setClickThrough, setOverlayEffect, showOverlay } from '../lib/overlay';
+import { useResolvedTheme } from '../lib/theme';
 import { picked, useDraft } from '../state/draft';
 import { startSync } from '../state/sync';
 import { useUi } from '../state/ui';
@@ -37,7 +38,7 @@ export function OverlayApp() {
   const [collapsed, setCollapsed] = useState(false);
   const [mode, setMode] = useState<Mode | null>(null); // null: follow the setting (auto = build in a match)
   const ov = useUi((s) => s.overlay);
-  const theme = useUi((s) => s.theme);
+  const theme = useResolvedTheme(useUi((s) => s.theme));
   const phase = useDraft((s) => s.phase);
   const perf = ov.autoPerf && phase === 'game';
   const search = useRef<HeroSearchHandle>(null);
@@ -45,7 +46,7 @@ export function OverlayApp() {
 
   useEffect(() => {
     document.documentElement.classList.add('is-overlay');
-    document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = theme;
   }, [theme]);
   useEffect(() => {
     waitForBackend()

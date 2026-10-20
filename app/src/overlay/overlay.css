@@ -13,7 +13,7 @@ html.is-overlay body {
   height: 100%;
   display: flex;
   flex-direction: column;
-  border-radius: 26px;
+  border-radius: 26px; /* the window is cut to the same radius (RADIUS in overlay.rs) */
   overflow: hidden;
   color: var(--text);
   box-shadow:

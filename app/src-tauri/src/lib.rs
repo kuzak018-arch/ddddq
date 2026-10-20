@@ -58,6 +58,9 @@ pub fn run() {
         .setup(|app| {
             tray::create(app.handle())?;
             appicon::restore(app.handle());
+            if let Some(w) = app.get_webview_window(overlay::LABEL) {
+                overlay::round_corners(&w);
+            }
             if std::env::args().any(|a| a == tray::MINIMIZED_ARG) {
                 if let Some(w) = app.get_webview_window("main") {
                     let _ = w.hide();
@@ -70,6 +73,13 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            if window.label() == overlay::LABEL
+                && matches!(event, WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. })
+            {
+                if let Some(w) = window.app_handle().get_webview_window(overlay::LABEL) {
+                    overlay::round_corners(&w);
+                }
+            }
             // closing the main window quits the app (the hidden overlay must not keep it alive),
             // or hides it into the tray when the user chose that
             if window.label() == "main" {
