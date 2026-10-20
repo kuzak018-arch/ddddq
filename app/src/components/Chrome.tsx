@@ -146,6 +146,18 @@ export const PRESETS: { id: string; name: string; css: string; luma: number }[] 
     luma: 0.06,
   },
   {
+    id: 'light',
+    name: 'Светлый',
+    css: 'radial-gradient(60% 55% at 15% 10%, rgba(255, 255, 255, 0.95) 0%, transparent 70%), radial-gradient(55% 60% at 90% 95%, rgba(196, 204, 222, 0.7) 0%, transparent 70%), linear-gradient(160deg, #f4f5f8 0%, #e3e6ed 100%)',
+    luma: 0.9,
+  },
+  {
+    id: 'dark',
+    name: 'Тёмный',
+    css: 'radial-gradient(60% 55% at 15% 10%, rgba(255, 255, 255, 0.05) 0%, transparent 70%), radial-gradient(55% 60% at 90% 95%, rgba(80, 90, 120, 0.12) 0%, transparent 70%), linear-gradient(160deg, #111216 0%, #08090b 100%)',
+    luma: 0.03,
+  },
+  {
     id: 'dire',
     name: 'Dire',
     css: 'radial-gradient(60% 70% at 85% 15%, #8f1d14 0%, transparent 60%), radial-gradient(70% 70% at 10% 90%, #3a0d26 0%, transparent 65%), radial-gradient(50% 50% at 50% 50%, #2a1410 0%, transparent 70%), #0e0a0c',
