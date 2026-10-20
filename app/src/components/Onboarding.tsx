@@ -27,6 +27,7 @@ import { create } from 'zustand';
 
 import { api } from '../api/client';
 import { PAGE_ANIMS } from '../lib/pageAnim';
+import { play } from '../lib/sounds';
 import { rankName } from '../lib/ranks';
 import { useUi } from '../state/ui';
 import { BrandMark, PRESETS } from './Chrome';
@@ -495,6 +496,8 @@ function DoneStep({ acc, onClose }: { acc: string; onClose: () => void }) {
   const id = Number(acc);
   const load = useMutation({ mutationFn: () => api('/me/refresh', { method: 'POST' }) });
   useEffect(() => {
+    const s = useUi.getState().sounds;
+    if (s.on) play('done', s.volume);
     if (id) load.mutate();
     // once, when the last step opens
     // eslint-disable-next-line react-hooks/exhaustive-deps

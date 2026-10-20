@@ -31,6 +31,8 @@ interface UiState {
   pageAnim: PageAnim;
   /** cards lean towards the pointer with a glare (lib/tilt.ts) */
   tilt: boolean;
+  /** interface sounds (lib/sounds.ts): on/off, volume 0..1, a tick on tab change */
+  sounds: { on: boolean; volume: number; tabs: boolean };
   /** closing the main window hides it into the tray instead of quitting */
   closeToTray: boolean;
   /** Background effect over the wallpaper and its intensity (0.1..1). */
@@ -90,6 +92,7 @@ export const useUi = create<UiState>()(
       performance: false,
       pageAnim: 'rise',
       tilt: true,
+      sounds: { on: true, volume: 0.5, tabs: false },
       closeToTray: false,
       logo: { kind: 'default' },
       fx: { kind: 'none', intensity: 0.5 },
@@ -116,6 +119,7 @@ export const useUi = create<UiState>()(
         overlay: { ...current.overlay, ...((persisted as Partial<UiState>)?.overlay ?? {}) },
         banner: { ...current.banner, ...((persisted as Partial<UiState>)?.banner ?? {}) },
         fx: { ...current.fx, ...((persisted as Partial<UiState>)?.fx ?? {}) },
+        sounds: { ...current.sounds, ...((persisted as Partial<UiState>)?.sounds ?? {}) },
         bgPos: { ...current.bgPos, ...((persisted as Partial<UiState>)?.bgPos ?? {}) },
       }),
     },

@@ -17,6 +17,7 @@ import { TopGamesPage } from './pages/TopGamesPage';
 import { VisionPage } from './pages/VisionPage';
 import { useAppIcon } from './lib/appIcon';
 import { LEAVE_MS, slideDir } from './lib/pageAnim';
+import { boardSound, play } from './lib/sounds';
 import { useCloseToTray } from './lib/tray';
 import { applyHotkeys, showOverlay } from './lib/overlay';
 import { useDraft } from './state/draft';
@@ -87,6 +88,25 @@ function usePageStack(page: Page, calm: boolean) {
   return stack;
 }
 
+/** Sounds of the main window: a hero on the board, a ban, a removal, a tick on tab change. */
+function useSounds(page: Page) {
+  useEffect(
+    () =>
+      useDraft.subscribe((next, prev) => {
+        const s = useUi.getState().sounds;
+        const name = s.on ? boardSound(prev, next) : null;
+        if (name) play(name, s.volume);
+      }),
+    [],
+  );
+  const first = useRef(true);
+  useEffect(() => {
+    const s = useUi.getState().sounds;
+    if (!first.current && s.on && s.tabs) play('tab', s.volume);
+    first.current = false;
+  }, [page]);
+}
+
 export default function App() {
   const page = useUi((s) => s.page);
   const calm = useCalmMotion();
@@ -96,6 +116,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   useAppearance();
   useAppIcon();
+  useSounds(page);
   useEffect(() => {
     document.documentElement.classList.toggle('page-settings', page === 'settings');
   }, [page]);
@@ -130,7 +151,11 @@ export default function App() {
   const phase = useDraft((s) => s.phase);
   const prevPhase = useRef(phase);
   useEffect(() => {
-    if (prevPhase.current !== 'draft' && phase === 'draft' && useUi.getState().overlay.autoShow) void showOverlay(true);
+    if (prevPhase.current !== 'draft' && phase === 'draft') {
+      const ui = useUi.getState();
+      if (ui.sounds.on) play('start', ui.sounds.volume);
+      if (ui.overlay.autoShow) void showOverlay(true);
+    }
     prevPhase.current = phase;
   }, [phase]);
 

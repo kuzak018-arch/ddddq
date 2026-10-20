@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AppWindow, Database, KeyRound, Lightbulb, Monitor, Palette, Plug, ScanEye, Wand } from 'lucide-react';
+import { AppWindow, Database, KeyRound, Lightbulb, Monitor, Palette, Plug, ScanEye, Volume2, Wand } from 'lucide-react';
 
 import { comboFromEvent, dotaKeyName, toggleOverlay, useHotkeyStatus } from '../lib/overlay';
 
@@ -20,6 +20,7 @@ import { refractionSupported } from '../glass/refraction';
 import { ErrorBox, Segmented, Slider, Toggle } from '../components/ui';
 import { LOGO_KEY, useIconResult, useLogoUrl } from '../lib/appIcon';
 import { PAGE_ANIMS, replayPageIn } from '../lib/pageAnim';
+import { play } from '../lib/sounds';
 import { autostartEnabled, setAutostart } from '../lib/tray';
 import { loadBackgroundFile, saveBackgroundFile, saveFile } from '../state/bgstore';
 import { useUi } from '../state/ui';
@@ -174,6 +175,39 @@ function AppearanceCard() {
         </p>
       )}
       <Toggle on={ui.tilt} onChange={(tilt) => ui.set({ tilt })} label="Карточки с объёмом (наклон и блик под курсором)" />
+      <Toggle on={ui.sounds.on} onChange={(on) => ui.set({ sounds: { ...ui.sounds, on } })} label="Звуки: пик, бан, начало драфта" />
+      {ui.sounds.on && (
+        <>
+          <Slider
+            label="Громкость звуков"
+            value={ui.sounds.volume}
+            min={0.05}
+            max={1}
+            step={0.05}
+            onChange={(volume) => {
+              ui.set({ sounds: { ...ui.sounds, volume } });
+              play('pick', volume);
+            }}
+            format={(v) => `${Math.round(v * 100)}%`}
+          />
+          <Toggle on={ui.sounds.tabs} onChange={(tabs) => ui.set({ sounds: { ...ui.sounds, tabs } })} label="Тихий щелчок при смене вкладки" />
+          <div className="row">
+            {(
+              [
+                ['pick', 'Пик'],
+                ['ban', 'Бан'],
+                ['remove', 'Убрать'],
+                ['start', 'Начало драфта'],
+              ] as const
+            ).map(([k, label]) => (
+              <button key={k} className="btn btn--sm btn--ghost" onClick={() => play(k, ui.sounds.volume)}>
+                <Ti icon={Volume2} />
+                {label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
       <Toggle
         on={ui.refraction && refractionSupported}
         onChange={(refraction) => ui.set({ refraction })}
