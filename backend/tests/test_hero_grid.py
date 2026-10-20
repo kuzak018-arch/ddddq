@@ -335,3 +335,19 @@ def test_export_text_is_the_games_format():
     assert text.startswith('{\n\t"version": 3,\n\t"configs":\n\t[')
     assert '"x_position": 10.123457' in text and not text.endswith("\n")
     assert hg.loads(text)["configs"][0]["categories"][1]["hero_ids"] == []
+
+
+def test_restoring_the_oldest_of_a_full_set_of_backups_keeps_it(env):
+    """With KEEP_BACKUPS copies, the «before-restore» copy used to prune the one being restored."""
+    path, _, tmp = env
+    first = path.read_bytes()
+    for i in range(hg.KEEP_BACKUPS + 2):
+        hg.apply(42, [cfg(heroes=(i + 1,))])
+    rows = hg.list_backups()
+    assert len(rows) == hg.KEEP_BACKUPS
+    oldest = rows[-1]["name"]
+    res = hg.restore(42, oldest)
+    assert res["restored"] == oldest and (hg.backup_dir() / oldest).exists()
+    assert path.read_bytes() == (hg.backup_dir() / oldest).read_bytes()
+    assert len(hg.list_backups()) == hg.KEEP_BACKUPS + 1 or len(hg.list_backups()) == hg.KEEP_BACKUPS
+    assert first  # the very first state was a real file

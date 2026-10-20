@@ -96,6 +96,7 @@ def fetch_icon(rel: str, http: httpx.Client | None = None) -> bool:
     """Download one missing hero or item icon on first request ("heroes/<key>.png",
     "items/<key>.png"): a hero or item added by a patch shows its picture before the next full
     refresh. Returns whether the file is there now; a failed key is not asked for again."""
+    rel = rel.replace("\\", "/")  # Windows: StaticFiles hands the path as heroes\\kez.png
     parts = rel.strip("/").split("/")
     if len(parts) != 2 or parts[0] not in ("heroes", "items") or not parts[1].endswith(".png"):
         return False

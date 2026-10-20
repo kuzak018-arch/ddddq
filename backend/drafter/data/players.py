@@ -185,13 +185,20 @@ def lookup(text: str, refresh: bool = False) -> dict:
     threads = [threading.Thread(target=run, args=a) for a in (("od", _opendota), ("sz", _stratz))]
     for t in threads:
         t.start()
+    deadline = time.time() + 60
     for t in threads:
-        t.join(60)
+        t.join(max(0.0, deadline - time.time()))
+    late = False
+    for (name, site), t in zip((("od", "OpenDota"), ("sz", "Stratz")), threads):
+        if t.is_alive() and name not in results and name + "_error" not in results:
+            results[name + "_error"] = f"{site}: не ответил за минуту"
+            late = True
     out = merge(acc, results.get("od"), results.get("sz"))
     out["errors"] = [results[k] for k in ("od_error", "sz_error") if k in results]
     out["fetched"] = time.time()
-    with _lock:
-        _cache[acc] = (time.time(), out)
+    if not late:   # a site that did not answer in time is asked again next search, not cached as «nothing»
+        with _lock:
+            _cache[acc] = (time.time(), out)
     return out
 
 

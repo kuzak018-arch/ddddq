@@ -145,7 +145,9 @@ def backup_dir() -> Path:
     return config.DATA / "backups" / "hero_grid"
 
 
-def make_backup(path: Path, tag: str = "") -> Path:
+def make_backup(path: Path, tag: str = "", keep: Path | None = None) -> Path:
+    """A copy of the file, dated now (copyfile: the copy's time is when it was made, so the newest
+    KEEP_BACKUPS are kept by that); `keep` is never pruned (the copy being restored)."""
     d = backup_dir()
     d.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -154,9 +156,10 @@ def make_backup(path: Path, tag: str = "") -> Path:
     while dest.exists():  # two copies in one second
         dest = d / f"hero_grid_config-{stamp}{'-' + tag if tag else ''}-{n}.json"
         n += 1
-    shutil.copy2(path, dest)
+    shutil.copyfile(path, dest)
     for old in sorted(d.glob("hero_grid_config-*.json"), key=lambda p: p.stat().st_mtime, reverse=True)[KEEP_BACKUPS:]:
-        old.unlink(missing_ok=True)
+        if keep is None or old.resolve() != keep.resolve():
+            old.unlink(missing_ok=True)
     return dest
 
 
@@ -330,7 +333,13 @@ def restore(account_id: int | None, name: str) -> dict:
         raise GridError("такой копии нет")
     if dota_running():
         raise DotaRunning("Дота запущена: закрой её полностью, иначе она перезапишет файл при выходе")
-    check_shape(loads(src.read_text(encoding="utf-8")))  # never put back something we could not read
-    before_copy = make_backup(path, "before-restore") if path.exists() else None
-    shutil.copy2(src, path)
+    data = src.read_bytes()
+    check_shape(loads(data.decode("utf-8")))  # never put back something we could not read
+    try:
+        before_copy = make_backup(path, "before-restore", keep=src) if path.exists() else None
+        tmp = path.with_name(path.name + ".drafter-tmp")
+        tmp.write_bytes(data)
+        os.replace(tmp, path)
+    except OSError as e:
+        raise GridError(f"не удалось вернуть копию: {e}") from e
     return {"restored": name, "backup": before_copy.name if before_copy else None}

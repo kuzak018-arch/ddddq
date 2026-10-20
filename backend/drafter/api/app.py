@@ -1337,8 +1337,21 @@ async def game_mods_install_pack(request: Request, name: str = Query("", max_len
     size = int(request.headers.get("content-length") or 0)
     if size > mod_install.PACK_MAX:
         raise HTTPException(413, "VPK больше 1,5 ГБ")
-    data = await request.body()
-    return await run_in_threadpool(_mods_call, mod_install.install_pack, config.settings().account_id, data, name)
+    # streamed to a file: a pack can be a gigabyte, it is never held in memory whole
+    folder = mod_install.incoming_dir()
+    folder.mkdir(parents=True, exist_ok=True)
+    part = folder / f"upload-{os.getpid()}-{time.time_ns()}.vpk"
+    try:
+        written = 0
+        with part.open("wb") as f:
+            async for chunk in request.stream():
+                written += len(chunk)
+                if written > mod_install.PACK_MAX:
+                    raise HTTPException(413, "VPK больше 1,5 ГБ")
+                f.write(chunk)
+        return await run_in_threadpool(_mods_call, mod_install.install_pack, config.settings().account_id, part, name)
+    finally:
+        part.unlink(missing_ok=True)
 
 
 @app.post("/game-mods/remove")

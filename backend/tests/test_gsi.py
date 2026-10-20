@@ -117,3 +117,27 @@ def test_session_patch_moves_hero_instead_of_failing(monkeypatch):
     session.put(session.Session(allies=[None] * 5, enemies=[AM, None, None, None, None]))
     s = session.patch("gsi", allies=[AM, None, None, None, None])  # screen reading corrected the side
     assert s.allies[0] == AM and AM not in s.enemies
+
+
+def test_log_keeps_a_week_and_stops_a_huge_day(tmp_path, monkeypatch):
+    monkeypatch.setattr(gsi, "LOG_DIR", tmp_path)
+    for d in range(1, 11):
+        (tmp_path / f"2026-01-{d:02d}.jsonl").write_text("x\n")
+    log = gsi._Log()
+    log.write({"auth": {"token": "secret"}, "map": {"clock_time": 1}})
+    days = sorted(p.name for p in tmp_path.glob("*.jsonl"))
+    assert len(days) == gsi.LOG_DAYS and "2026-01-01.jsonl" not in days
+    today = tmp_path / days[-1]
+    assert "secret" not in today.read_text()
+    monkeypatch.setattr(gsi, "LOG_DAY_MAX", 10)
+    size = today.stat().st_size
+    log.write({"map": {"clock_time": 2}})
+    assert today.stat().st_size == size
+
+
+def test_a_broken_token_file_is_replaced(tmp_path, monkeypatch):
+    f = tmp_path / "gsi.json"
+    f.write_text("")
+    monkeypatch.setattr(gsi, "STATE_FILE", f)
+    t = gsi._token()
+    assert len(t) == 32 and gsi._token() == t

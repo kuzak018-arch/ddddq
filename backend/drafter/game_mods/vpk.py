@@ -107,7 +107,7 @@ def read_vpk(blob: bytes) -> tuple[int, list[VpkFile]]:
     return version, files
 
 
-def vpk_entries(blob: bytes) -> tuple[int, list[tuple[str, int, int]]]:
+def vpk_entries(blob) -> tuple[int, list[tuple[str, int, int]]]:
     """(version, [(path, archive index, bytes)]) without copying any data: for checking a pack of
     the user's. Archive index 0x7FFF means the data is in this _dir file itself."""
     if len(blob) < 12:
@@ -121,8 +121,10 @@ def vpk_entries(blob: bytes) -> tuple[int, list[tuple[str, int, int]]]:
 
     def string() -> str:
         nonlocal at
-        end = blob.index(b"\0", at, end_tree)
-        value = blob[at:end].decode("utf-8", "replace")
+        end = blob.find(b"\0", at, end_tree)   # find, not index: a mapped file (mmap) has no index()
+        if end < 0:
+            raise ValueError("дерево файлов обрывается")
+        value = bytes(blob[at:end]).decode("utf-8", "replace")
         at = end + 1
         return value
 

@@ -122,3 +122,22 @@ def test_a_half_filled_board_does_not_make_right_reads_wrong(monkeypatch):
     # Pudge: our side's board is incomplete, so nobody knows - not counted
     assert (r["correct"], r["filled"], r["unknown"]) == (2, 4, 1)
     assert {w[3] for w in r["wrong"]} == {LION, AXE}
+
+
+def test_one_hero_read_in_two_slots_is_put_in_one_place_only(monkeypatch):
+    """A hero stably read in a radiant and a dire slot used to be put in both, and the session
+    refused the patch («один и тот же герой указан дважды») — which ended screen reading."""
+    S = matcher.SlotResult
+    res = {"radiant": [S(AM, 0.9, 0.3, []), S(None, 0, 0, []), S(None, 0, 0, []), S(None, 0, 0, []), S(None, 0, 0, [])],
+           "dire": [S(None, 0, 0, []), S(None, 0, 0, []), S(AM, 0.9, 0.3, []), S(None, 0, 0, []), S(None, 0, 0, [])],
+           "bans": [S(AM, 0.9, 0.3, [])], "source": "x", "warnings": []}
+    state = {"allies": [None] * 5, "enemies": [None] * 5, "bans": [], "side": "radiant", "phase": "draft"}
+    r = runner.Runner(lambda: state, lambda **c: state.update(c), lambda d: None)
+    r.cautious = False
+    monkeypatch.setattr(r, "_read", lambda f: res)
+    monkeypatch.setattr(r.autofit, "offer", lambda *a: False)
+    monkeypatch.setattr(reader, "as_json", lambda x: {})
+    for _ in range(4):
+        r.step(None, dict(state))
+    everywhere = state["allies"] + state["enemies"] + state["bans"]
+    assert everywhere.count(AM) == 1 and state["allies"][0] == AM

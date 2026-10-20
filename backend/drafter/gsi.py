@@ -12,6 +12,7 @@ we parse it if it ever arrives and log every payload so this can be checked on a
 from __future__ import annotations
 
 import json
+import os
 import secrets
 import threading
 import time
@@ -34,13 +35,17 @@ GAME_STATES = {"DOTA_GAMERULES_STATE_TEAM_SHOWCASE", "DOTA_GAMERULES_STATE_WAIT_
 # ---------- config file ----------------------------------------------------------------------
 
 def _token() -> str:
-    if STATE_FILE.exists():
-        t = json.loads(STATE_FILE.read_text()).get("token")
-        if t:
-            return t
+    try:
+        t = json.loads(STATE_FILE.read_text()).get("token") if STATE_FILE.exists() else None
+    except (OSError, ValueError, AttributeError):
+        t = None   # an empty or broken file (power loss mid-write): a new token, the config is rewritten with it
+    if t:
+        return t
     t = secrets.token_hex(16)
     STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    STATE_FILE.write_text(json.dumps({"token": t}))
+    tmp = STATE_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps({"token": t}))
+    os.replace(tmp, STATE_FILE)
     return t
 
 
@@ -215,17 +220,31 @@ class Tracker:
 
 # ---------- HTTP receiver --------------------------------------------------------------------
 
+LOG_DAYS = 7               # days of GSI messages kept (a match sends several a second)
+LOG_DAY_MAX = 20_000_000   # bytes per day; past that the day is not logged any further
+
+
 class _Log:
     def __init__(self):
         self.lock = threading.Lock()
+        self.day = ""
+
+    def _prune(self) -> None:
+        for old in sorted(LOG_DIR.glob("*.jsonl"))[:-LOG_DAYS]:
+            old.unlink(missing_ok=True)
 
     def write(self, payload: dict) -> None:
         LOG_DIR.mkdir(parents=True, exist_ok=True)
-        path = LOG_DIR / f"{time.strftime('%Y-%m-%d')}.jsonl"
+        day = time.strftime("%Y-%m-%d")
+        path = LOG_DIR / f"{day}.jsonl"
         safe = {k: v for k, v in payload.items() if k != "auth"}
         with self.lock:
-            with path.open("a", encoding="utf-8") as f:
-                f.write(json.dumps({"ts": time.time(), **safe}, ensure_ascii=False) + "\n")
+            if not (path.exists() and path.stat().st_size > LOG_DAY_MAX):
+                with path.open("a", encoding="utf-8") as f:
+                    f.write(json.dumps({"ts": time.time(), **safe}, ensure_ascii=False) + "\n")
+            if day != self.day:   # once a day (and on start): older days go, today's file included in the count
+                self.day = day
+                self._prune()
 
 
 def serve(on_payload, port: int = PORT) -> ThreadingHTTPServer:

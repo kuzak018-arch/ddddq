@@ -292,3 +292,30 @@ def test_api_pack_needs_the_warning_accepted(dota):
     pid = r.json()["id"]
     assert client.get("/game-mods/status").json()["packs"][0]["name"] == "a.vpk"
     assert client.post("/game-mods/remove", json={"what": "pack", "id": pid}).json()["removed"] is True
+
+
+def test_reinstalled_background_never_overwrites_an_own_pack(dota):
+    """The background's file was deleted by hand, a pack took its number: the background goes elsewhere."""
+    root, _ = dota
+    folder = root / "game" / "dota_russian"
+    folder.mkdir(parents=True)
+    (folder / "pak02_dir.vpk").write_bytes(b"GRIDSTUDIO")          # someone's: ours goes to pak03
+    bg = I.install_background(None, M.build_pack(WEBM), {})
+    assert Path(bg["path"]).name == "pak03_dir.vpk"
+    Path(bg["path"]).unlink()                                      # deleted by hand
+    pack = I.install_pack(None, V.build_vpk([("a/b.txt", b"1")]), "a.vpk")
+    assert Path(pack["path"]).name == "pak03_dir.vpk"
+    again = I.install_background(None, M.build_pack(WEBM), {})
+    assert Path(again["path"]).name != "pak03_dir.vpk"
+    assert I.status(None)["packs"][0]["intact"]
+
+
+def test_empty_and_streamed_packs(dota, tmp_path):
+    empty = tmp_path / "empty.vpk"
+    empty.write_bytes(b"")
+    with pytest.raises(I.ModError, match="короткий"):
+        I.install_pack(None, empty, "empty.vpk")
+    f = tmp_path / "up.vpk"
+    f.write_bytes(V.build_vpk([("x/y.txt", b"12345")]))
+    res = I.install_pack(None, f, "up.vpk")
+    assert Path(res["path"]).read_bytes() == f.read_bytes() and res["files"] == 1

@@ -100,6 +100,15 @@ class Runner:
                     self.error = str(e)
                     grabber = None
                     self._stop.wait(3.0)
+                except Exception as e:  # noqa: BLE001 - one bad frame must not end screen reading for the session
+                    self.error = f"{type(e).__name__}: {e}"
+                    if grabber:
+                        try:
+                            grabber.stop()
+                        except Exception:  # noqa: BLE001
+                            pass
+                    grabber = None
+                    self._stop.wait(3.0)
                 self._stop.wait(INTERVAL)
         finally:
             if grabber:
@@ -118,6 +127,7 @@ class Runner:
             return None   # can't tell which team is mine yet
         mine, theirs = ("radiant", "dire") if side == "radiant" else ("dire", "radiant")
         changes: dict = {}
+        placed: set[int] = set()   # heroes put in this step: one hero is never put in two places
         for team_key, group in (("allies", mine), ("enemies", theirs)):
             slots = list(s[team_key])
             changed = False
@@ -130,10 +140,11 @@ class Runner:
                 hero, seen = self.pending.get(key, (None, 0))
                 seen = seen + 1 if hero == r.hero else 1
                 self.pending[key] = (r.hero, seen)
-                taken = r.hero in (s["allies"] + s["enemies"] + s["bans"]) and slots[i] != r.hero
+                taken = (r.hero in (s["allies"] + s["enemies"] + s["bans"]) and slots[i] != r.hero) or r.hero in placed
                 if seen >= stable and slots[i] is None and not taken:
                     slots[i] = r.hero
                     self.applied[key] = r.hero
+                    placed.add(r.hero)
                     changed = True
             if changed:
                 changes[team_key] = slots
@@ -144,8 +155,9 @@ class Runner:
             hero, seen = self.pending.get(("bans", i), (None, 0))
             seen = seen + 1 if hero == r.hero else 1
             self.pending[("bans", i)] = (r.hero, seen)
-            if seen >= stable and r.hero not in s["bans"] + s["allies"] + s["enemies"]:
+            if seen >= stable and r.hero not in s["bans"] + s["allies"] + s["enemies"] and r.hero not in placed:
                 new_bans.append(r.hero)
+                placed.add(r.hero)
         if new_bans:
             changes["bans"] = (s["bans"] + new_bans)[:16]
         if changes:

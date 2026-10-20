@@ -19,12 +19,15 @@ https://github.com/linsisss/dota2-grid-toolkit, GPL-3.0-only).
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
+import mmap
 import os
 import re
 import shutil
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -37,6 +40,20 @@ DEFAULT_LANGUAGE = "english"
 
 class ModError(Exception):
     """Something the user can act on; shown as it is."""
+
+
+# one change at a time: every install/remove reads the manifest, writes files, saves the manifest —
+# two at once (a big VPK still copying and «Убрать всё») would lose one's record, and its file
+# would stay in Dota's folder unaccounted for
+_lock = threading.RLock()
+
+
+def _locked(fn):
+    @functools.wraps(fn)
+    def wrapper(*a, **kw):
+        with _lock:
+            return fn(*a, **kw)
+    return wrapper
 
 
 def root() -> Path:
@@ -69,9 +86,23 @@ def sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+_sha_cache: dict[str, tuple[int, int, str]] = {}
+
+
 def _file_sha(path: Path) -> str | None:
+    """SHA-256 of a file, read in pieces and remembered by size and time (the status is asked for
+    every few seconds and a pack can be a gigabyte)."""
     try:
-        return sha256(path.read_bytes())
+        st = path.stat()
+        hit = _sha_cache.get(str(path))
+        if hit and hit[0] == st.st_size and hit[1] == st.st_mtime_ns:
+            return hit[2]
+        h = hashlib.sha256()
+        with path.open("rb") as f:
+            while chunk := f.read(1 << 20):
+                h.update(chunk)
+        _sha_cache[str(path)] = (st.st_size, st.st_mtime_ns, h.hexdigest())
+        return h.hexdigest()
     except OSError:
         return None
 
@@ -133,9 +164,12 @@ def _fonts_dir(dota: Path) -> Path:
 
 def _pick_pak(folder: Path, m: dict) -> Path:
     """Our earlier pack's name, else pak02 if free, else the first free number from 03."""
-    ours = (m.get("background") or {}).get("path")
-    if ours and Path(ours).parent == folder:
-        return Path(ours)
+    old = m.get("background") or {}
+    ours = old.get("path")
+    if ours and Path(ours).parent == folder and (not Path(ours).exists() or _file_sha(Path(ours)) == old.get("sha256")):
+        taken = {p["path"] for p in m.get("packs", [])}
+        if ours not in taken:
+            return Path(ours)
     first = folder / PAK_NAME
     if not first.exists():
         return first
@@ -187,6 +221,7 @@ def status(account_id: int | None) -> dict:
 
 # ---------- background -------------------------------------------------------------------------
 
+@_locked
 def install_background(account_id: int | None, pack: bytes, info: dict) -> dict:
     dota = _dota()
     _closed()
@@ -229,6 +264,7 @@ def _remove_background_file(entry: dict) -> None:
         shutil.move(str(saved), path)
 
 
+@_locked
 def remove_background() -> bool:
     _closed()
     m = manifest()
@@ -247,6 +283,7 @@ def _clear_font_cache() -> None:
     shutil.rmtree(cache, ignore_errors=True)
 
 
+@_locked
 def install_fonts(files: dict[str, bytes], info: dict) -> dict:
     """files: {Valve's file name (radiance-regular.otf …): data}."""
     from .fonts import DOTA_FONT_FILES
@@ -275,6 +312,8 @@ def install_fonts(files: dict[str, bytes], info: dict) -> dict:
         tmp.write_bytes(data)
         os.replace(tmp, fonts / name)
         ours[name] = sha256(data)
+        m["fonts"] = ours
+        _save_manifest(m)  # each file as it lands: a failure half-way still leaves «Убрать всё» able to undo it
     m["fonts"] = ours
     m["font_info"] = {**info, "time": time.time()}
     _save_manifest(m)
@@ -291,6 +330,7 @@ def _restore_font(fonts: Path, name: str, sha: str) -> None:
         target.unlink()  # there was no such file of Valve's
 
 
+@_locked
 def remove_fonts() -> bool:
     _closed()
     m = manifest()
@@ -311,7 +351,7 @@ def remove_fonts() -> bool:
 PACK_MAX = 1_500_000_000
 
 
-def check_pack(blob: bytes) -> dict:
+def check_pack(blob) -> dict:
     """What is in a pack of the user's; ModError when Dota could not use it as one file."""
     from .vpk import vpk_entries
     try:
@@ -329,18 +369,32 @@ def check_pack(blob: bytes) -> dict:
 
 
 def _pack_paths(path: Path) -> set[str]:
+    """The files a pack in the folder changes (its directory only: the file is mapped, not read)."""
     from .vpk import vpk_entries
     try:
-        return {p for p, _, _ in vpk_entries(path.read_bytes())[1]}
+        with path.open("rb") as f, mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mm:
+            return {p for p, _, _ in vpk_entries(mm)[1]}
     except (OSError, ValueError):
         return set()
 
 
-def install_pack(account_id: int | None, blob: bytes, name: str) -> dict:
-    """Puts a VPK of the user's into the voice language folder under a free pakNN_dir.vpk."""
-    if len(blob) > PACK_MAX:
+@_locked
+def install_pack(account_id: int | None, data: bytes | Path, name: str) -> dict:
+    """Puts a VPK of the user's (its bytes, or a file the upload was streamed to) into the voice
+    language folder under a free pakNN_dir.vpk."""
+    src = Path(data) if isinstance(data, (str, Path)) else None
+    size = src.stat().st_size if src else len(data)
+    if size > PACK_MAX:
         raise ModError("VPK больше 1,5 ГБ")
-    info = check_pack(blob)
+    if size < 12:
+        raise ModError("файл слишком короткий для VPK")
+    if src:
+        with src.open("rb") as f, mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ) as mm:
+            info = check_pack(mm)
+        sha = _file_sha(src)
+    else:
+        info = check_pack(data)
+        sha = sha256(data)
     dota = _dota()
     _closed()
     language, _ = voice_language(dota, account_id)
@@ -350,7 +404,6 @@ def install_pack(account_id: int | None, blob: bytes, name: str) -> dict:
     folder = _language_dir(dota, language)
     folder.mkdir(parents=True, exist_ok=True)
     m = manifest()
-    sha = sha256(blob)
     if any(p["sha256"] == sha and Path(p["path"]).exists() for p in m.get("packs", [])):
         raise ModError("этот VPK уже установлен")
     # the background pack keeps pak02; the user's packs start after it
@@ -365,16 +418,24 @@ def install_pack(account_id: int | None, blob: bytes, name: str) -> dict:
         if common:
             overlaps.append({"pack": other.name, "files": len(common), "example": sorted(common)[0]})
     tmp = target.with_name(target.name + ".drafter-tmp")
-    tmp.write_bytes(blob)
+    if src:
+        shutil.copyfile(src, tmp)
+    else:
+        tmp.write_bytes(data)
     os.replace(tmp, target)
     if _file_sha(target) != sha:
         target.unlink(missing_ok=True)
         raise ModError("VPK записался с ошибкой: убрал его, попробуй ещё раз")
     entry = {"id": sha[:12], "name": Path(name).name[:120] or target.name, "path": str(target), "sha256": sha,
-             "bytes": len(blob), "files": info["files"], "top": info["top"], "language": language, "time": time.time()}
+             "bytes": size, "files": info["files"], "top": info["top"], "language": language, "time": time.time()}
     m.setdefault("packs", []).append(entry)
     _save_manifest(m)
     return {**entry, "overlaps": overlaps}
+
+
+def incoming_dir() -> Path:
+    """Where an upload is streamed before it is checked and copied into Dota's folder."""
+    return root() / "incoming"
 
 
 def _remove_pack_file(entry: dict) -> None:
@@ -383,6 +444,7 @@ def _remove_pack_file(entry: dict) -> None:
         path.unlink()  # a file someone changed or replaced since is left alone
 
 
+@_locked
 def remove_pack(pack_id: str) -> bool:
     _closed()
     m = manifest()
@@ -396,6 +458,7 @@ def remove_pack(pack_id: str) -> bool:
     return True
 
 
+@_locked
 def remove_packs() -> bool:
     _closed()
     m = manifest()
@@ -408,6 +471,7 @@ def remove_packs() -> bool:
     return True
 
 
+@_locked
 def remove_all() -> dict:
     _closed()
     return {"background": remove_background(), "fonts": remove_fonts(), "packs": remove_packs()}

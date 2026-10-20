@@ -35,6 +35,11 @@ def test_hero_and_item_icons_are_fetched_once(icons):
     assert constants.fetch_icon("heroes/newhero.png", client(calls)) and len(calls) == 2  # cached: no request
 
 
+def test_a_windows_style_path_is_fetched_too(icons):
+    calls = []
+    assert constants.fetch_icon("heroes\\newhero.png", client(calls)) and len(calls) == 1
+
+
 def test_unknown_or_odd_paths_are_never_fetched(icons):
     calls = []
     for rel in ("heroes/nobody.png", "items/nothing.png", "abilities/x.png", "heroes/../x.png", "heroes/newhero.jpg"):
