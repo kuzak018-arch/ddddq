@@ -40,7 +40,10 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
             "overlay" => {
                 let _ = overlay::toggle(app);
             }
-            "quit" => app.exit(0),
+            "quit" => {
+                crate::update::mark_user_quit(app);
+                app.exit(0)
+            }
             _ => {}
         })
         .on_tray_icon_event(|tray, event| {

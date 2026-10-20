@@ -19,6 +19,8 @@ async function askShell(): Promise<BackendInfo> {
     try {
       return await invoke<BackendInfo>('backend_info');
     } catch (e) {
+      // the shell could not start the backend at all (e.g. an antivirus took drafter-backend.exe)
+      if (String(e).startsWith('не удалось запустить бэкенд')) throw new Error(String(e));
       if (i >= 150) throw new Error(`оболочка не сообщила адрес бэкенда: ${e}`);
       await new Promise((r) => setTimeout(r, 200));
     }

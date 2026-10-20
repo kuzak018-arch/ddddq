@@ -25,11 +25,16 @@ struct BackendInfo {
 #[derive(Default)]
 struct AppState {
     info: Mutex<Option<BackendInfo>>,
+    /// why the backend did not start (shown by the UI instead of the app vanishing)
+    error: Mutex<Option<String>>,
     child: Mutex<Option<std::process::Child>>,
 }
 
 #[tauri::command]
 fn backend_info(state: tauri::State<'_, AppState>) -> Result<BackendInfo, String> {
+    if let Some(e) = state.error.lock().unwrap().clone() {
+        return Err(e);
+    }
     state.info.lock().unwrap().clone().ok_or_else(|| "бэкенд ещё запускается".to_string())
 }
 
@@ -58,17 +63,25 @@ pub fn run() {
         .manage(tray::TrayState::default())
         .manage(update::UpdateState::default())
         .setup(|app| {
-            tray::create(app.handle())?;
+            // an error here must not end the app silently (setup errors abort it with no message)
+            if let Err(e) = tray::create(app.handle()) {
+                eprintln!("значок в трее не создан: {e}");
+            }
             appicon::restore(app.handle());
-            if std::env::args().any(|a| a == tray::MINIMIZED_ARG) {
+            // the main window starts hidden (tauri.conf): shown here unless launched into the tray
+            if !std::env::args().any(|a| a == tray::MINIMIZED_ARG) {
                 if let Some(w) = app.get_webview_window("main") {
-                    let _ = w.hide();
+                    let _ = w.show();
                 }
             }
-            let (info, child) = backend::start(app.path().resource_dir().ok())?;
             let state = app.state::<AppState>();
-            *state.info.lock().unwrap() = Some(info);
-            *state.child.lock().unwrap() = child;
+            match backend::start(app.path().resource_dir().ok()) {
+                Ok((info, child)) => {
+                    *state.info.lock().unwrap() = Some(info);
+                    *state.child.lock().unwrap() = child;
+                }
+                Err(e) => *state.error.lock().unwrap() = Some(format!("не удалось запустить бэкенд: {e}")),
+            }
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -79,8 +92,17 @@ pub fn run() {
                     if tray::on_close(window.app_handle()) {
                         api.prevent_close();
                     } else {
+                        update::mark_user_quit(window.app_handle());
                         window.app_handle().exit(0);
                     }
+                }
+            }
+            // Alt+F4 on the overlay would destroy it until the next start: it is only hidden
+            if window.label() == overlay::LABEL {
+                if let WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
+                    let _ = window.hide();
+                    overlay::emit_status(window.app_handle());
                 }
             }
         })

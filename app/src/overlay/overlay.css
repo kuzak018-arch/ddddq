@@ -563,3 +563,8 @@ html.is-overlay body {
   background: color-mix(in srgb, #f5c451 30%, transparent);
   color: #fff;
 }
+
+/* the pill with Acrylic: the blur fills the window's 8 px rounded rectangle, so the pill takes it too */
+.ov--acrylic.ov--pill {
+  border-radius: 8px;
+}

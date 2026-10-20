@@ -57,9 +57,11 @@ export function OverlayApp() {
     return onOverlayStatus((s) => setCT(s.click_through));
   }, []);
   // Acrylic blurs the game behind the window; in a running match (or by choice) a plain tint is cheaper
+  // (the tint follows the opacity slider once it stops moving: re-applying Acrylic makes it flash)
   useEffect(() => {
     const want = perf ? 'tint' : ov.effect;
-    setOverlayEffect(want, 40 + ov.opacity * 80).then(setEffectInUse);
+    const t = setTimeout(() => void setOverlayEffect(want, 40 + ov.opacity * 80).then(setEffectInUse), 300);
+    return () => clearTimeout(t);
   }, [ov.effect, ov.opacity, perf]);
   useEffect(() => {
     document.documentElement.classList.toggle('perf', perf);

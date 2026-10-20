@@ -6,6 +6,7 @@
 
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
 use tauri::{AppHandle, Manager};
@@ -13,6 +14,17 @@ use tauri::{AppHandle, Manager};
 #[derive(Default)]
 pub struct UpdateState {
     pending: Mutex<Option<PathBuf>>,
+    /// the user quit (tray «Выход», closing the main window): only then the pending update runs —
+    /// not when Windows shuts down or a Restart Manager closes the app (the installer would be
+    /// killed half-way or race another one)
+    user_quit: AtomicBool,
+}
+
+/// Called right before the app quits at the user's request.
+pub fn mark_user_quit(app: &AppHandle) {
+    if let Some(state) = app.try_state::<UpdateState>() {
+        state.user_quit.store(true, Ordering::Relaxed);
+    }
 }
 
 /// Only an installer of ours, straight from the updates folder.
@@ -58,6 +70,9 @@ pub fn set_pending_update(app: AppHandle, path: Option<String>) -> Result<(), St
 /// On exit: the update waiting for it, if any (the new version is not started).
 pub fn on_exit(app: &AppHandle) {
     if let Some(state) = app.try_state::<UpdateState>() {
+        if !state.user_quit.load(Ordering::Relaxed) {
+            return;
+        }
         if let Some(exe) = state.pending.lock().unwrap().take() {
             if let Err(e) = run(&exe, false) {
                 eprintln!("{e}");
