@@ -212,6 +212,19 @@ export interface HeroPage {
   me: { games: number; wins: number; edge: number; experience: number } | null;
 }
 
+/** Points left to the next star and medal (backend data/ranks.py; Valve hides the exact rating). */
+export interface RankProgress {
+  tier: number;
+  name: string;
+  mmr: number;
+  from_estimate: boolean;
+  low: number;
+  high: number;
+  next_star: { name: string; points: number; games: number } | null;
+  next_rank: { name: string; points: number; games: number };
+  per_game: number;
+}
+
 export interface Profile {
   account_id: number;
   name: string | null;
@@ -219,6 +232,8 @@ export interface Profile {
   rank_tier: number | null;
   /** place in the leaderboard (Immortal), null when not in it */
   leaderboard?: number | null;
+  /** null: no rank, or an Immortal (their rank is a leaderboard place) */
+  rank_progress?: RankProgress | null;
   plus?: boolean;
   fetched: number;
   overall: { games: number; wins: number; wr: number } | null;

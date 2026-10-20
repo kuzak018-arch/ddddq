@@ -27,7 +27,7 @@ from .. import config, dota_paths, gsi, hero_grid, ingame, keybinds, search, upd
 from .. import settings as user_settings
 from ..builds import counter, standard
 from ..builds import service as build_service
-from ..data import constants, gridstudio, matches, me, my_matches, patchnotes, players, renders, stratz
+from ..data import constants, gridstudio, matches, me, my_matches, patchnotes, players, ranks, renders, stratz
 from ..lane import bulk as lane_bulk
 from ..lane import service as lane_service
 from ..model import draft, explain, meta, predictor, train
@@ -471,6 +471,7 @@ def my_profile():
     return {"account_id": data["account_id"], "name": prof.get("personaname"),
             "avatar": "/me/avatar" if me.AVATAR.exists() else None,
             "rank_tier": me.rank_tier(data), "leaderboard": data["profile"].get("leaderboard_rank"),
+            "rank_progress": ranks.progress(me.rank_tier(data), (data["profile"].get("mmr_estimate") or {}).get("estimate")),
             "plus": bool(prof.get("plus")), "fetched": data["fetched"], "overall": pool["overall"],
             "experience": pool["experience"],
             "heroes": [{"hero": h, **{k: (round(v, 4) if isinstance(v, float) else v) for k, v in s.items()}}
