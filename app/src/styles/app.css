@@ -5912,3 +5912,37 @@ a.btn {
     opacity: 0.35;
   }
 }
+
+/* Оформление → «Свои VPK» */
+.packs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.packs__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.packs__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--control-bg);
+}
+.packs__row > div {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.packs__row > div > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

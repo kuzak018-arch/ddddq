@@ -6,7 +6,7 @@
  * of the file in Steam, export to a file and the safe write into Dota.
  */
 import { useQuery } from '@tanstack/react-query';
-import { Image, LayoutGrid, Store, Type } from 'lucide-react';
+import { FileArchive, Image, LayoutGrid, Store, Type } from 'lucide-react';
 import { useState } from 'react';
 
 import { api } from '../api/client';
@@ -22,6 +22,7 @@ import { Workshop, WorkshopNote } from '../components/workshop/Workshop';
 import { BackgroundBuilder } from '../components/mods/BackgroundBuilder';
 import { FontBuilder } from '../components/mods/FontBuilder';
 import { ModsGate } from '../components/mods/ModsGate';
+import { PackManager } from '../components/mods/PackManager';
 import { useUi } from '../state/ui';
 import { CANVAS_W, SLOW_CATEGORIES } from '../lib/grid/dota';
 import { categoryCount, emptyGrid, newGroup, newId, type ArtItem, type Grid, type TextItem } from '../lib/grid/doc';
@@ -171,6 +172,7 @@ export function GridsPage() {
             { value: 'grids', label: <><Ti icon={LayoutGrid} />Сетки героев</> },
             { value: 'background', label: <><Ti icon={Image} />Фон меню</> },
             { value: 'font', label: <><Ti icon={Type} />Шрифт</> },
+            { value: 'packs', label: <><Ti icon={FileArchive} />Свои VPK</> },
             { value: 'workshop', label: <><Ti icon={Store} />Мастерская GridStudio</> },
           ]}
         />
@@ -185,7 +187,7 @@ export function GridsPage() {
       ) : (
         <Panel className="looks">
           <ModsGate />
-          {tab === 'background' ? <BackgroundBuilder /> : <FontBuilder />}
+          {tab === 'background' ? <BackgroundBuilder /> : tab === 'packs' ? <PackManager /> : <FontBuilder />}
         </Panel>
       )}
     </div>

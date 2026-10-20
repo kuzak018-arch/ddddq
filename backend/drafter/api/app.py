@@ -1328,11 +1328,27 @@ async def game_mods_install_fonts(request: Request):
     return await run_in_threadpool(_mods_call, mod_install.install_fonts, files, {"font": label, "families": families, "keep_grid": bool(keep)})
 
 
+@app.post("/game-mods/packs")
+async def game_mods_install_pack(request: Request, name: str = Query("", max_length=200), accept: bool = False):
+    """A VPK of the user's (raw body) into the voice language folder («Свои VPK»)."""
+    from ..game_mods import install as mod_install
+    if not accept:
+        raise HTTPException(422, "сначала включи «Оформление игры» и прочитай предупреждение")
+    size = int(request.headers.get("content-length") or 0)
+    if size > mod_install.PACK_MAX:
+        raise HTTPException(413, "VPK больше 1,5 ГБ")
+    data = await request.body()
+    return await run_in_threadpool(_mods_call, mod_install.install_pack, config.settings().account_id, data, name)
+
+
 @app.post("/game-mods/remove")
 def game_mods_remove(body: dict):
     from ..game_mods import install as mod_install
     what = body.get("what", "all")
-    fn = {"all": mod_install.remove_all, "background": mod_install.remove_background, "fonts": mod_install.remove_fonts}.get(what)
+    if what == "pack":
+        return {"removed": _mods_call(mod_install.remove_pack, str(body.get("id", "")))}
+    fn = {"all": mod_install.remove_all, "background": mod_install.remove_background, "fonts": mod_install.remove_fonts,
+          "packs": mod_install.remove_packs}.get(what)
     if fn is None:
         raise HTTPException(422, "непонятно, что убрать")
     return {"removed": _mods_call(fn)}

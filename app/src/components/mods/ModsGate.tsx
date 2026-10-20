@@ -18,6 +18,7 @@ export interface ModsStatus {
   other_packs: string[];
   background: { path: string; bytes: number; language: string; time: number; clean: boolean; hero: string; grid: string; menu: boolean; label: string } | null;
   fonts: string[];
+  packs?: { id: string; name: string; path: string; bytes: number; files: number; top: string[]; intact: boolean }[];
   fonts_intact: boolean | null;
   background_intact: boolean | null;
   menu_client: string | null;
@@ -47,10 +48,10 @@ export function ModsGate() {
   const qc = useQueryClient();
   const s = status.data;
   const remove = useMutation({
-    mutationFn: () => api<{ removed: { background: boolean; fonts: boolean } }>('/game-mods/remove', { body: { what: 'all' } }),
+    mutationFn: () => api<{ removed: { background: boolean; fonts: boolean; packs: boolean } }>('/game-mods/remove', { body: { what: 'all' } }),
     onSettled: () => qc.invalidateQueries({ queryKey: ['game-mods'] }),
   });
-  const installed = !!s?.background || !!s?.fonts.length;
+  const installed = !!s?.background || !!s?.fonts.length || !!s?.packs?.length;
   return (
     <div className={`mods-gate ${enabled ? 'is-on' : ''}`}>
       <details className="mods-gate__warn" open={!enabled}>
@@ -61,7 +62,7 @@ export function ModsGate() {
           <li>Правила Steam формально запрещают менять файлы игры. Банов за фон меню и шрифты не известно.</li>
           <li>В 2022 году Valve на время отключала вход в онлайн с изменёнными файлами. Если такое повторится — нажми «Убрать всё».</li>
           <li>После патча Доты мод может перестать работать или спрятать новые элементы меню — тогда убери его и собери заново после обновления программы.</li>
-          <li>Ставится только при закрытой Доте. Фон — отдельным файлом в папке языка озвучки, файлы Доты не меняются. Шрифт заменяет файлы Доты, но оригиналы сначала копируются к нам, и «Убрать всё» их возвращает (или «Проверить целостность» в Steam).</li>
+          <li>Ставится только при закрытой Доте. Фон — отдельным файлом в папке языка озвучки, файлы Доты не меняются. Свои VPK — тоже отдельными файлами там же. Шрифт заменяет файлы Доты, но оригиналы сначала копируются к нам, и «Убрать всё» их возвращает (или «Проверить целостность» в Steam).</li>
         </ul>
       </details>
       <div className="mods-gate__toggle">
@@ -101,6 +102,7 @@ export function ModsGate() {
                   {new Date(s.background.time * 1000).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
                 </p>
               )}
+              {!!s.packs?.length && <p className="small">Своих VPK стоит: {s.packs.length}.</p>}
               {!!s.fonts.length && (
                 <p className="small">
                   Шрифт стоит: {s.fonts.length} файлов Доты заменено{s.fonts_intact === false ? ' — но Steam вернул часть оригиналов (проверка целостности?)' : ''}.
@@ -114,7 +116,7 @@ export function ModsGate() {
               {remove.isPending ? 'Убираю…' : 'Убрать всё'}
             </button>
           )}
-          {remove.data && <p className="small c-good">Убрано: {[remove.data.removed.background && 'фон', remove.data.removed.fonts && 'шрифт'].filter(Boolean).join(' и ') || 'ничего не стояло'}. Оригиналы Доты на месте.</p>}
+          {remove.data && <p className="small c-good">Убрано: {[remove.data.removed.background && 'фон', remove.data.removed.fonts && 'шрифт', remove.data.removed.packs && 'свои VPK'].filter(Boolean).join(', ') || 'ничего не стояло'}. Оригиналы Доты на месте.</p>}
           {remove.error && <ErrorBox error={remove.error} />}
         </div>
       )}

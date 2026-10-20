@@ -209,7 +209,7 @@ def test_fonts_replace_valves_files_with_a_backup_and_come_back(dota):
     files2 = F.font_pack(F.catalog_fonts("audex"), ["Radiance"])
     I.install_fonts(files2, {"font": "audex"})
     assert (fonts / "reaver-bold.otf").read_bytes() == b"VALVE reaver-bold.otf"
-    assert I.remove_all() == {"background": False, "fonts": True}
+    assert I.remove_all() == {"background": False, "fonts": True, "packs": False}
     for name in F.DOTA_FONT_FILES:
         assert (fonts / name).read_bytes() == b"VALVE " + name.encode()
 
@@ -228,4 +228,67 @@ def test_api_bundle_install_and_remove(dota, monkeypatch):
     fm = b'{"accept": true, "catalog": "audex", "families": ["Radiance"], "keep_grid": true}'
     r = client.post("/game-mods/fonts", content=struct.pack("<I", len(fm)) + fm)
     assert r.status_code == 200 and r.json()["files"] == 11
-    assert client.post("/game-mods/remove", json={"what": "all"}).json()["removed"] == {"background": True, "fonts": True}
+    assert client.post("/game-mods/remove", json={"what": "all"}).json()["removed"] == {"background": True, "fonts": True, "packs": False}
+
+
+# ---------- the user's own packs ---------------------------------------------------------------
+
+def _split_vpk() -> bytes:
+    """A pack whose file lives in pak01_000.vpk (archive 0): Dota would miss its data."""
+    blob = bytearray(V.build_vpk([("panorama/zzfile.txt", b"hello")]))
+    i = blob.index(b"zzfile\x00", 12) + 7  # right after the file name: crc, preload, archive index
+    struct.pack_into("<H", blob, i + 6, 0)
+    return bytes(blob)
+
+
+def test_own_packs_go_after_the_background_and_come_out(dota):
+    root, state = dota
+    folder = root / "game" / "dota_russian"
+    I.install_background(None, M.build_pack(WEBM), {})
+    mine = V.build_vpk([("panorama/layout/dashboard.vxml_c", b"X"), ("materials/a.vtex_c", b"Y")])
+    res = I.install_pack(None, mine, "C:/mods/cool menu.vpk")
+    assert Path(res["path"]) == folder / "pak03_dir.vpk" and res["files"] == 2 and res["name"] == "cool menu.vpk"
+    assert res["overlaps"] and res["overlaps"][0]["pack"] == "pak02_dir.vpk"  # both change the dashboard
+    with pytest.raises(I.ModError, match="уже"):
+        I.install_pack(None, mine, "again.vpk")
+    second = I.install_pack(None, V.build_vpk([("sounds/x.vsnd_c", b"Z")]), "snd.vpk")
+    assert Path(second["path"]).name == "pak04_dir.vpk" and not second["overlaps"]
+    st = I.status(None)
+    assert [p["intact"] for p in st["packs"]] == [True, True] and st["other_packs"] == []
+    state["running"] = True
+    with pytest.raises(I.ModError):
+        I.remove_pack(res["id"])
+    state["running"] = False
+    assert I.remove_pack(res["id"]) and not (folder / "pak03_dir.vpk").exists()
+    assert I.remove_all() == {"background": True, "fonts": False, "packs": True}
+    assert sorted(p.name for p in folder.iterdir()) == []
+
+
+def test_bad_and_split_packs_are_refused(dota):
+    with pytest.raises(I.ModError, match="не VPK"):
+        I.install_pack(None, b"PK\x03\x04 this is a zip file", "x.zip")
+    with pytest.raises(I.ModError, match="многотомный"):
+        I.install_pack(None, _split_vpk(), "pak01_dir.vpk")
+    blob = V.build_vpk([("a/b.txt", b"0123456789")])
+    with pytest.raises(I.ModError, match="обрезан|повреждён"):
+        I.install_pack(None, blob[: blob.index(b"0123") + 3], "cut.vpk")
+
+
+def test_a_pack_someone_replaced_is_left_alone(dota):
+    root, _ = dota
+    res = I.install_pack(None, V.build_vpk([("a/b.txt", b"1")]), "a.vpk")
+    Path(res["path"]).write_bytes(b"someone else's now")
+    assert I.remove_packs() and Path(res["path"]).read_bytes() == b"someone else's now"
+
+
+def test_api_pack_needs_the_warning_accepted(dota):
+    from fastapi.testclient import TestClient
+    from drafter.api import app as api
+    client = TestClient(api.app)
+    blob = V.build_vpk([("a/b.txt", b"1")])
+    assert client.post("/game-mods/packs?name=a.vpk", content=blob).status_code == 422
+    r = client.post("/game-mods/packs?name=a.vpk&accept=true", content=blob)
+    assert r.status_code == 200, r.text
+    pid = r.json()["id"]
+    assert client.get("/game-mods/status").json()["packs"][0]["name"] == "a.vpk"
+    assert client.post("/game-mods/remove", json={"what": "pack", "id": pid}).json()["removed"] is True

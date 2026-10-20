@@ -107,6 +107,41 @@ def read_vpk(blob: bytes) -> tuple[int, list[VpkFile]]:
     return version, files
 
 
+def vpk_entries(blob: bytes) -> tuple[int, list[tuple[str, int, int]]]:
+    """(version, [(path, archive index, bytes)]) without copying any data: for checking a pack of
+    the user's. Archive index 0x7FFF means the data is in this _dir file itself."""
+    if len(blob) < 12:
+        raise ValueError("файл слишком короткий для VPK")
+    magic, version, tree_size = struct.unpack_from("<III", blob, 0)
+    if magic != MAGIC or version not in (1, 2):
+        raise ValueError("это не VPK (или неизвестная версия)")
+    start = 28 if version == 2 else 12
+    at = start
+    end_tree = start + tree_size
+
+    def string() -> str:
+        nonlocal at
+        end = blob.index(b"\0", at, end_tree)
+        value = blob[at:end].decode("utf-8", "replace")
+        at = end + 1
+        return value
+
+    out: list[tuple[str, int, int]] = []
+    try:
+        while ext := string():
+            while directory := string():
+                while name := string():
+                    _crc, preload, archive, offset, length, _term = struct.unpack_from("<IHHIIH", blob, at)
+                    at += 18 + preload
+                    path = ("" if directory == " " else directory + "/") + name + ("" if ext == " " else "." + ext)
+                    if archive == 0x7FFF and start + tree_size + offset + length > len(blob):
+                        raise ValueError(f"файл обрезан: нет данных для {path}")
+                    out.append((path, archive, length + preload))
+    except (struct.error, ValueError) as e:
+        raise ValueError(f"повреждённый VPK: {e}") from e
+    return version, out
+
+
 # Panorama resources: layout (.xml → .vxml_c), style (.css → .vcss_c), script, vector (.svg → .vsvg_c,
 # the same text-in-DATA resource, version 2).
 _PANORAMA = {

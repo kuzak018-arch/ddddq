@@ -8,6 +8,9 @@ Safety, enforced here and not only in the UI:
   * fonts can only replace Valve's files in game/dota/panorama/fonts (fontconfig reads loose files,
     not packs): each original is copied once to our backup folder before it is overwritten, and
     «Убрать всё» copies them back (Steam's «Проверить целостность» restores them as well);
+  * the user's own VPK packs («Свои VPK») go the same way as the background: each into a free
+    pakNN_dir.vpk of the voice language folder, never over an existing file; only packs whose data
+    is inside the _dir file are taken (a multi-part pak01_000.vpk… pack would be missing its parts);
   * Dota's settings are never changed: the voice language is only read (boot.vcfg, launch options).
 Everything we wrote is listed in data/game_mods/manifest.json with its SHA-256.
 Installation steps follow GridStudio's tested installer (scripts/installer.mjs,
@@ -52,7 +55,7 @@ def manifest() -> dict:
     try:
         return json.loads(_manifest_path().read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        return {"background": None, "fonts": {}}
+        return {"background": None, "fonts": {}, "packs": []}
 
 
 def _save_manifest(m: dict) -> None:
@@ -136,7 +139,11 @@ def _pick_pak(folder: Path, m: dict) -> Path:
     first = folder / PAK_NAME
     if not first.exists():
         return first
-    for n in range(3, 100):
+    return _free_pak(folder)
+
+
+def _free_pak(folder: Path, start: int = 3) -> Path:
+    for n in range(start, 100):
         p = folder / f"pak{n:02d}_dir.vpk"
         if not p.exists():
             return p
@@ -166,9 +173,10 @@ def status(account_id: int | None) -> dict:
     language, source = voice_language(dota, account_id)
     folder = _language_dir(dota, language)
     out.update(language=language, language_source=source, folder=str(folder), usable=language != DEFAULT_LANGUAGE)
-    ours = (m.get("background") or {}).get("path")
+    ours = {(m.get("background") or {}).get("path")} | {p["path"] for p in m.get("packs", [])}
     if folder.is_dir():
-        out["other_packs"] = sorted(p.name for p in folder.glob("pak*_dir.vpk") if str(p) != ours and p.name != "pak01_dir.vpk")
+        out["other_packs"] = sorted(p.name for p in folder.glob("pak*_dir.vpk") if str(p) not in ours and p.name != "pak01_dir.vpk")
+    out["packs"] = [{**p, "intact": _file_sha(Path(p["path"])) == p["sha256"]} for p in m.get("packs", [])]
     if m.get("background"):
         out["background_intact"] = _file_sha(Path(m["background"]["path"])) == m["background"]["sha256"]
     if m.get("fonts"):
@@ -298,6 +306,108 @@ def remove_fonts() -> bool:
     return True
 
 
+# ---------- the user's own packs ---------------------------------------------------------------
+
+PACK_MAX = 1_500_000_000
+
+
+def check_pack(blob: bytes) -> dict:
+    """What is in a pack of the user's; ModError when Dota could not use it as one file."""
+    from .vpk import vpk_entries
+    try:
+        version, entries = vpk_entries(blob)
+    except ValueError as e:
+        raise ModError(str(e)) from e
+    if not entries:
+        raise ModError("в VPK нет ни одного файла")
+    split = [p for p, archive, size in entries if archive != 0x7FFF and size]
+    if split:
+        raise ModError("это многотомный VPK (данные в файлах _000.vpk, _001.vpk…): нужен один файл _dir.vpk, "
+                       "в котором лежат все данные")
+    top = sorted({p.split("/", 1)[0] for p, _, _ in entries})
+    return {"version": version, "files": len(entries), "top": top[:12], "paths": [p for p, _, _ in entries]}
+
+
+def _pack_paths(path: Path) -> set[str]:
+    from .vpk import vpk_entries
+    try:
+        return {p for p, _, _ in vpk_entries(path.read_bytes())[1]}
+    except (OSError, ValueError):
+        return set()
+
+
+def install_pack(account_id: int | None, blob: bytes, name: str) -> dict:
+    """Puts a VPK of the user's into the voice language folder under a free pakNN_dir.vpk."""
+    if len(blob) > PACK_MAX:
+        raise ModError("VPK больше 1,5 ГБ")
+    info = check_pack(blob)
+    dota = _dota()
+    _closed()
+    language, _ = voice_language(dota, account_id)
+    if language == DEFAULT_LANGUAGE:
+        raise ModError("язык озвучки — английский: Дота не читает папку dota_english. Поставь в Доте другой язык озвучки "
+                       "(Настройки → Звук → Язык озвучки) и повтори")
+    folder = _language_dir(dota, language)
+    folder.mkdir(parents=True, exist_ok=True)
+    m = manifest()
+    sha = sha256(blob)
+    if any(p["sha256"] == sha and Path(p["path"]).exists() for p in m.get("packs", [])):
+        raise ModError("этот VPK уже установлен")
+    # the background pack keeps pak02; the user's packs start after it
+    target = _free_pak(folder, 3)
+    # which files another pack in the folder also changes: Dota uses one of them, not both
+    mine = set(info["paths"])
+    overlaps = []
+    for other in sorted(folder.glob("pak*_dir.vpk")):
+        if other.name == "pak01_dir.vpk":
+            continue  # Valve's own pack of the language (voices)
+        common = mine & _pack_paths(other)
+        if common:
+            overlaps.append({"pack": other.name, "files": len(common), "example": sorted(common)[0]})
+    tmp = target.with_name(target.name + ".drafter-tmp")
+    tmp.write_bytes(blob)
+    os.replace(tmp, target)
+    if _file_sha(target) != sha:
+        target.unlink(missing_ok=True)
+        raise ModError("VPK записался с ошибкой: убрал его, попробуй ещё раз")
+    entry = {"id": sha[:12], "name": Path(name).name[:120] or target.name, "path": str(target), "sha256": sha,
+             "bytes": len(blob), "files": info["files"], "top": info["top"], "language": language, "time": time.time()}
+    m.setdefault("packs", []).append(entry)
+    _save_manifest(m)
+    return {**entry, "overlaps": overlaps}
+
+
+def _remove_pack_file(entry: dict) -> None:
+    path = Path(entry["path"])
+    if path.exists() and _file_sha(path) == entry["sha256"]:
+        path.unlink()  # a file someone changed or replaced since is left alone
+
+
+def remove_pack(pack_id: str) -> bool:
+    _closed()
+    m = manifest()
+    packs = m.get("packs", [])
+    entry = next((p for p in packs if p["id"] == pack_id), None)
+    if entry is None:
+        return False
+    _remove_pack_file(entry)
+    m["packs"] = [p for p in packs if p is not entry]
+    _save_manifest(m)
+    return True
+
+
+def remove_packs() -> bool:
+    _closed()
+    m = manifest()
+    if not m.get("packs"):
+        return False
+    for entry in m["packs"]:
+        _remove_pack_file(entry)
+    m["packs"] = []
+    _save_manifest(m)
+    return True
+
+
 def remove_all() -> dict:
     _closed()
-    return {"background": remove_background(), "fonts": remove_fonts()}
+    return {"background": remove_background(), "fonts": remove_fonts(), "packs": remove_packs()}
