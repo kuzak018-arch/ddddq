@@ -35,15 +35,14 @@
       <g filter="url(#soft)" transform="translate(512 512) scale(1.22) translate(-512 -512)" opacity="0.95"><use href="#blobs"/></g>
       <rect x="176" y="176" width="672" height="672" fill="#fff" opacity="0.12"/>
       <rect x="176" y="176" width="672" height="672" fill="url(#sheen)"/>
-      <!-- crossed blades -->
-      <g stroke-linecap="round" fill="none">
-        <g stroke="#000" stroke-opacity="0.28" transform="translate(0 16)" filter="url(#glow)">
-          <path d="M360 360 L640 640 M664 360 L384 640" stroke-width="54"/>
+      <!-- the DM monogram: the M's left leg runs through the D's bowl -->
+      <g stroke-linecap="round" stroke-linejoin="round" fill="none" stroke-width="42" transform="translate(512 512) scale(1.2) translate(-523 -512)">
+        <g stroke="#000" stroke-opacity="0.30" transform="translate(0 16)" filter="url(#glow)">
+          <path d="M385 331 V594 M385 331 H400 A131.5 131.5 0 0 1 400 594 H385"/>
+          <path d="M490 688 V466 L556 560 L600 452 L662 694"/>
         </g>
-        <g stroke="url(#blade)">
-          <path d="M360 360 L620 620 M664 360 L404 620" stroke-width="54"/>
-          <path d="M574 666 L666 574 M358 574 L450 666" stroke-width="44"/>
-        </g>
+        <path d="M385 331 V594 M385 331 H400 A131.5 131.5 0 0 1 400 594 H385" stroke="url(#blade)"/>
+        <path d="M490 688 V466 L556 560 L600 452 L662 694" stroke="url(#blade)" stroke-opacity="0.82"/>
       </g>
     </g>
     <rect x="179" y="179" width="666" height="666" rx="201" fill="none" stroke="url(#rim)" stroke-width="7"/>
