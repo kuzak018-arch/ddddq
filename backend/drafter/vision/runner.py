@@ -2,7 +2,8 @@
 read the draft from the Dota window and fill the shared session.
 
 Rules that keep it from getting in the way:
-  - a slot changes only after the same hero is read in 2 frames in a row (3 while cautious);
+  - a slot changes only after the same hero is read in 2 frames in a row (3 while cautious); a slot
+    the reader filled itself is replaced when 2 frames more read another hero;
   - manual edits win: a slot the user changed (it no longer holds what the reader put there)
     is locked until the next match;
   - Radiant/Dire are mapped to my team / enemies only when my side is known (GSI or chosen);
@@ -25,6 +26,7 @@ CAUTIOUS_MARGIN = 0.10
 # right hero scores lower in absolute terms (a portrait cut by the bar's slant) but leads clearly
 BARS_THRESHOLD = 0.5
 BARS_MARGIN = 0.08
+CORRECT_EXTRA = 2   # frames more than a first fill that a different hero must be read to replace the reader's own pick
 
 
 class Runner:
@@ -141,7 +143,10 @@ class Runner:
                 seen = seen + 1 if hero == r.hero else 1
                 self.pending[key] = (r.hero, seen)
                 taken = (r.hero in (s["allies"] + s["enemies"] + s["bans"]) and slots[i] != r.hero) or r.hero in placed
-                if seen >= stable and slots[i] is None and not taken:
+                # a slot the reader filled itself is corrected when later frames keep reading another hero
+                # (an early misread of a half-drawn portrait must not stay for the whole draft)
+                mine_still = slots[i] is not None and self.applied.get(key) == slots[i] and r.hero != slots[i]
+                if not taken and ((seen >= stable and slots[i] is None) or (seen >= stable + CORRECT_EXTRA and mine_still)):
                     slots[i] = r.hero
                     self.applied[key] = r.hero
                     placed.add(r.hero)
