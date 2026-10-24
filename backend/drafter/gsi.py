@@ -106,13 +106,15 @@ def upgrade() -> bool:
 # ---------- payload -> session ---------------------------------------------------------------
 
 def _hero_id(value) -> int | None:
+    """A hero id we know: a hero newer than our constants would fail the session's check on every
+    message (and with it the phase and the side), so it is left out until the data is refreshed."""
     if isinstance(value, int) and value > 0:
-        return value
+        return value if value in constants.hero_by_id() else None
     if isinstance(value, str) and value.startswith("npc_dota_hero_"):
         key = value.removeprefix("npc_dota_hero_")
         return next((h["id"] for h in constants.hero_index() if h["key"] == key), None)
     if isinstance(value, str) and value.isdigit() and int(value) > 0:
-        return int(value)
+        return _hero_id(int(value))
     return None
 
 

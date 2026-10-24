@@ -351,3 +351,12 @@ def test_restoring_the_oldest_of_a_full_set_of_backups_keeps_it(env):
     assert path.read_bytes() == (hg.backup_dir() / oldest).read_bytes()
     assert len(hg.list_backups()) == hg.KEEP_BACKUPS + 1 or len(hg.list_backups()) == hg.KEEP_BACKUPS
     assert first  # the very first state was a real file
+
+
+def test_a_file_from_another_tool_with_long_floats_can_be_written(env):
+    path, _, _ = env
+    path.write_text(USER_FILE.replace("87.038605", "87.03860512345678"), encoding="utf-8")
+    hg.apply(42, [cfg()])
+    data = hg.loads(path.read_text(encoding="utf-8"))
+    assert [c["config_name"] for c in data["configs"]] == ["Моя сетка", "Драфтер · Мета"]
+    assert data["configs"][0]["categories"][0]["x_position"] == 87.038605

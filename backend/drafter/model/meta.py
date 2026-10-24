@@ -54,7 +54,13 @@ def tierlist(tiers: list[int], pos: int | None, pos_mat: np.ndarray, bracket: st
     """Heroes for rank tiers (1=Herald..8=Immortal) and optionally a position, with tier letters.
     Winrate/pick rate from our matches (last `days` days); trend = daily winrate for `trend_days`;
     position winrate and ban share from Stratz for the bracket, when downloaded."""
-    df = aggregates.load().filter(pl.col("tier").is_in(tiers))
+    daily = aggregates.load()
+    df = daily.filter(pl.col("tier").is_in(tiers))
+    if df.is_empty() and 8 in tiers:
+        # a match's average rank almost never reaches Immortal: those matches are in the Divine tier
+        df = daily.filter(pl.col("tier").is_in([min(t, 7) for t in tiers]))
+    if df.is_empty():
+        return {"tiers": tiers, "pos": pos, "days": days, "until": None, "matches": 0, "bracket": bracket, "heroes": []}
     last = df["day"].max()
     period = df.filter(pl.col("day") > last - dt.timedelta(days=days))
     matches_total = period["games"].sum() / 10

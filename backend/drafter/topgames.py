@@ -33,7 +33,8 @@ SOURCES = {
     "divine": {"brackets": ["DIVINE", "IMMORTAL"], "min_rank": 70, "label": "Divine+"},
     "pro": {"label": "Про-матчи"},
 }
-TARGET = 60                 # matches per hero and source
+TARGET = 60                 # new matches per load (hero and source)
+KEEP = 2 * TARGET           # the newest this many of the current patch are kept in the file
 STRATZ_MAX_REQUESTS = 16    # one leaderboard + players
 MATCHES_PER_PLAYER = 6
 PRO_MAX_DETAILS = 24
@@ -144,13 +145,24 @@ def _normalize_stratz(m: dict, hero_id: int, item_ids: dict, ability_ids: dict) 
     }
 
 
+def _current(data: dict, since: int) -> dict:
+    """The file without older patches' matches: they are never shown and must not count toward TARGET."""
+    return {**data, "matches": [r for r in data["matches"] if (r.get("t") or 0) >= since]}
+
+
+def _store(source: str, hero_id: int, data: dict, new: list[dict]) -> None:
+    data["matches"] = sorted(data["matches"] + new, key=lambda r: -(r["t"] or 0))[:KEEP]
+    _write(source, hero_id, data)
+
+
 def _fill_stratz(hero_id: int, source: str, state: dict) -> None:
     spec = SOURCES[source]
     since = patch_start()
     item_ids, ability_ids = _maps()
-    data = _read(source, hero_id)
+    data = _current(_read(source, hero_id), since)
     have = {r["m"] for r in data["matches"]}
     fresh: list[dict] = []
+    added = 0
     sz = stratz.Stratz(min_interval=0.45)
     try:
         board = sz.q("""{ leaderboard { hero(request: {heroIds: [%d], bracketIds: [%s], take: 100}) { steamAccountId position wins losses } } }"""
@@ -159,7 +171,7 @@ def _fill_stratz(hero_id: int, source: str, state: dict) -> None:
         state["players"] = len(board)
         requests = 1
         for row in board:
-            if requests >= STRATZ_MAX_REQUESTS or len(have) + len(fresh) >= TARGET or state.get("stop"):
+            if requests >= STRATZ_MAX_REQUESTS or added >= TARGET or state.get("stop"):
                 break
             left = stratz.limits.get("hour")
             if left is not None and left <= BUDGET_FLOOR:
@@ -180,9 +192,9 @@ def _fill_stratz(hero_id: int, source: str, state: dict) -> None:
                     fresh.append(rec)
                     have.add(rec["m"])
             if fresh:
-                data["matches"] = sorted(data["matches"] + fresh, key=lambda r: -(r["t"] or 0))
+                added += len(fresh)
+                _store(source, hero_id, data, fresh)
                 fresh = []
-                _write(source, hero_id, data)
             state["requests"] = requests
     finally:
         sz.close()
@@ -239,22 +251,23 @@ def _item_key(item_id: int) -> str | None:
 def _fill_pro(hero_id: int, state: dict) -> None:
     since = patch_start()
     _, ability_ids = _maps()
-    data = _read("pro", hero_id)
+    data = _current(_read("pro", hero_id), since)
     have = {r["m"] for r in data["matches"]}
+    added = 0
     od = OpenDota()
     try:
         recent = od.get(f"/heroes/{hero_id}/matches") or []
         ids = [r["match_id"] for r in recent if (r.get("start_time") or 0) >= since and r["match_id"] not in have]
         state["players"] = len(recent)
         for n, mid in enumerate(ids[:PRO_MAX_DETAILS], 1):
-            if len(have) >= TARGET or state.get("stop"):
+            if added >= TARGET or state.get("stop"):
                 break
             rec = _normalize_pro(od.get(f"/matches/{mid}"), hero_id, ability_ids)
             state["requests"] = n
             if rec:
-                data["matches"] = sorted(data["matches"] + [rec], key=lambda r: -(r["t"] or 0))
+                added += 1
                 have.add(rec["m"])
-                _write("pro", hero_id, data)
+                _store("pro", hero_id, data, [rec])
     finally:
         od.close()
 
@@ -311,9 +324,11 @@ def _maybe_start(hero_id: int, source: str, data: dict, matches: list, refresh: 
     key = (hero_id, source)
     state = _states.get(key)
     busy = bool(state and state.get("loading"))
-    stale = time.time() - data.get("fetched", 0) > REFRESH_AFTER
+    fetched = data.get("fetched", 0)
+    stale = time.time() - fetched > REFRESH_AFTER or fetched < patch_start()
     recently_failed = state and state.get("error") and time.time() - state.get("done", 0) < 60
-    if not busy and (refresh or stale or not matches) and not (recently_failed and not refresh):
+    # an empty list loads once; a load that found nothing waits for `stale` (no load on every poll)
+    if not busy and (refresh or stale or (not matches and not state)) and not (recently_failed and not refresh):
         state = {"loading": True, "requests": 0, "players": 0, "error": None, "note": None}
         _states[key] = state
         threading.Thread(target=_run, args=(hero_id, source, state), daemon=True, name=f"topgames-{hero_id}-{source}").start()

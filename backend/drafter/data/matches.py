@@ -29,12 +29,18 @@ _WHERE = f"lobby_type = {RANKED} AND game_mode = {ALL_PICK}"
 
 
 def _state() -> dict:
-    return json.loads(STATE.read_text()) if STATE.exists() else {}
+    try:
+        s = json.loads(STATE.read_text()) if STATE.exists() else {}
+    except (OSError, ValueError):
+        return {}  # broken by a crash mid-write: the collector starts over, /health still answers
+    return s if isinstance(s, dict) else {}
 
 
 def _save_state(s: dict) -> None:
     DIR.mkdir(parents=True, exist_ok=True)
-    STATE.write_text(json.dumps(s, indent=1))
+    tmp = STATE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(s, indent=1))
+    tmp.replace(STATE)
 
 
 def _to_frame(rows: list[dict], since_ts: int) -> pl.DataFrame:

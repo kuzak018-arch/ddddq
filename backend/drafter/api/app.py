@@ -212,12 +212,13 @@ def _term(t) -> dict:
 def health():
     meta_path = train.ART / "meta.json"
     trained = None
-    if meta_path.exists():
-        import json
-        trained = json.loads(meta_path.read_text(encoding="utf-8")).get("trained")
+    try:   # the app waits for /health at start: a broken file must not keep it from starting
+        trained = json.loads(meta_path.read_text(encoding="utf-8")).get("trained") if meta_path.exists() else None
+    except (OSError, ValueError, AttributeError):
+        trained = None
     try:
         patch = constants.current_patch()["name"]
-    except FileNotFoundError:
+    except (FileNotFoundError, ValueError, IndexError, KeyError):
         patch = None
     return {"ok": True, "patch": patch, "model_trained": trained, "matches": matches.summary().get("after_filters", 0),
             "stratz": bool(config.settings().stratz_token), "account_id": config.settings().account_id}
@@ -787,9 +788,13 @@ def get_session():
     return session.get()
 
 
+class SessionPut(session.Session):
+    base_rev: int | None = None    # the rev the window's edit was made from (see session.put_from)
+
+
 @app.put("/session", response_model=session.Session)
-def put_session(s: session.Session):
-    return session.put(s)
+def put_session(s: SessionPut):
+    return session.put_from(session.Session.model_validate(s.model_dump(exclude={"base_rev"})), s.base_rev)
 
 
 # ---------- Dota install: display mode and key bindings (read-only) -----------------------------
