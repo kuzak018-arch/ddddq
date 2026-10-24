@@ -1078,6 +1078,31 @@ def vision_reset_calibration():
     return {"removed": had}
 
 
+@app.delete("/vision/learning")
+def vision_reset_learning():
+    """Everything screen reading learned and saved about this screen goes: learned portraits,
+    confirmed and collected frames, the rects (saved and detected) and the accuracy record. Reading
+    starts again from the colour bars and the hero art, cautiously, as on a new computer. The on/off
+    choice and the wizard's own snapshots stay."""
+    import shutil
+    removed = 0
+    for folder in (vmatch.LEARNED, veval.LABELED, vcollect.DRAFTS):
+        if folder.exists():
+            removed += sum(1 for p in folder.rglob("*") if p.is_file())
+            shutil.rmtree(folder, ignore_errors=True)
+    for p in vcollect.SNAPSHOTS.glob("auto-*.jpg") if vcollect.SNAPSHOTS.exists() else []:
+        p.unlink(missing_ok=True)
+        removed += 1
+    vcal.PATH.unlink(missing_ok=True)
+    vlayout.forget_fits()
+    vauto._save_state({k: v for k, v in vauto.state().items() if k == "manual_off"})
+    vmatch.reload()
+    vision_collector.draft = None
+    vision_runner.reset_learning()
+    bus.publish("vision", status=vision_runner.status())
+    return {"removed": removed}
+
+
 @app.get("/vision/calibration/preset", response_model=vcal.Calibration)
 def vision_preset(width: int = 1920, height: int = 1080):
     return vlayout.profile(width, height)

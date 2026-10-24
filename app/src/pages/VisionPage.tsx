@@ -5,7 +5,7 @@
  * confirm frames, which also measures accuracy. Dragging the rects by hand is the fallback.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ScanEye, Target } from 'lucide-react';
+import { RotateCcw, ScanEye, Target } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { api, backend } from '../api/client';
@@ -204,6 +204,14 @@ export function VisionPage() {
         collected: { drafts: number; frames: number; precision: number | null; recall: number | null };
         total: EvalTotal;
       }>('/vision/evaluate', { method: 'POST' }),
+  });
+  const forget = useMutation({
+    mutationFn: () => api<{ removed: number }>('/vision/learning', { method: 'DELETE' }),
+    onSuccess: () => {
+      evalRun.reset();
+      qc.invalidateQueries({ queryKey: ['vision'] });
+      qc.invalidateQueries({ queryKey: ['vision-cal'] });
+    },
   });
   const [autoInfo, setAutoInfo] = useState<string | null>(null);
   const autocal = useMutation({
@@ -478,6 +486,20 @@ export function VisionPage() {
         <button className="btn btn--sm" onClick={() => evalRun.mutate()} disabled={evalRun.isPending}>
           {evalRun.isPending ? 'Считаю…' : 'Пересчитать точность'}
         </button>
+        <button
+          className="btn btn--sm btn--ghost"
+          disabled={forget.isPending}
+          title="Если программа упорно читает не того героя: всё, чему она научилась на твоём экране, удаляется"
+          onClick={() => {
+            if (window.confirm('Сбросить обучение распознавания? Удалятся запомненные портреты, собранные и подтверждённые кадры, рамки и точность. Чтение начнётся заново по цветным полоскам и артам героев.'))
+              forget.mutate();
+          }}
+        >
+          <Ti icon={RotateCcw} />
+          {forget.isPending ? 'Сбрасываю…' : 'Сбросить обучение'}
+        </button>
+        {forget.isSuccess && <p className="small c-good">Обучение сброшено: удалено файлов — {forget.data.removed}.</p>}
+        {forget.error && <ErrorBox error={forget.error} />}
         {total && (
           <p className="hint">
             Пока точность не подтверждена, чтение осторожное: вписывает героя только при высокой уверенности. Осторожность снимется
