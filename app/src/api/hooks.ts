@@ -1,4 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
 import { api, backendImage } from './client';
 import type {
@@ -38,15 +39,47 @@ export function useSettings() {
   return useQuery({ queryKey: ['settings'], queryFn: () => api<Settings>('/settings'), staleTime: Infinity });
 }
 
+// Saves run one after another and only the last one's answer is applied: a slider sends one save
+// per step, and answers arriving out of order must not put an older value back.
+let saveChain: Promise<unknown> = Promise.resolve();
+let saveSeq = 0;
+const SETTINGS_SIGNAL = 'drafter-settings-saved';
+
 export function useSaveSettings() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (s: Settings) => api<Settings>('/settings', { method: 'PUT', body: s }),
-    onSuccess: (s) => {
-      qc.setQueryData(['settings'], s);
+    mutationFn: (s: Settings) => {
+      const seq = ++saveSeq;
+      const run = saveChain.then(() => api<Settings>('/settings', { method: 'PUT', body: s }));
+      saveChain = run.catch(() => undefined);
+      return run.then((saved) => ({ saved, seq }));
+    },
+    onSuccess: ({ saved, seq }) => {
+      if (seq !== saveSeq) return;
+      qc.setQueryData(['settings'], saved);
       qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== 'settings' && q.queryKey[0] !== 'heroes' });
+      try {
+        localStorage.setItem(SETTINGS_SIGNAL, String(Date.now()));   // the other window (overlay) reloads them
+      } catch {
+        /* no storage: the other window picks them up on its next start */
+      }
     },
   });
+}
+
+/** Settings saved in the other window (the main window's Settings → the overlay): reload them and
+ * everything computed with them. Both windows share localStorage, whose `storage` event fires only
+ * in the window that didn't write. */
+export function useSettingsFromOtherWindow() {
+  const qc = useQueryClient();
+  useEffect(() => {
+    const on = (e: StorageEvent) => {
+      if (e.key !== SETTINGS_SIGNAL) return;
+      qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== 'heroes' });
+    };
+    window.addEventListener('storage', on);
+    return () => window.removeEventListener('storage', on);
+  }, [qc]);
 }
 
 const draftKey = (d: DraftRequest) => [d.allies, d.enemies, d.bans, d.pos, d.side, d.use_comfort, d.comfort_weight];

@@ -21,6 +21,11 @@ interface SessionDto {
 const CLIENT = `${location.hash.includes('overlay') ? 'overlay' : 'main'}-${Math.random().toString(36).slice(2, 8)}`;
 let applying = false;
 let last: SessionDto | null = null;
+// a local edit waiting to be sent or on its way: changes from elsewhere wait until the backend has
+// merged it (it sends the rev it was based on, so the backend keeps both sides' changes)
+let timer: ReturnType<typeof setTimeout> | null = null;
+let inFlight = false;
+let deferred: SessionDto | null = null;
 
 function apply(s: SessionDto) {
   last = s;
@@ -38,28 +43,54 @@ function apply(s: SessionDto) {
   applying = false;
 }
 
-let timer: ReturnType<typeof setTimeout> | null = null;
+/** A state from the backend: applied unless older than what this window shows. */
+function offer(s: SessionDto) {
+  if (timer || inFlight) {
+    if (!deferred || s.rev > deferred.rev) deferred = s;
+    return;
+  }
+  if (!last || s.rev > last.rev) apply(s);
+}
+
 function push() {
   if (timer) clearTimeout(timer);
-  timer = setTimeout(async () => {
-    const d = useDraft.getState();
-    const body = {
-      allies: d.allies,
-      enemies: d.enemies,
-      bans: d.bans,
-      side: d.side,
-      pos: d.pos,
-      comfort: d.comfort,
-      my_hero: last?.my_hero ?? null,
-      phase: last?.phase ?? 'idle',
-      source: CLIENT,
-    };
-    try {
-      last = await api<SessionDto>('/session', { method: 'PUT', body });
-    } catch (e) {
-      console.warn('session sync failed', e);
-    }
-  }, 80);
+  timer = setTimeout(send, 80);
+}
+
+async function send() {
+  timer = null;
+  inFlight = true;
+  const d = useDraft.getState();
+  const body = {
+    allies: d.allies,
+    enemies: d.enemies,
+    bans: d.bans,
+    side: d.side,
+    pos: d.pos,
+    comfort: d.comfort,
+    base_rev: last?.rev ?? null,
+    source: CLIENT,
+  };
+  try {
+    const merged = await api<SessionDto>('/session', { method: 'PUT', body });
+    if (!deferred || merged.rev >= deferred.rev) deferred = merged;
+  } catch (e) {
+    console.warn('session sync failed', e);
+  } finally {
+    inFlight = false;
+  }
+  if (timer) return; // edited again meanwhile: that send brings the newest state back
+  const next = deferred;
+  deferred = null;
+  if (next && (!last || next.rev > last.rev)) apply(next);
+}
+
+async function refetch() {
+  try {
+    offer(await api<SessionDto>('/session'));
+  } catch {
+    /* the next event brings it */
+  }
 }
 
 export async function startSync(): Promise<() => void> {
@@ -70,10 +101,11 @@ export async function startSync(): Promise<() => void> {
     if (shared.some((k) => s[k] !== prev[k])) push();
   });
   const unsubWs = subscribe((e) => {
+    // (re)connected: anything changed while the socket was down or not yet open
+    if (e.type === 'hello') return void refetch();
     if (e.type !== 'session') return;
     const s = e.state as SessionDto;
-    if (s.source !== CLIENT && (!last || s.rev >= last.rev)) apply(s);
-    else last = s;
+    if (s.source !== CLIENT) offer(s);   // our own echo: the PUT's answer brings that state
   });
   return () => {
     unsubStore();

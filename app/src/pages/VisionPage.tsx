@@ -138,8 +138,15 @@ export function VisionPage() {
   useEffect(() => {
     if (!snap) return;
     let url: string | null = null;
-    snapshotUrl(snap.id).then((u) => setImg((url = u))).catch((e) => setError(String(e)));
+    let alive = true;
+    snapshotUrl(snap.id)
+      .then((u) => {
+        if (alive) setImg((url = u));
+        else URL.revokeObjectURL(u);   // a newer snapshot was opened meanwhile
+      })
+      .catch((e) => alive && setError(String(e)));
     return () => {
+      alive = false;
       if (url) URL.revokeObjectURL(url);
     };
   }, [snap]);

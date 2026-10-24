@@ -14,7 +14,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { api, waitForBackend } from '../api/client';
-import { useBans, useBuild, useEvaluate, useHeroes, useSettings, useSuggest, useTopVs } from '../api/hooks';
+import { useBans, useBuild, useEvaluate, useHeroes, useSettings, useSettingsFromOtherWindow, useSuggest, useTopVs } from '../api/hooks';
 import type { DraftRequest, TopVs } from '../api/types';
 import { HeroSearch, type HeroSearchHandle } from '../components/HeroSearch';
 import { IconClose } from '../components/Icons';
@@ -42,6 +42,7 @@ export function OverlayApp() {
   const phase = useDraft((s) => s.phase);
   const perf = ov.autoPerf && phase === 'game';
   const search = useRef<HeroSearchHandle>(null);
+  useSettingsFromOtherWindow();
   const fullSize = useRef(FULL);
 
   useEffect(() => {
@@ -272,7 +273,13 @@ function DraftMode({ search }: { search: React.RefObject<HeroSearchHandle | null
           compact
           unavailable={taken}
           placeholder="Герой: ам, пудж, вр…"
-          onPick={(h, m) => d.placeIn(m.shift ? 'enemy' : m.alt ? 'ban' : 'ally', h.id)}
+          onPick={(h, m) => {
+            // into the empty slot the user clicked, else by the modifier (Shift — enemy, Alt — ban)
+            const f = d.focus;
+            const list = f.team === 'ally' ? d.allies : f.team === 'enemy' ? d.enemies : null;
+            if (!m.shift && !m.alt && list && list[f.index] === null) d.place(h.id);
+            else d.placeIn(m.shift ? 'enemy' : m.alt ? 'ban' : 'ally', h.id);
+          }}
         />
         <kbd>Ctrl K</kbd>
       </div>
