@@ -73,7 +73,7 @@ const fmtDur = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2
 const fmtDate = (t: number | null) =>
   t ? new Date(t * 1000).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
 
-export function MatchHistory() {
+export function MatchHistory({ onAnalyze }: { onAnalyze?: (matchId: number) => void }) {
   const qc = useQueryClient();
   const heroes = useHeroes().data;
   const openHero = useUi((s) => s.openHero);
@@ -148,6 +148,11 @@ export function MatchHistory() {
                   {STATUS[m.status]?.text}
                 </span>
                 <span className="muted mh__date">{fmtDate(m.start)}</span>
+                {onAnalyze && (
+                  <button className="btn btn--sm btn--ghost mh__ruin" onClick={() => onAnalyze(m.id)} title="Разбор всех десяти игроков: кто заруинил, кто MVP">
+                    Кто заруинил
+                  </button>
+                )}
               </div>
               {m.label ? (
                 <div className="mh__verdict">

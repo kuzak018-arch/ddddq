@@ -16,6 +16,7 @@ import {
   Upload,
   User,
   UserSearch,
+  Skull,
 } from 'lucide-react';
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
 
@@ -29,6 +30,7 @@ import { AttrIcon, PlusBadge, RankMedal, RoleIcon } from '../components/DotaIcon
 import { HeroSearch } from '../components/HeroSearch';
 import { Ti } from '../components/Icons';
 import { MatchHistory } from '../components/MatchHistory';
+import { MatchRuin } from '../components/MatchRuin';
 import { PlayerSearch } from '../components/PlayerSearch';
 import { Sheet } from '../components/Sheet';
 import { Empty, ErrorBox, fmtPct, fmtSigned, HeroIcon, plural, Segmented, Slider, Toggle } from '../components/ui';
@@ -61,7 +63,8 @@ export function ProfilePage() {
   const p = prof.data;
   const exp = p?.experience;
   const summary = useMeSummary().data;
-  const [tab, setTab] = useState<'matches' | 'pool' | 'search'>('matches');
+  const [tab, setTab] = useState<'matches' | 'ruin' | 'pool' | 'search'>('matches');
+  const [ruinId, setRuinId] = useState<number | null>(null);
   const [look, setLook] = useState(false);
   const health = useHealth().data;
   const go = useUi((s) => s.go);
@@ -121,12 +124,21 @@ export function ProfilePage() {
             onChange={setTab}
             options={[
               { value: 'matches', label: <><Ti icon={Gamepad2} />Матчи</> },
+              { value: 'ruin', label: <><Ti icon={Skull} />Кто заруинил</> },
               { value: 'pool', label: <><Ti icon={LayoutGrid} />Пул героев</> },
               { value: 'search', label: <><Ti icon={UserSearch} />Найти игрока</> },
             ]}
           />
         </div>
-        {tab === 'matches' && <MatchHistory />}
+        {tab === 'matches' && (
+          <MatchHistory
+            onAnalyze={(id) => {
+              setRuinId(id);
+              setTab('ruin');
+            }}
+          />
+        )}
+        {tab === 'ruin' && <MatchRuin initial={ruinId} />}
         {tab === 'search' && <PlayerSearch />}
         {tab === 'pool' && !p && !prof.error && <Empty>Загрузка…</Empty>}
         {tab === 'pool' && p && (

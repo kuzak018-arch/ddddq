@@ -5949,3 +5949,175 @@ a.btn {
   color: var(--text);
   font-weight: 600;
 }
+/* ---------- «Кто заруинил»: the breakdown of one match ---------- */
+.ruin {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ruin__ask {
+  display: flex;
+  gap: 8px;
+}
+.ruin__ask .input {
+  flex: 1;
+}
+.ruin__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+}
+.ruin__head .btn {
+  margin-left: auto;
+}
+.ruin__verdict {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bad) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bad) 35%, transparent);
+}
+.ruin__verdict.is-together {
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  border-color: color-mix(in srgb, var(--warn) 30%, transparent);
+}
+.ruin__verdict > div:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+.ruin__verdict b {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+}
+.ruin__verdict p {
+  margin: 4px 0 0;
+}
+.ruin__mvp {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--good) 16%, transparent);
+  white-space: nowrap;
+}
+.ruin__mvp span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.ruin__chart svg {
+  width: 100%;
+  height: 130px;
+  display: block;
+}
+.ruin__axis {
+  stroke: var(--hairline);
+  stroke-width: 1;
+}
+.ruin__line {
+  fill: none;
+  stroke: var(--text-2);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+.ruin__death {
+  stroke: var(--bad);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+.ruin__ticks {
+  display: flex;
+  justify-content: space-between;
+}
+.ruin__team .section-title {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+.ruin__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ruin__row {
+  display: grid;
+  grid-template-columns: auto minmax(110px, 1.2fr) 70px minmax(90px, 0.8fr) 120px auto minmax(0, 2fr);
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px;
+  border-radius: 10px;
+  background: var(--control-bg);
+}
+.ruin__row.is-ruiner {
+  background: color-mix(in srgb, var(--bad) 16%, var(--control-bg));
+}
+.ruin__row.is-mvp {
+  background: color-mix(in srgb, var(--good) 14%, var(--control-bg));
+}
+.ruin__who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ruin__who span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ruin__kda {
+  font-variant-numeric: tabular-nums;
+}
+.ruin__rating {
+  position: relative;
+  height: 18px;
+  border-radius: 99px;
+  background: var(--control-bg-active);
+  overflow: hidden;
+}
+.ruin__rating i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 99px;
+}
+.ruin__rating.is-good i {
+  background: color-mix(in srgb, var(--good) 55%, transparent);
+}
+.ruin__rating.is-meh i {
+  background: color-mix(in srgb, var(--warn) 45%, transparent);
+}
+.ruin__rating.is-bad i {
+  background: color-mix(in srgb, var(--bad) 55%, transparent);
+}
+.ruin__rating b {
+  position: relative;
+  display: block;
+  text-align: center;
+  font-size: 12px;
+  line-height: 18px;
+}
+.ruin__why {
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mh__ruin {
+  margin-left: 4px;
+}
+@media (max-width: 900px) {
+  .ruin__row {
+    grid-template-columns: auto 1fr auto auto;
+  }
+  .ruin__eco,
+  .ruin__why {
+    grid-column: 2 / -1;
+  }
+}

@@ -24,7 +24,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel, Field, model_validator
 
-from .. import config, dota_paths, gsi, hero_grid, ingame, keybinds, pace, search, updates
+from .. import config, dota_paths, gsi, hero_grid, ingame, keybinds, pace, ruin, search, updates
 from .. import settings as user_settings
 from ..builds import counter, standard
 from ..builds import service as build_service
@@ -655,6 +655,17 @@ def hero_render_segment(key: str):
 @app.get("/me/summary")
 def my_summary():
     return me.summary(_pred().pos_mat)
+
+
+@app.get("/match/{match_id}/ruin")
+def match_ruin(match_id: int, refresh: bool = False):
+    """«Кто заруинил»: every player of the match rated, the ruiner and the MVP named (ruin.py)."""
+    if match_id <= 0:
+        raise HTTPException(422, "нужен номер матча")
+    try:
+        return ruin.breakdown(match_id, refresh)
+    except ruin.RuinError as e:
+        raise HTTPException(404, str(e)) from e
 
 
 @app.get("/me/matches")
