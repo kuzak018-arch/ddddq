@@ -1278,6 +1278,36 @@ def top_games(hero_id: int, source: Literal["immortal", "divine", "pro"] = "immo
     return topgames.get(hero_id, source, refresh)
 
 
+class PlanIn(BaseModel):
+    allies: list[int] = Field(default_factory=list, max_length=5)
+    enemies: list[int] = Field(default_factory=list, max_length=5)
+    me: int | None = None
+    minute: float | None = Field(default=None, ge=0, le=300)
+
+
+@app.post("/game/plan")
+def game_plan(body: PlanIn):
+    """The overlay's «План»: when each team is strongest, how to play and finish this draft, and
+    which enemies my hero can kill (gameplan.py)."""
+    from .. import gameplan
+    known = constants.hero_by_id()
+    if bad := [h for h in body.allies + body.enemies + ([body.me] if body.me else []) if h not in known]:
+        raise HTTPException(422, f"неизвестные id героев: {bad}")
+    minute = body.minute
+    if minute is None and (tracker.live or {}).get("clock") is not None:
+        minute = max(0.0, tracker.live["clock"] / 60)      # in a match: GSI's clock
+    out = gameplan.plan(body.allies, body.enemies, minute)
+    out["minute"] = minute
+    if body.me and body.enemies:
+        P = _pred()
+        n = P.C.shape[0]
+        out["kill"] = gameplan.killable(body.me, body.enemies, lambda a, b: P.cal_a * P.C[a, b] if a < n and b < n else 0.0,
+                                        minute if minute is not None else 10.0)
+    else:
+        out["kill"] = []
+    return out
+
+
 class TopVsIn(BaseModel):
     hero: int
     enemies: list[int] = Field(default_factory=list, max_length=5)
@@ -1291,7 +1321,14 @@ def top_games_vs(body: TopVsIn):
     from .. import topgames
     if body.hero not in constants.hero_by_id():
         raise HTTPException(404, "нет такого героя")
-    return topgames.vs_draft(body.hero, body.enemies, body.pos)
+    out = topgames.vs_draft(body.hero, body.enemies, body.pos)
+    if not out.get("found") and body.pos and body.enemies:
+        # no game against the whole draft: games against my lane (its likely heroes in this draft)
+        pos_mat = _pred().pos_mat
+        lane = [o["hero"] for o in lane_service.opponents(body.pos, [e for e in body.enemies if e != body.hero], pos_mat)
+                if o["on_lane"]]
+        out["lane"] = topgames.vs_lane(body.hero, lane, body.pos) if lane else None
+    return out
 
 
 # ---------- «Оформление игры»: the menu background and fonts (off by default) -----------------

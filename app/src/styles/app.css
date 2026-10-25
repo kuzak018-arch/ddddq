@@ -6121,3 +6121,91 @@ a.btn {
     grid-column: 2 / -1;
   }
 }
+/* ---------- overlay «План»: timing windows, tips, who to kill ---------- */
+.ov__plan {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ov__tip {
+  margin: 0;
+  padding: 6px 9px;
+  border-radius: 10px;
+  background: var(--control-bg);
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+.ov__tip.is-timing {
+  background: color-mix(in srgb, var(--accent) 16%, var(--control-bg));
+}
+.ov__tip.is-now {
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+}
+.ov__tip.is-finish {
+  background: color-mix(in srgb, var(--good) 14%, var(--control-bg));
+}
+.ov__timing {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.ov__timing-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 0;
+  border-radius: 8px;
+}
+.ov__timing-col.is-now {
+  background: var(--control-bg-active);
+}
+.ov__timing-bar {
+  position: relative;
+  width: 14px;
+  height: 44px;
+  border-radius: 7px;
+  background: var(--control-bg);
+}
+.ov__timing-bar::after {
+  content: '';
+  position: absolute;
+  left: -3px;
+  right: -3px;
+  top: 50%;
+  border-top: 1px solid var(--hairline);
+}
+.ov__timing-bar i {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-radius: 7px;
+}
+.ov__timing-bar i.is-us {
+  bottom: 50%;
+  background: var(--good);
+}
+.ov__timing-bar i.is-them {
+  top: 50%;
+  background: var(--bad);
+}
+.ov__kill {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ov__kill-row {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 8px;
+}
+.ov__kill-row b {
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.ov__topvs .kicker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}

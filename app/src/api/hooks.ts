@@ -7,6 +7,7 @@ import type {
   BuildsResponse,
   DraftRequest,
   EvaluateResponse,
+  GamePlan,
   Health,
   Hero,
   HeroPage,
@@ -145,10 +146,23 @@ export function useBuild(hero: number | null, pos: number, enemies: number[], fa
 export function useTopVs(hero: number | null, pos: number, enemies: number[]) {
   return useQuery({
     queryKey: ['top-vs', hero, pos, enemies],
-    enabled: !!hero && enemies.length >= 3,
+    // the whole draft from 3 enemies; before that, the lane's heroes alone
+    enabled: !!hero && enemies.length >= 1,
     retry: false,
-    refetchInterval: (q) => (q.state.data?.loading ? 4000 : false),
+    refetchInterval: (q) => (q.state.data?.loading || q.state.data?.lane?.loading ? 4000 : false),
     queryFn: () => api<TopVs>('/top-games/vs', { body: { hero, enemies, pos } }),
+  });
+}
+
+/** The overlay's «План»: timing windows, how to play and finish, who to kill (backend gameplan.py).
+ * In a match the backend adds GSI's minute; the plan is asked again every minute then. */
+export function usePlan(allies: number[], enemies: number[], me: number | null, inGame: boolean) {
+  return useQuery({
+    queryKey: ['plan', allies, enemies, me, inGame],
+    enabled: allies.length > 0 || enemies.length > 0,
+    retry: false,
+    refetchInterval: inGame ? 60_000 : false,
+    queryFn: () => api<GamePlan>('/game/plan', { body: { allies, enemies, me } }),
   });
 }
 
