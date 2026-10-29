@@ -387,3 +387,69 @@ html[data-material='dota'] .btn--ghost {
 html[data-material='dota'] .btn--ghost:hover {
   background: var(--control-bg);
 }
+
+/* ---- switches: smaller, in the accent colour (not the phone-green pill) ---- */
+html[data-material='dota'] .toggle__track {
+  width: 34px;
+  height: 18px;
+  padding: 2px;
+  background: var(--control-bg-active);
+}
+html[data-material='dota'] .toggle__knob {
+  width: 14px;
+  height: 14px;
+  box-shadow: none;
+}
+html[data-material='dota'] .toggle__track:active .toggle__knob {
+  width: 16px;
+}
+html[data-material='dota'] .toggle__track.is-on {
+  background: var(--accent);
+}
+html[data-material='dota'] .toggle__track.is-on .toggle__knob {
+  margin-left: 16px;
+}
+html[data-material='dota'] .toggle__track.is-on:active .toggle__knob {
+  margin-left: 14px;
+}
+/* hover lifts and zooms on tiles read as a toy: a thin outline is enough */
+html[data-material='dota'] .hero-picks__item:hover,
+html[data-material='dota'] .all-heroes__item:hover {
+  transform: none;
+  outline: 1px solid var(--text-3);
+}
+
+/* ---- hero page matchups: a list with names and games, not a wall of icons ---- */
+html[data-material='dota'] .matchups__rows {
+  display: flex !important;
+  flex-direction: column;
+  gap: 2px;
+}
+html[data-material='dota'] .matchups__rows li {
+  display: grid !important;
+  grid-template-columns: auto 1fr auto 56px;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+html[data-material='dota'] .matchups__rows li:hover {
+  background: var(--row-bg-hover);
+}
+html[data-material='dota'] .matchups__rows .hero-icon--sm {
+  width: 38px;
+  height: 21px;
+  aspect-ratio: auto;
+  border-radius: 2px;
+  object-fit: cover;
+}
+html[data-material='dota'] .matchups__rows b {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+html[data-material='dota'] .matchups__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
