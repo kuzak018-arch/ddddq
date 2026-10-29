@@ -31,6 +31,7 @@ import { HeroSearch } from '../components/HeroSearch';
 import { Ti } from '../components/Icons';
 import { MatchHistory } from '../components/MatchHistory';
 import { MatchRuin } from '../components/MatchRuin';
+import { MyStats } from '../components/MyStats';
 import { PlayerSearch } from '../components/PlayerSearch';
 import { Sheet } from '../components/Sheet';
 import { Empty, ErrorBox, fmtPct, fmtSigned, HeroIcon, plural, Segmented, Slider, Toggle } from '../components/ui';
@@ -63,7 +64,7 @@ export function ProfilePage() {
   const p = prof.data;
   const exp = p?.experience;
   const summary = useMeSummary().data;
-  const [tab, setTab] = useState<'matches' | 'ruin' | 'pool' | 'search'>('matches');
+  const [tab, setTab] = useState<'stats' | 'matches' | 'ruin' | 'pool' | 'search'>('stats');
   const [ruinId, setRuinId] = useState<number | null>(null);
   const [look, setLook] = useState(false);
   const health = useHealth().data;
@@ -123,6 +124,7 @@ export function ProfilePage() {
             value={tab}
             onChange={setTab}
             options={[
+              { value: 'stats', label: <><Ti icon={ChartLine} />Статистика</> },
               { value: 'matches', label: <><Ti icon={Gamepad2} />Матчи</> },
               { value: 'ruin', label: <><Ti icon={Skull} />Кто заруинил</> },
               { value: 'pool', label: <><Ti icon={LayoutGrid} />Пул героев</> },
@@ -139,6 +141,14 @@ export function ProfilePage() {
           />
         )}
         {tab === 'ruin' && <MatchRuin initial={ruinId} />}
+        {tab === 'stats' && (
+          <MyStats
+            onAnalyze={(id) => {
+              setRuinId(id);
+              setTab('ruin');
+            }}
+          />
+        )}
         {tab === 'search' && <PlayerSearch />}
         {tab === 'pool' && !p && !prof.error && <Empty>Загрузка…</Empty>}
         {tab === 'pool' && p && (

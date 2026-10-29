@@ -489,6 +489,16 @@ def my_profile():
                        for h, s in heroes]}
 
 
+@app.get("/me/stats")
+def my_stats():
+    """The profile's «Статистика»: heroes, time of day, tilt, party, matchups, records (me_stats.py)."""
+    from ..data import me_stats
+    data = me.load()
+    if not data:
+        raise HTTPException(404, "истории ещё нет: нажми «Обновить историю»")
+    return {**me_stats.stats(data), "fetched": data["fetched"], "has_peers": "peers" in data}
+
+
 @app.get("/me/avatar")
 def my_avatar():
     from fastapi.responses import FileResponse

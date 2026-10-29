@@ -6209,3 +6209,201 @@ a.btn {
   align-items: center;
   gap: 4px;
 }
+/* «Как это считается»: the explanation folded into one quiet line */
+.howto {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.howto > summary {
+  cursor: pointer;
+  list-style: none;
+  width: max-content;
+  border-bottom: 1px dashed currentColor;
+}
+.howto > summary::-webkit-details-marker {
+  display: none;
+}
+.howto[open] > summary {
+  margin-bottom: 6px;
+}
+.howto__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  line-height: 1.45;
+}
+/* ---------- Profile → «Статистика» ---------- */
+.mys {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.mys__over {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1px;
+  background: var(--hairline);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.mys__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  background: var(--slot-bg);
+  min-width: 0;
+}
+.mys__stat b {
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+.mys__stat .small {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mys__stat.is-link {
+  cursor: pointer;
+}
+.mys__stat.is-link:hover {
+  background: var(--row-bg-hover);
+}
+.mys__label {
+  font-size: 10.5px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+}
+.mys__advice {
+  padding: 8px 10px;
+  border-left: 3px solid var(--warn);
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  font-size: 12.5px;
+}
+.mys__heroes td,
+.mys__heroes th {
+  white-space: nowrap;
+}
+.mys__hero {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mys__hero .hero-icon--sm {
+  width: 40px;
+  height: 23px;
+  aspect-ratio: auto;
+  border-radius: 2px;
+  object-fit: cover;
+}
+.mys__bar {
+  position: relative;
+  display: block;
+  min-width: 70px;
+  height: 18px;
+}
+.mys__bar i {
+  position: absolute;
+  inset: 3px auto 3px 0;
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 1px;
+}
+.mys__bar span {
+  position: relative;
+  padding-left: 4px;
+  line-height: 18px;
+}
+.mys__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px 18px;
+}
+.mys__grid section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.mys__hours {
+  display: grid;
+  grid-template-columns: repeat(24, 1fr);
+  align-items: end;
+  gap: 2px;
+  height: 70px;
+}
+.mys__hour {
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+.mys__hour i {
+  width: 100%;
+  min-height: 2px;
+  background: currentColor;
+  opacity: 0.85;
+  border-radius: 1px 1px 0 0;
+}
+.mys__hour:not(.c-good):not(.c-bad):not(.muted) {
+  color: var(--text-2);
+}
+.mys__hours-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: -4px;
+}
+.mys__mini td,
+.mys__mini th {
+  padding: 3px 6px;
+}
+.mys__mini td:not(:first-child),
+.mys__mini th:not(:first-child) {
+  text-align: right;
+  width: 70px;
+}
+.mys__days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.mys__days span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 0;
+  background: var(--slot-bg);
+  border-radius: 2px;
+}
+.mys__mu {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.mys__mu ul {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.mys__mu li {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 6px;
+}
+.mys__mu li .hero-icon--sm {
+  width: 34px;
+  height: 20px;
+  aspect-ratio: auto;
+  border-radius: 2px;
+  object-fit: cover;
+}
+.mys__mu li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

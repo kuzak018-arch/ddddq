@@ -28,10 +28,18 @@ def refresh(account_id: int | None = None) -> dict:
         profile = od.get(f"/players/{account_id}")
         # all time: the experience curve needs to know which game on a hero each match was
         matches = od.get(f"/players/{account_id}/matches", {"lobby_type": RANKED, "game_mode": ALL_PICK})
+        # for the profile's statistics (me_stats.py): who the user plays with, and every hero's record
+        # with and against the user; neither is needed for the rest, so a failure leaves them empty
+        extra = {}
+        for key, path in (("peers", "peers"), ("heroes_vs", "heroes")):
+            try:
+                extra[key] = od.get(f"/players/{account_id}/{path}", {"lobby_type": RANKED, "game_mode": ALL_PICK}) or []
+            except Exception:  # noqa: BLE001
+                extra[key] = []
     finally:
         od.close()
     DIR.mkdir(parents=True, exist_ok=True)
-    data = {"account_id": account_id, "fetched": int(time.time()), "profile": profile, "matches": matches}
+    data = {"account_id": account_id, "fetched": int(time.time()), "profile": profile, "matches": matches, **extra}
     _write(DIR / "history.json", json.dumps(data, ensure_ascii=False))
     _download_avatar(profile)
     _refresh_positions(account_id)

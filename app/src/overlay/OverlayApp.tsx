@@ -19,7 +19,7 @@ import type { DraftRequest, GamePlan, TopVs } from '../api/types';
 import { HeroSearch, type HeroSearchHandle } from '../components/HeroSearch';
 import { IconClose } from '../components/Icons';
 import { LaneCard, LaneView } from '../components/LaneView';
-import { fmtPct, fmtSigned, HeroIcon, ItemIcon, plural } from '../components/ui';
+import { fmtPct, fmtSigned, HeroIcon, HowTo, ItemIcon, plural } from '../components/ui';
 import { onOverlayStatus, overlayStatus, setClickThrough, setOverlayEffect, showOverlay } from '../lib/overlay';
 import { useResolvedTheme } from '../lib/theme';
 import { picked, useDraft } from '../state/draft';
@@ -662,10 +662,10 @@ function PlanMode() {
         </div>
       )}
       {!me && req.allies.length > 0 && <p className="hint">Отметь своего героя (в «Билде» или кликом по союзнику) — появится, кого ловить.</p>}
-      <p className="hint">
+      <HowTo>
         Окна — по винрейту героев в коротких и длинных играх, «кого ловить» — по контрпикам, живучести и побегу героев. Предметов и уровней
         в настоящей игре программа не видит.
-      </p>
+      </HowTo>
     </div>
   );
 }

@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { useHeroes } from '../api/hooks';
 import { Ti } from './Icons';
-import { Empty, ErrorBox, HeroIcon, Loading } from './ui';
+import { Empty, ErrorBox, HeroIcon, HowTo, Loading } from './ui';
 
 interface RuinPlayer {
   hero: number;
@@ -189,13 +189,13 @@ function Breakdown({ r, onRefresh }: { r: Ruin; onRefresh: () => void }) {
       {[true, false].map((radiant) => (
         <Team key={String(radiant)} r={r} radiant={radiant} name={name} />
       ))}
-      <p className="hint">
+      <HowTo>
         Рейтинг 0–100, где 50 — обычная игра на этом герое. Его складывают фарм, опыт, драки (урон и участие в убийствах),
         выживание, строения, работа саппорта (варды, лечение) и линия против нормы героя. Если есть Stratz, учитывается ещё
         его IMP. Веса зависят от роли: саппорта не судят по фарму, керри — по вардам. Заруинившим называется худший в
         проигравшей команде, только когда он заметно ниже остальных. Статистика не видит вижн, позиционку и сейвы, так что это
         оценка, а не приговор.
-      </p>
+      </HowTo>
       {r.errors.length > 0 && <p className="muted small">Не всё загрузилось: {r.errors.join('; ')}</p>}
     </>
   );

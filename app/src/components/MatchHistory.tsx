@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { useHeroes } from '../api/hooks';
 import { useUi } from '../state/ui';
-import { Empty, ErrorBox, HeroIcon } from './ui';
+import { Empty, ErrorBox, HeroIcon, HowTo } from './ui';
 
 interface MatchRow {
   id: number;
@@ -166,12 +166,13 @@ export function MatchHistory({ onAnalyze }: { onAnalyze?: (matchId: number) => v
           </li>
         ))}
       </ul>
-      <p className="hint">
+      <HowTo>
+        <p>
         Оценка приблизительная. Основа — IMP от Stratz (оценка вклада игрока: 0 — обычная игра на этом герое, «хорошо» от +{h?.good_imp ?? 10},
         «плохо» от −{h?.good_imp ?? 10}); причины — сравнение с нормой героя на этой позиции на твоём ранге. Статистика видит не всё: вижн,
         позиционку, сейвы и размены она почти не замечает, особенно на саппортах.
-      </p>
-      <p className="hint">
+        </p>
+        <p>
         Матч без разбора программа сама отправляет на разбор в OpenDota и перепроверяет Stratz каждые {h?.recheck_min ?? 5} минут. Если запись
         игры уже недоступна или Stratz не разобрал её за {h?.wait_hours ?? 24} ч, оценка считается упрощённо — по итоговым KDA, GPM, XPM,
         ластхитам, урону и нетворсу против нормы героя — и помечается «упрощённая».
@@ -181,7 +182,8 @@ export function MatchHistory({ onAnalyze }: { onAnalyze?: (matchId: number) => v
             : h.stratz_parse_api.found.length
               ? ` В API Stratz нашлось похожее на запрос разбора: ${h.stratz_parse_api.found.map((f) => f.name).join(', ')} — пока не используется.`
               : ' Запроса на разбор в API Stratz нет: он разбирает рейтинговые матчи сам.')}
-      </p>
+        </p>
+      </HowTo>
     </div>
   );
 }
