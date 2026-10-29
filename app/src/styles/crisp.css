@@ -453,3 +453,14 @@ html[data-material='dota'] .matchups__name {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ---- profile: the avatar framed by a thin rim, no gradient halo ---- */
+html[data-material='dota'] .pro__avatar {
+  --shape: 6px;
+  padding: 1px;
+  background: var(--hairline);
+  box-shadow: none;
+}
+html[data-material='dota'] .pro__avatar--round {
+  --shape: 50%;
+}
