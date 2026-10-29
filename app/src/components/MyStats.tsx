@@ -1,5 +1,5 @@
 /** Profile → «Статистика»: the user's ranked history read like a stats site (backend me_stats.py). */
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 
 import { api } from '../api/client';
@@ -85,6 +85,7 @@ export function MyStats({ onAnalyze }: { onAnalyze?: (matchId: number) => void }
   return (
     <div className="mys">
       <Overview s={s} onAnalyze={onAnalyze} />
+      <Ratings onAnalyze={onAnalyze} />
       {s.tilt?.advice && <p className="mys__advice">{s.tilt.advice}</p>}
       <HeroesTable rows={s.heroes ?? []} base={base} />
       <div className="mys__grid">
@@ -371,5 +372,82 @@ function MiniRow({ label, r, base }: { label: string; r: Row; base: number }) {
       <td>{r.games}</td>
       <td className={r.games >= 8 ? wrCls(r.wr, base) : 'muted'}>{r.games ? fmtPct(r.wr) : '—'}</td>
     </tr>
+  );
+}
+
+interface RatingRow {
+  match: number;
+  t: number | null;
+  hero: number;
+  rating: number;
+  win: boolean | null;
+  tag?: 'ruiner' | 'weakest' | 'mvp' | 'unlucky' | 'carried' | null;
+  parsed: boolean;
+}
+
+/** My rating of «Кто заруинил» over the games: a dot per match (green — won), a ring on the games
+ * I ruined, a crown colour on MVP; a click opens the breakdown. */
+function Ratings({ onAnalyze }: { onAnalyze?: (id: number) => void }) {
+  const qc = useQueryClient();
+  const heroes = useHeroes().data;
+  const q = useQuery({ queryKey: ['me', 'ratings'], queryFn: () => api<{ matches: RatingRow[]; backfill: number }>('/me/ratings') });
+  const fill = useMutation({
+    mutationFn: async () => {
+      let job = await api<{ id: string; status: string; log: string[]; error: string | null }>('/me/ratings/backfill', { method: 'POST' });
+      while (job.status === 'running') {
+        await new Promise((r) => setTimeout(r, 1500));
+        job = await api(`/jobs/${job.id}`);
+        qc.invalidateQueries({ queryKey: ['me', 'ratings'] });
+      }
+      if (job.status === 'failed') throw new Error(job.error ?? 'не получилось');
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['me', 'ratings'] }),
+  });
+  const rows = (q.data?.matches ?? []).slice(-50);
+  const W = 640;
+  const H = 110;
+  const x = (i: number) => (rows.length < 2 ? W / 2 : 8 + (i / (rows.length - 1)) * (W - 16));
+  const y = (r: number) => H - 6 - (r / 100) * (H - 12);
+  const avg = rows.length ? Math.round(rows.reduce((a, r) => a + r.rating, 0) / rows.length) : null;
+  const ruined = rows.filter((r) => r.tag === 'ruiner').length;
+  const mvp = rows.filter((r) => r.tag === 'mvp').length;
+  return (
+    <section>
+      <h3 className="section-title">Твой рейтинг по играм · «Кто заруинил»</h3>
+      {rows.length ? (
+        <>
+          <p className="small">
+            Средний <b>{avg}</b> за {rows.length} {rows.length === 1 ? 'матч' : 'матчей'} · заруинил <b className={ruined ? 'c-bad' : ''}>{ruined}</b> ·
+            MVP <b className={mvp ? 'c-good' : ''}>{mvp}</b>
+          </p>
+          <svg viewBox={`0 0 ${W} ${H}`} className="mys__rating" preserveAspectRatio="none" role="img" aria-label="Рейтинг по матчам">
+            <line x1="0" x2={W} y1={y(50)} y2={y(50)} className="mys__rating-mid" />
+            <polyline points={rows.map((r, i) => `${x(i)},${y(r.rating)}`).join(' ')} className="mys__rating-line" />
+            {rows.map((r, i) => (
+              <circle
+                key={r.match}
+                cx={x(i)}
+                cy={y(r.rating)}
+                r={r.tag === 'ruiner' || r.tag === 'mvp' ? 5 : 3.5}
+                className={`mys__rating-dot ${r.win ? 'is-win' : 'is-loss'} ${r.tag ? `is-${r.tag}` : ''}`}
+                onClick={() => onAnalyze?.(r.match)}
+              >
+                <title>
+                  {`${heroes?.byId.get(r.hero)?.name ?? ''} · ${r.rating} · ${r.win ? 'победа' : 'поражение'}${r.tag === 'ruiner' ? ' · заруинил' : r.tag === 'mvp' ? ' · MVP' : ''}${r.parsed ? '' : ' · без разбора записи'}`}
+                </title>
+              </circle>
+            ))}
+          </svg>
+        </>
+      ) : (
+        <p className="muted small">После каждой игры программа сама разбирает матч и записывает сюда твой рейтинг. Можно посчитать и прошлые.</p>
+      )}
+      <div>
+        <button className="btn btn--sm" disabled={fill.isPending} onClick={() => fill.mutate()}>
+          {fill.isPending ? 'Разбираю матчи…' : `Посчитать для последних ${q.data?.backfill ?? 20} матчей`}
+        </button>
+        {fill.error && <ErrorBox error={fill.error} />}
+      </div>
+    </section>
   );
 }

@@ -24,6 +24,7 @@ from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel, Field, model_validator
 
+from .. import after_match as after_match_mod
 from .. import config, dota_paths, gsi, hero_grid, ingame, keybinds, pace, ruin, search, updates
 from .. import settings as user_settings
 from ..builds import counter, standard
@@ -93,10 +94,16 @@ vision_collector = vcollect.Collector(
 vision_runner.on_frame = vision_collector.offer
 
 
+after_match = after_match_mod.AfterMatch(publish=bus.publish)
+
+
 def _on_gsi(payload: dict) -> None:
+    before = tracker.last.get("game_state")
     changes = tracker.handle(payload, session.get().model_dump())
     vision_runner.new_match(tracker.match_id)
     bus.publish("gsi", status=tracker.status(), changes=changes)
+    # a match just ended: its breakdown is made by itself (after_match.py)
+    after_match.on_state(before, tracker.last.get("game_state"), tracker.match_id, tracker.last.get("hero_id"))
 
 
 @asynccontextmanager
@@ -497,6 +504,18 @@ def my_stats():
     if not data:
         raise HTTPException(404, "истории ещё нет: нажми «Обновить историю»")
     return {**me_stats.stats(data), "fetched": data["fetched"], "has_peers": "peers" in data}
+
+
+@app.get("/me/ratings")
+def my_ratings():
+    """The user's rating in every match broken down (after each match by itself, or backfilled)."""
+    return {"matches": after_match_mod.history(), "backfill": after_match_mod.BACKFILL}
+
+
+@app.post("/me/ratings/backfill")
+def my_ratings_backfill():
+    """Rate the last ranked matches of the history (a job; one OpenDota request per match)."""
+    return jobs.start("ratings", after_match_mod.backfill).public()
 
 
 @app.get("/me/avatar")
