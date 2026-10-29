@@ -6407,3 +6407,231 @@ a.btn {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* ---------- «Кто заруинил» v2: player detail, lanes, fights, map ---------- */
+.ruin__row {
+  cursor: pointer;
+}
+.ruin__row.is-picked {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.ruin__obj {
+  font-size: 9px;
+  font-weight: 700;
+  fill: var(--text-2);
+}
+.ruin__player {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--slot-bg);
+}
+.ruin__parts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.ruin__parts span {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: var(--control-bg);
+}
+.ruin__parts span.is-good b {
+  color: var(--good);
+}
+.ruin__parts span.is-bad b {
+  color: var(--bad);
+}
+.ruin__parts small {
+  color: var(--text-3);
+}
+.ruin__cols {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 16px;
+}
+.ruin__mistakes,
+.ruin__items {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ruin__mistakes li {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.ruin__mistakes code {
+  font-family: var(--font-mono);
+  color: var(--bad);
+  font-size: 12px;
+}
+.ruin__sum {
+  margin-top: 8px;
+}
+.ruin__items li {
+  display: grid;
+  grid-template-columns: auto 1fr 34px 34px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.ruin__items li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ruin__items b,
+.ruin__items small {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.ruin__lanes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.ruin__lane {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ruin__lane-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
+.ruin__lane-sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.ruin__lane-sides > div:first-child {
+  border-right: 1px solid var(--hairline);
+  padding-right: 6px;
+}
+.ruin__lane-hero {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 6px;
+  align-items: center;
+  font-size: 12px;
+}
+.ruin__lane-hero .hero-icon--sm {
+  grid-row: span 2;
+  width: 32px;
+  height: 18px;
+  aspect-ratio: auto;
+  border-radius: 2px;
+  object-fit: cover;
+}
+.ruin__lane-hero span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ruin__fights td {
+  white-space: nowrap;
+}
+.ruin__fights .hero-icon--xs {
+  margin-right: 2px;
+}
+.ruin__mapwrap {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.ruin__map {
+  width: 300px;
+  height: 300px;
+  flex: none;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--hairline);
+}
+.ruin__map-bg {
+  fill: #172019;
+}
+.ruin__map-river {
+  fill: none;
+  stroke: #1f3447;
+  stroke-width: 14;
+}
+.ruin__map-lane {
+  fill: none;
+  stroke: #2a3326;
+  stroke-width: 6;
+}
+.ruin__dead {
+  stroke: rgba(0, 0, 0, 0.6);
+  stroke-width: 1;
+}
+.ruin__dead.is-radiant {
+  fill: var(--radiant);
+}
+.ruin__dead.is-dire {
+  fill: var(--dire);
+}
+.ruin__dead.is-focus {
+  stroke: #fff;
+  stroke-width: 1.5;
+}
+.ruin__ward.is-obs {
+  fill: #e3b341;
+}
+.ruin__ward.is-sen {
+  fill: #5aa0d8;
+}
+.ruin__legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ruin__dot,
+.ruin__sq {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+.ruin__dot {
+  border-radius: 50%;
+}
+.ruin__dot.is-radiant {
+  background: var(--radiant);
+}
+.ruin__dot.is-dire {
+  background: var(--dire);
+}
+.ruin__dot.is-focus {
+  background: transparent;
+  border: 1.5px solid #fff;
+}
+.ruin__sq.is-obs {
+  background: #e3b341;
+}
+.ruin__sq.is-sen {
+  background: #5aa0d8;
+}
+@media (max-width: 900px) {
+  .ruin__cols,
+  .ruin__lanes {
+    grid-template-columns: 1fr;
+  }
+}
+.ruin__heroes { white-space: nowrap; }

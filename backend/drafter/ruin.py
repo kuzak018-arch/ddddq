@@ -28,7 +28,7 @@ import json
 import statistics
 import time
 
-from . import config
+from . import config, ruin_detail
 from .data import constants, stratz
 from .data.http import OpenDota, RateLimited
 
@@ -363,6 +363,7 @@ def analyze(raw: dict) -> dict:
     out["players"] = sorted(m["players"], key=lambda p: (not p["radiant"], p.get("pos") or 9))
     out["parse"] = raw.get("parse")
     out["errors"] = raw.get("errors") or []
+    out["detail"] = ruin_detail.detail(raw, m["players"])
     if m["radiant_win"] is None or len(m["players"]) < 10:
         out["verdict"] = None
         return out
