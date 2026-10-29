@@ -35,6 +35,7 @@ GRID_TAGS = ["Аниме", "Милота", "Рамки", "С упором на �
 BACKGROUND_TAGS = ["Аниме", "Dota 2", "Игры", "Милота", "Мемы", "Dead inside", "Природа", "Космос", "Абстракция"]
 ASPECTS = ["16:9", "16:10", "21:9", "4:3"]
 MAX_FILE = 40_000_000
+CACHE_MAX = 400_000_000     # bytes of cached pictures, videos and lists; the oldest go first past that
 _WORK_ID = re.compile(r"^[0-9a-f-]{36}$")
 _BG_ID = re.compile(r"^[1-9]\d{0,12}$")
 BG_FILES = {"poster.jpg": "image/jpeg", "preview.webm": "video/webm", "video.webm": "video/webm"}
@@ -82,7 +83,21 @@ def _cached_json(kind: str, key: str, ttl: float, fetch):
         raise
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    _prune()
     return data
+
+
+def _prune(limit: int = CACHE_MAX) -> None:
+    """Keep the cache under `limit`: every search, page and preview is a file of its own."""
+    try:
+        files = sorted((f for f in DIR.rglob("*") if f.is_file()), key=lambda f: f.stat().st_mtime, reverse=True)
+        total = 0
+        for f in files:
+            total += f.stat().st_size
+            if total > limit:
+                f.unlink(missing_ok=True)
+    except OSError:
+        pass   # a file in use or gone meanwhile: the next write tries again
 
 
 def _adult(item: dict) -> bool:
@@ -155,6 +170,7 @@ def _file(kind: str, path: str, key: str) -> Path:
     tmp = dest.with_suffix(".part")
     tmp.write_bytes(r.content)
     tmp.replace(dest)
+    _prune()
     return dest
 
 

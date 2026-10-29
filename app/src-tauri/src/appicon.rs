@@ -81,14 +81,17 @@ pub fn app_icon_state() -> IconState {
 pub async fn set_app_icon(app: AppHandle, png: Option<Vec<u8>>, ico: Option<Vec<u8>>, key: Option<String>) -> Result<Applied, String> {
     let d = dir();
     fs::create_dir_all(&d).map_err(|e| e.to_string())?;
+    if let Some(png) = &png {
+        // checked before the folder is cleared: a bad picture must not cost the icon already set
+        if Image::from_bytes(png).is_err() {
+            return Err("картинка значка не читается".into());
+        }
+    }
     for e in fs::read_dir(&d).map_err(|e| e.to_string())?.flatten() {
         let _ = fs::remove_file(e.path());
     }
     let ico_path = match (&png, &ico) {
         (Some(png), Some(ico)) => {
-            if Image::from_bytes(png).is_err() {
-                return Err("картинка значка не читается".into());
-            }
             fs::write(d.join(PNG), png).map_err(|e| e.to_string())?;
             let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|t| t.as_millis()).unwrap_or(0);
             let p = d.join(format!("app-icon-{stamp}.ico"));

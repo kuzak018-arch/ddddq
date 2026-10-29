@@ -28,14 +28,28 @@ def refresh(account_id: int | None = None) -> dict:
         profile = od.get(f"/players/{account_id}")
         # all time: the experience curve needs to know which game on a hero each match was
         matches = od.get(f"/players/{account_id}/matches", {"lobby_type": RANKED, "game_mode": ALL_PICK})
+        # for the profile's statistics (me_stats.py): who the user plays with, and every hero's record
+        # with and against the user; neither is needed for the rest, so a failure leaves them empty
+        extra = {}
+        for key, path in (("peers", "peers"), ("heroes_vs", "heroes")):
+            try:
+                extra[key] = od.get(f"/players/{account_id}/{path}", {"lobby_type": RANKED, "game_mode": ALL_PICK}) or []
+            except Exception:  # noqa: BLE001
+                extra[key] = []
     finally:
         od.close()
     DIR.mkdir(parents=True, exist_ok=True)
-    data = {"account_id": account_id, "fetched": int(time.time()), "profile": profile, "matches": matches}
-    (DIR / "history.json").write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    data = {"account_id": account_id, "fetched": int(time.time()), "profile": profile, "matches": matches, **extra}
+    _write(DIR / "history.json", json.dumps(data, ensure_ascii=False))
     _download_avatar(profile)
     _refresh_positions(account_id)
     return data
+
+
+def _write(path, text: str) -> None:
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    tmp.replace(path)
 
 
 AVATAR = DIR / "avatar.jpg"
@@ -75,7 +89,7 @@ def _refresh_positions(account_id: int) -> None:
         p = (m.get("players") or [{}])[0].get("position") or ""
         if p.startswith("POSITION_"):
             pos[str(m["id"])] = int(p[-1])
-    POSITIONS.write_text(json.dumps(pos), encoding="utf-8")
+    _write(POSITIONS, json.dumps(pos))
 
 
 def summary(pos_mat=None, data: dict | None = None) -> dict:
@@ -87,7 +101,10 @@ def summary(pos_mat=None, data: dict | None = None) -> dict:
     form = [{"match_id": m["match_id"], "hero": m["hero_id"], "win": _won(m), "kills": m.get("kills"),
              "deaths": m.get("deaths"), "assists": m.get("assists"), "duration": m.get("duration"),
              "start": m["start_time"]} for m in ms[:20]]
-    known = json.loads(POSITIONS.read_text(encoding="utf-8")) if POSITIONS.exists() else {}
+    try:
+        known = json.loads(POSITIONS.read_text(encoding="utf-8")) if POSITIONS.exists() else {}
+    except (OSError, ValueError):
+        known = {}
     by_pos: dict[int, dict] = {}
     estimated = 0
     for m in ms[:100]:
@@ -114,7 +131,10 @@ def summary(pos_mat=None, data: dict | None = None) -> dict:
 
 def load() -> dict | None:
     p = DIR / "history.json"
-    return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
+    try:
+        return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
+    except ValueError:
+        return None  # broken file: as if there were no history until the next refresh
 
 
 def _won(m: dict) -> bool:
@@ -140,6 +160,10 @@ def fit_experience(data: dict | None = None) -> dict:
     games = _games_in_order(data)
     n = np.array([g[1] for g in games], dtype=float)
     y = np.array([g[2] for g in games], dtype=float)
+    if len(set(y)) < 2:
+        # only wins or only losses (a new account): nothing to fit, no experience penalty
+        wr = (y.mean() * len(y) + 1) / (len(y) + 2) if len(y) else 0.5
+        return {"k": 5, "A": 0.0, "c": float(np.log(wr / (1 - wr))), "games": len(games)}
     best = None
     for k in (1, 2, 3, 5, 8, 12, 20, 30):
         x = (k / (k + n)).reshape(-1, 1)

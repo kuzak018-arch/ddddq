@@ -326,6 +326,9 @@ def _restore_font(fonts: Path, name: str, sha: str) -> None:
     target = fonts / name
     if saved.exists():
         shutil.copy2(saved, target)
+        # the copy goes once it is back: the next install copies Valve's file of that day
+        # (a game update may have changed it), not an older one kept from before
+        saved.unlink()
     elif target.exists() and _file_sha(target) == sha:
         target.unlink()  # there was no such file of Valve's
 

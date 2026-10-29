@@ -81,3 +81,29 @@ def test_a_missing_net_worth_field_in_gsi_is_none():
     assert ingame.live_from_payload(p)["net_worth"] is None and ingame.live_from_payload(p)["hero_id"] == 14
     p["player"]["net_worth"] = 1234
     assert ingame.live_from_payload(p)["net_worth"] == 1234
+
+
+def test_a_failed_benchmark_is_not_asked_for_on_every_poll(tmp_path, monkeypatch):
+    monkeypatch.setattr(pace, "DIR", tmp_path)
+    monkeypatch.setattr(pace, "_failed", {})
+    monkeypatch.setattr(pace, "_loading", set())
+
+    class Broken:
+        def __init__(self, *a, **kw):
+            pass
+
+        def get(self, *a, **kw):
+            raise RuntimeError("OpenDota 400")
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(pace, "OpenDota", Broken)
+    started = []
+    monkeypatch.setattr(pace.threading, "Thread", lambda target, args, **kw: type("T", (), {"start": lambda self: started.append((target, args))})())
+    assert pace.benchmark(HERO) is None
+    target, args = started[0]
+    target(*args)   # the download runs (and fails) outside the lock, as in its own thread
+    for _ in range(5):
+        assert pace.benchmark(HERO) is None
+    assert len(started) == 1 and HERO in pace._failed

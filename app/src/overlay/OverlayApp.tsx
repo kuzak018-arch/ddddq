@@ -14,19 +14,19 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { api, waitForBackend } from '../api/client';
-import { useBans, useBuild, useEvaluate, useHeroes, useSettings, useSuggest, useTopVs } from '../api/hooks';
-import type { DraftRequest, TopVs } from '../api/types';
+import { useBans, useBuild, useEvaluate, useHeroes, usePlan, useSettings, useSettingsFromOtherWindow, useSuggest, useTopVs } from '../api/hooks';
+import type { DraftRequest, GamePlan, TopVs } from '../api/types';
 import { HeroSearch, type HeroSearchHandle } from '../components/HeroSearch';
 import { IconClose } from '../components/Icons';
 import { LaneCard, LaneView } from '../components/LaneView';
-import { fmtPct, fmtSigned, HeroIcon, ItemIcon, plural } from '../components/ui';
+import { fmtPct, fmtSigned, HeroIcon, HowTo, ItemIcon, plural } from '../components/ui';
 import { onOverlayStatus, overlayStatus, setClickThrough, setOverlayEffect, showOverlay } from '../lib/overlay';
 import { useResolvedTheme } from '../lib/theme';
 import { picked, useDraft } from '../state/draft';
 import { startSync } from '../state/sync';
 import { useUi } from '../state/ui';
 
-type Mode = 'draft' | 'build' | 'lane';
+type Mode = 'draft' | 'build' | 'lane' | 'plan';
 const FULL = { w: 400, h: 660 };
 const PILL = { w: 320, h: 64 };
 
@@ -42,6 +42,7 @@ export function OverlayApp() {
   const phase = useDraft((s) => s.phase);
   const perf = ov.autoPerf && phase === 'game';
   const search = useRef<HeroSearchHandle>(null);
+  useSettingsFromOtherWindow();
   const fullSize = useRef(FULL);
 
   useEffect(() => {
@@ -115,10 +116,10 @@ export function OverlayApp() {
     <div className={`ov ov--${effectInUse} ${clickThrough ? 'is-through' : ''}`} style={{ opacity: ov.opacity }}>
       <header className="ov__head" data-tauri-drag-region>
         <div className="ov-switch" role="tablist">
-          {(['draft', 'build', 'lane'] as Mode[]).map((m) => (
+          {(['draft', 'build', 'lane', 'plan'] as Mode[]).map((m) => (
             <button key={m} role="tab" className={`ov-switch__btn ${shown === m ? 'is-on' : ''}`} onClick={() => setMode(m)}>
               {shown === m && <motion.span layoutId="ov-pill" className="ov-switch__pill" transition={{ type: 'spring', stiffness: 380, damping: 34 }} />}
-              <span>{m === 'draft' ? 'Драфт' : m === 'build' ? 'Билд' : 'Линия'}</span>
+              <span>{m === 'draft' ? 'Драфт' : m === 'build' ? 'Билд' : m === 'lane' ? 'Линия' : 'План'}</span>
             </button>
           ))}
         </div>
@@ -149,7 +150,7 @@ export function OverlayApp() {
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.2 }}
             >
-              {shown === 'draft' ? <DraftMode search={search} /> : shown === 'build' ? <BuildMode /> : <LaneMode />}
+              {shown === 'draft' ? <DraftMode search={search} /> : shown === 'build' ? <BuildMode /> : shown === 'lane' ? <LaneMode /> : <PlanMode />}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -272,7 +273,13 @@ function DraftMode({ search }: { search: React.RefObject<HeroSearchHandle | null
           compact
           unavailable={taken}
           placeholder="Герой: ам, пудж, вр…"
-          onPick={(h, m) => d.placeIn(m.shift ? 'enemy' : m.alt ? 'ban' : 'ally', h.id)}
+          onPick={(h, m) => {
+            // into the empty slot the user clicked, else by the modifier (Shift — enemy, Alt — ban)
+            const f = d.focus;
+            const list = f.team === 'ally' ? d.allies : f.team === 'enemy' ? d.enemies : null;
+            if (!m.shift && !m.alt && list && list[f.index] === null) d.place(h.id);
+            else d.placeIn(m.shift ? 'enemy' : m.alt ? 'ban' : 'ally', h.id);
+          }}
         />
         <kbd>Ctrl K</kbd>
       </div>
@@ -509,13 +516,13 @@ function LiveHints({ plan, pos }: { plan: { key: string; name: string; minute: n
 
 /** The build of top players (Divine+, Immortal, pros) from games where the enemy team had a draft
  * like this one (backend topgames.vs_draft). */
-function TopVsBuild({ vs }: { vs: TopVs }) {
+function TopVsBuild({ vs, title }: { vs: TopVs; title: React.ReactNode }) {
   const games = vs.games ?? 0;
   const who = Object.entries(vs.sources ?? {}).map(([label, n]) => `${label} ${n}`).join(' · ');
   const items = [...(vs.boots ? [vs.boots] : []), ...(vs.core ?? [])];
   return (
     <div className="ov__topvs">
-      <span className="kicker">Игры топов против такого драфта</span>
+      <span className="kicker">{title}</span>
       <p className="hint">
         {games} {plural(games, 'игра', 'игры', 'игр')}, {vs.wins ?? 0} {plural(vs.wins ?? 0, 'победа', 'победы', 'побед')}
         {vs.full ? ` · ${vs.full} с тем же драфтом` : ''} · {who}
@@ -541,7 +548,10 @@ function BuildMode() {
   // top players' games against a draft like this one: when there are some, their build is the one shown
   const topVs = useTopVs(hero, build.data?.build.pos ?? req.pos ?? 1, req.enemies).data;
   const found = topVs?.found ? topVs : null;
-  const plan = found ? [...(found.boots ? [found.boots] : []), ...(found.core ?? [])] : top ? [...(top.boots ? [top.boots] : []), ...top.core] : [];
+  // no game against the whole draft: top games against my lane (Axe + Lich against my Anti-Mage)
+  const laneVs = !found && topVs?.lane?.found ? topVs.lane : null;
+  const shownVs = found ?? laneVs;
+  const plan = shownVs ? [...(shownVs.boots ? [shownVs.boots] : []), ...(shownVs.core ?? [])] : top ? [...(top.boots ? [top.boots] : []), ...top.core] : [];
   if (!hero) return <p className="muted ov__center">Выбери своего героя в драфте — здесь появится билд против врагов.</p>;
   return (
     <div className="ov__build">
@@ -568,8 +578,21 @@ function BuildMode() {
               </p>
             )}
             {r.status === 'loading' && <p className="hint">Загружаю матчи: {r.progress.have} из {r.target}…</p>}
-            {found && <TopVsBuild vs={found} />}
-            {!found && topVs?.loading && <p className="hint">Ищу игры топов против такого драфта…</p>}
+            {found && <TopVsBuild vs={found} title="Игры топов против такого драфта" />}
+            {laneVs && (
+              <TopVsBuild
+                vs={laneVs}
+                title={
+                  <>
+                    Игры топов против твоей линии{' '}
+                    {laneVs.lane.map((h) => (
+                      <HeroIcon key={h} id={h} size="xs" />
+                    ))}
+                  </>
+                }
+              />
+            )}
+            {!shownVs && (topVs?.loading || topVs?.lane?.loading) && <p className="hint">Ищу игры топов против такого драфта…</p>}
             {b && (
               <>
                 <span className="kicker">
@@ -597,6 +620,69 @@ function BuildMode() {
           </>
         );
       })()}
+    </div>
+  );
+}
+
+const KILL: Record<'kill' | 'team' | 'avoid', { text: string; cls: string }> = {
+  kill: { text: 'можно убить', cls: 'c-good' },
+  team: { text: 'с командой', cls: 'muted' },
+  avoid: { text: 'не трогай один', cls: 'c-bad' },
+};
+
+/** «План»: when we are strongest, how to play and how to finish this draft, whom my hero can kill. */
+function PlanMode() {
+  const d = useDraft();
+  const req = useDraftRequest();
+  const me = useMe(req);
+  const plan = usePlan(req.allies, req.enemies, me, d.phase === 'game');
+  const p = plan.data;
+  if (!req.allies.length && !req.enemies.length) return <p className="muted ov__center">Заполни драфт — здесь появится план на игру.</p>;
+  return (
+    <div className="ov__plan">
+      {plan.error && <p className="muted">{(plan.error as Error).message}</p>}
+      {p?.timing && <TimingBar t={p.timing} />}
+      {p?.tips.map((t, i) => (
+        <p key={i} className={`ov__tip is-${t.kind}`}>
+          {t.text}
+        </p>
+      ))}
+      {me && p && p.kill.length > 0 && (
+        <div className="ov__kill">
+          <span className="kicker">
+            Кого ловить{p.minute != null ? ` · ${Math.floor(p.minute)} мин` : ''}
+          </span>
+          {p.kill.map((k) => (
+            <div key={k.hero} className="ov__kill-row">
+              <HeroIcon id={k.hero} size="sm" />
+              <b className={KILL[k.verdict].cls}>{KILL[k.verdict].text}</b>
+              <span className="muted small">{k.reasons.join(', ')}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {!me && req.allies.length > 0 && <p className="hint">Отметь своего героя (в «Билде» или кликом по союзнику) — появится, кого ловить.</p>}
+      <HowTo>
+        Окна — по винрейту героев в коротких и длинных играх, «кого ловить» — по контрпикам, живучести и побегу героев. Предметов и уровней
+        в настоящей игре программа не видит.
+      </HowTo>
+    </div>
+  );
+}
+
+/** Who is stronger in each part of the game: above the line — us. */
+function TimingBar({ t }: { t: NonNullable<GamePlan['timing']> }) {
+  const max = Math.max(0.03, ...t.diff.map(Math.abs));
+  return (
+    <div className="ov__timing">
+      {t.diff.map((v, i) => (
+        <div key={i} className={`ov__timing-col ${t.now === i ? 'is-now' : ''}`} title={`${t.buckets[i]}: ${v > 0 ? 'сильнее мы' : v < 0 ? 'сильнее враги' : 'ровно'}`}>
+          <span className="ov__timing-bar">
+            <i className={v >= 0 ? 'is-us' : 'is-them'} style={{ height: `${(Math.abs(v) / max) * 50}%` }} />
+          </span>
+          <span className="small muted">{t.buckets[i]}</span>
+        </div>
+      ))}
     </div>
   );
 }

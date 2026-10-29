@@ -76,3 +76,17 @@ def test_loading_and_errors_are_reported(cache, monkeypatch):
     monkeypatch.setattr(T, "_states", {(HERO, "divine"): {"loading": True}, (HERO, "pro"): {"error": "нет токена"}})
     out = T.vs_draft(HERO, [21, 22, 23], 1)
     assert out["found"] is False and out["loading"] is True and out["error"] == "нет токена"
+
+
+def test_games_against_my_lane_when_the_draft_is_new(cache):
+    axe, lich = 2, 31
+    cache["divine"] = [
+        match(1, [axe, lich, 70, 71, 72], src_extra={"foes_pos": {str(axe): 3, str(lich): 4}}),
+        match(2, [axe, lich, 80, 81, 82]),                                              # positions unknown: counts
+        match(3, [axe, lich, 90, 91, 92], src_extra={"foes_pos": {str(axe): 3, str(lich): 5}}),  # Lich on the other lane
+        match(4, [axe, 60, 61, 62, 63]),                                               # no Lich
+        match(5, [axe, lich, 50, 51, 52], pos=2),                                      # I was mid
+    ]
+    out = T.vs_lane(HERO, [axe, lich], 1)
+    assert out["found"] and out["games"] == 2 and out["lane"] == sorted([axe, lich])
+    assert {m["m"] for m in out["matches"]} == {1, 2}

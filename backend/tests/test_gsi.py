@@ -141,3 +141,13 @@ def test_a_broken_token_file_is_replaced(tmp_path, monkeypatch):
     monkeypatch.setattr(gsi, "STATE_FILE", f)
     t = gsi._token()
     assert len(t) == 32 and gsi._token() == t
+
+
+def test_a_hero_newer_than_our_constants_does_not_break_the_stream():
+    from drafter.api import session
+    session._state = session.Session()
+    t = gsi.Tracker(lambda **c: session.patch("gsi", **c))
+    t.handle(payload("DOTA_GAMERULES_STATE_HERO_SELECTION", hero=999), session.get().model_dump())
+    s = session.get()
+    assert s.phase == "draft" and s.side == "radiant" and s.my_hero is None
+    session._state = session.Session()

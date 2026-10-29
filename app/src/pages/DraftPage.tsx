@@ -15,7 +15,6 @@ import { RoleIcon } from '../components/DotaIcons';
 import { IconReset, Ti } from '../components/Icons';
 import { LaneCard, LaneView } from '../components/LaneView';
 import { Sheet } from '../components/Sheet';
-import { Tip } from '../components/Tip';
 import { AnimatedPercent, ErrorBox, fmtPct, fmtSigned, HeroIcon, ItemIcon, Loading, TermLine } from '../components/ui';
 import { assignPositions } from '../lib/positions';
 import { MAX_BANS, picked, useDraft, type Slot } from '../state/draft';
@@ -151,7 +150,7 @@ function TeamPanel({ team, pos, req }: { team: 'ally' | 'enemy'; pos: number; re
                 )}
               </AnimatePresence>
               <span className="dr-row__text">
-                <b>{h ? (heroes?.byId.get(h)?.name ?? '…') : 'Выбирается…'}</b>
+                <b>{h ? (heroes?.byId.get(h)?.name ?? '…') : 'Пусто'}</b>
                 <small title={POS_LABEL[p]} className="dr-row__pos">
                   {p > 0 && <RoleIcon pos={p} size={12} />}
                   pos {p}
@@ -335,22 +334,14 @@ function PicksPanel({ req, comfort, onComfort, suggest: s }: {
         <Loading>Подбираю героев…</Loading>
       ) : (
         <>
-          <div className="pick-grid">
-            <AnimatePresence initial={false}>
-              {s.data?.main.map((r) => <PickCard key={r.hero} r={r} onPick={() => placeIn('ally', r.hero)} />)}
-            </AnimatePresence>
-          </div>
+          <PickTable rows={s.data?.main ?? []} onPick={(h) => placeIn('ally', h)} />
           {!!s.data?.offrole.length && (
             <>
               <button className="dr-reasons__more" onClick={() => setOffrole((v) => !v)}>
                 {offrole ? 'Скрыть нестандартные' : `Нестандартные на эту позицию (${s.data.offrole.length})`}
               </button>
               {offrole && (
-                <div className="pick-grid pick-grid--small">
-                  {s.data.offrole.map((r) => (
-                    <PickCard key={r.hero} r={r} onPick={() => placeIn('ally', r.hero)} />
-                  ))}
-                </div>
+                <PickTable rows={s.data.offrole} onPick={(h) => placeIn('ally', h)} />
               )}
             </>
           )}
@@ -360,52 +351,74 @@ function PicksPanel({ req, comfort, onComfort, suggest: s }: {
   );
 }
 
-function PickCard({ r, onPick }: { r: Suggestion; onPick: () => void }) {
+/** The suggestions as a stats table: chance with this pick and its gain, the hero's meta win rate,
+ * how often it plays this position, its pick rate, and the two strongest reasons in this draft. */
+function PickTable({ rows, onPick }: { rows: Suggestion[]; onPick: (hero: number) => void }) {
   const openHero = useUi((s) => s.openHero);
-  const name = useHeroName(r.hero);
-  const reason = mainReason(r.terms, name);
+  const heroes = useHeroes().data;
   return (
-    <motion.div
-      layout="position"
-      className="pick"
-      initial={{ opacity: 0, scale: 0.97 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.97, transition: { duration: 0.18 } }}
-      transition={{ type: 'spring', stiffness: 220, damping: 30, mass: 1 }}
-    >
-      <Tip
-        content={
-          <div className="pick-tip">
-            <b>{name}</b>
-            <span className="muted">
-              мета {fmtPct(r.meta_wr)} · на позиции {fmtPct(r.pos_share, 0)} · пикают {fmtPct(r.pick_rate, 0)}
-            </span>
-            {r.specialist && <span className="warn">Высокий винрейт за счёт тех, кто на нём специализируется</span>}
-            <ul className="terms terms--compact">
-              {r.terms.slice(0, 5).map((t, i) => (
-                <TermLine key={i} t={t} omit={r.hero} />
-              ))}
-            </ul>
-          </div>
-        }
-      >
-        <button className="pick__main tilt" onClick={onPick} onDoubleClick={() => openHero(r.hero)} title="">
-          <span className="pick__who">
-            <HeroIcon id={r.hero} size="sm" />
-            <b>{name}</b>
-            {r.specialist && <span className="pill warn">спец.</span>}
-          </span>
-          <span className="pick__p">
-            <span className="display">{fmtPct(r.p_win)}</span>
-            <small className={r.delta >= 0 ? 'c-good' : 'c-bad'}>{fmtSigned(r.delta * 100)}</small>
-          </span>
-          <span className="pick__why">{reason}</span>
-        </button>
-      </Tip>
-      <button className="pick__more" onClick={() => openHero(r.hero)} title="Страница героя">
-        →
-      </button>
-    </motion.div>
+    <table className="table picks">
+      <thead>
+        <tr>
+          <th className="picks__n">#</th>
+          <th>Герой</th>
+          <th title="Шанс на победу, если взять этого героя, и насколько он выше, чем сейчас">Победа</th>
+          <th title="Винрейт героя в мете на твоём ранге">Мета</th>
+          <th title="Какая доля игр героя — на этой позиции">На поз.</th>
+          <th title="Как часто героя берут">Пик</th>
+          <th>Почему</th>
+          <th />
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r, i) => {
+          const name = heroes?.byId.get(r.hero)?.name ?? '';
+          const plus = [...r.terms].filter((t) => t.pct > 0).sort((x, y) => y.pct - x.pct).slice(0, 2);
+          return (
+            <tr key={r.hero} className="picks__row" onClick={() => onPick(r.hero)} title="Клик — взять в драфт">
+              <td className="picks__n muted">{i + 1}</td>
+              <td className="table__hero">
+                <span className="picks__hero">
+                  <HeroIcon id={r.hero} size="sm" />
+                  <b>{name}</b>
+                  {r.specialist && (
+                    <span className="pill warn" title="Высокий винрейт за счёт тех, кто на нём специализируется">
+                      спец.
+                    </span>
+                  )}
+                </span>
+              </td>
+              <td>
+                <b>{fmtPct(r.p_win)}</b> <small className={r.delta >= 0 ? 'c-good' : 'c-bad'}>{fmtSigned(r.delta * 100)}</small>
+              </td>
+              <td className={r.meta_wr >= 0.5 ? 'c-good' : 'c-bad'}>{fmtPct(r.meta_wr)}</td>
+              <td>{fmtPct(r.pos_share, 0)}</td>
+              <td className="muted">{fmtPct(r.pick_rate, 0)}</td>
+              <td className="table__hero picks__why">
+                {plus.length ? plus.map((t, k) => (
+                  <span key={k}>
+                    {k > 0 && ' · '}
+                    {mainReason([t], name)} <small className="c-good">{fmtSigned(t.pct)}%</small>
+                  </span>
+                )) : <span className="muted">без явных плюсов в этом драфте</span>}
+              </td>
+              <td>
+                <button
+                  className="btn btn--sm btn--ghost"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openHero(r.hero);
+                  }}
+                  title="Страница героя"
+                >
+                  →
+                </button>
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 

@@ -174,17 +174,20 @@ function Stat({ icon, label, value, good, title }: { icon: LucideIcon; label: st
 
 function MatchupList({ icon, title, rows }: { icon: LucideIcon; title: string; rows: Matchup[] }) {
   const openHero = useUi((s) => s.openHero);
+  const heroes = useHeroes().data;
   return (
     <section className="matchups">
       <h3 className="section-title">
         <Ti icon={icon} />
         {title}
       </h3>
-      <ul>
+      <ul className="matchups__rows">
         {rows.map((r) => (
           <li key={r.hero} onClick={() => openHero(r.hero)} title={`${r.games.toLocaleString('ru')} игр`}>
             <HeroIcon id={r.hero} size="sm" />
-            <span className={r.delta >= 0 ? 'c-good' : 'c-bad'}>{fmtSigned(r.delta)}%</span>
+            <span className="matchups__name">{heroes?.byId.get(r.hero)?.name}</span>
+            <small className="muted">{r.games.toLocaleString('ru')}</small>
+            <b className={r.delta >= 0 ? 'c-good' : 'c-bad'}>{fmtSigned(r.delta)}%</b>
           </li>
         ))}
       </ul>

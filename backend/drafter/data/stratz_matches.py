@@ -38,9 +38,32 @@ _locks: dict[int, threading.Lock] = {}
 _locks_guard = threading.Lock()
 
 
+_claimed: dict[object, set[int]] = {}   # per cache: match ids a load has taken, so two loads never fetch one twice
+
+
 def _lock(hero_id: int) -> threading.Lock:
     with _locks_guard:
         return _locks.setdefault(hero_id, threading.Lock())
+
+
+def _claim(cache_key, match_id: int) -> bool:
+    with _locks_guard:
+        taken = _claimed.setdefault(cache_key, set())
+        if match_id in taken:
+            return False
+        taken.add(match_id)
+        return True
+
+
+def _unclaim(cache_key, match_id: int) -> None:
+    """A fetch that failed: a later load may try that match again."""
+    with _locks_guard:
+        _claimed.get(cache_key, set()).discard(match_id)
+
+
+def dedupe(records: list[dict]) -> list[dict]:
+    """One record per match (the last one): two loads at once used to append the same match twice."""
+    return list({r["m"]: r for r in records}.values())
 
 
 def _path(hero_id: int) -> Path:
@@ -58,7 +81,7 @@ def load(hero_id: int) -> list[dict]:
                 out.append(json.loads(line))
             except ValueError:
                 continue  # a half-written last line after a crash
-    return out
+    return dedupe(out)
 
 
 def _append(hero_id: int, rec: dict) -> None:
@@ -139,9 +162,12 @@ def collect(hero_id: int, pos: int, target: int, *, specialists: bool = False, b
         for n, mid in enumerate(ids[:max_requests], 1):
             if (stop and stop.is_set()) or not _budget_ok(floor):
                 break
+            if not _claim(hero_id, mid):
+                continue  # another load of this hero (another position or mode) has it
             try:
                 rec = fetch_match(sz, mid, hero_id)
             except RuntimeError:
+                _unclaim(hero_id, mid)
                 continue  # one broken match must not stop the whole load
             _append(hero_id, rec)
             if usable(rec):
@@ -175,10 +201,12 @@ def _specialists(hero_id: int) -> dict:
     """Leaderboard players with >= SPECIALIST_MIN_GAMES games on the hero and their recent match ids
     (cached for a week)."""
     p = _spec_path(hero_id)
-    if p.exists():
-        data = json.loads(p.read_text(encoding="utf-8"))
-        if time.time() - data["fetched"] < 7 * 86400:
-            return data
+    try:
+        data = json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
+    except ValueError:
+        data = None  # broken file: fetched again
+    if data and time.time() - data["fetched"] < 7 * 86400:
+        return data
     sz = stratz.Stratz(min_interval=0.45)
     try:
         lb = sz.q("""{ leaderboard { hero(request: {heroIds: [%d], bracketIds: [LEGEND, ANCIENT, DIVINE, IMMORTAL], take: 100})
@@ -200,5 +228,7 @@ def _specialists(hero_id: int) -> dict:
         sz.close()
     data = {"fetched": time.time(), "players": players}
     SPECIALISTS.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(data), encoding="utf-8")
+    tmp = p.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data), encoding="utf-8")
+    tmp.replace(p)
     return data

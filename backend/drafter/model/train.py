@@ -299,7 +299,9 @@ def run(max_train: int | None = 4_000_000, seed: int = 0, log=print) -> dict:
     meta = {"trained": time.strftime("%Y-%m-%d %H:%M"), "patch": constants.current_patch()["name"],
             "data": info, "pair_k": add.pair_k, "lr_weights": {"syn": w["syn"], "cnt": w["cnt"]},
             "gbm_trees": int(gbm.best_iteration_), "results": results, "seconds": round(time.monotonic() - t0)}
-    (ART / "meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
+    tmp = ART / "meta.json.tmp"
+    tmp.write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
+    tmp.replace(ART / "meta.json")
     log(f"готово за {meta['seconds']} с")
     return meta
 

@@ -141,3 +141,22 @@ def test_one_hero_read_in_two_slots_is_put_in_one_place_only(monkeypatch):
         r.step(None, dict(state))
     everywhere = state["allies"] + state["enemies"] + state["bans"]
     assert everywhere.count(AM) == 1 and state["allies"][0] == AM
+
+
+def test_runner_corrects_its_own_early_misread_but_not_a_manual_edit():
+    cal = calibration.preset_16_9()
+    state = {"allies": [None] * 5, "enemies": [None] * 5, "bans": [], "side": "radiant", "phase": "draft"}
+    r = runner.Runner(lambda: state, lambda **c: state.update(c), lambda d: None)
+    r.cautious = False
+    wrong = frame_with([None] * 5, [None, None, None, AM, None], cal)
+    right = frame_with([None] * 5, [None, None, None, AXE, None], cal)
+    for _ in range(3):
+        r.step(wrong, dict(state), cal)
+    assert state["enemies"][3] == AM                    # the early (wrong) read was applied
+    for _ in range(6):
+        r.step(right, dict(state), cal)
+    assert state["enemies"][3] == AXE                   # corrected by later frames
+    state["enemies"][3] = LION                          # the user's own choice stays
+    for _ in range(8):
+        r.step(wrong, dict(state), cal)
+    assert state["enemies"][3] == LION and ("dire", 3) in r.locked

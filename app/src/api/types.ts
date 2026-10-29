@@ -165,6 +165,16 @@ export interface TopVs {
   boots?: TopVsItem | null;
   core?: TopVsItem[];
   matches?: { m: number; win: boolean; overlap: number; label: string; player: string | null; team: string | null; rank: number | null; core: string[] }[];
+  /** No game against the whole draft: games against my lane (its heroes in `lane.lane`). */
+  lane?: (TopVs & { lane: number[] }) | null;
+}
+
+export interface GamePlan {
+  shape: 'early' | 'late' | 'ahead' | 'behind' | 'even';
+  minute: number | null;
+  timing: { buckets: string[]; diff: number[]; now: number | null } | null;
+  tips: { kind: 'timing' | 'now' | 'style' | 'finish'; text: string }[];
+  kill: { hero: number; verdict: 'kill' | 'team' | 'avoid'; score: number; reasons: string[] }[];
 }
 
 export interface TierRow {

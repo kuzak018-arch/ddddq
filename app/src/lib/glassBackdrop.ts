@@ -13,10 +13,10 @@
 export type Material = 'glass' | 'matte' | 'acrylic' | 'dota';
 
 export const MATERIALS: { value: Material; label: string; title: string }[] = [
+  { value: 'dota', label: 'Чёткий', title: 'Плотные тёмные панели с тонкой кромкой и острыми углами, без свечения — как в клиенте Доты' },
   { value: 'glass', label: 'Жидкое стекло', title: 'Прозрачные панели с бликом и светлой кромкой поверх размытых обоев' },
   { value: 'matte', label: 'Матовое', title: 'Сильно размытое, почти непрозрачное стекло: спокойнее и читается на любых обоях' },
   { value: 'acrylic', label: 'Акрил', title: 'Как в Windows 11: размытие с цветом обоев и мелким зерном' },
-  { value: 'dota', label: 'Как в Доте', title: 'Тёмные плотные панели с тонкой кромкой и острыми углами, как в клиенте Доты' },
 ];
 
 /** Blur (CSS px) and saturation of the picture under the panels for each material. */

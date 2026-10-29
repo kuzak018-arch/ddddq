@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { waitForBackend } from './api/client';
+import { useSettingsFromOtherWindow } from './api/hooks';
+import { useAfterMatch } from './lib/afterMatch';
 import { TitleBar, useCalmBackground, Wallpaper } from './components/Chrome';
 import { Effects } from './components/Effects';
 import { Panel } from './components/Glass';
@@ -115,6 +117,8 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   useAppearance();
   useAppIcon();
+  useSettingsFromOtherWindow();
+  useAfterMatch();
   useSounds(page);
   useEffect(() => {
     document.documentElement.classList.toggle('page-settings', page === 'settings');

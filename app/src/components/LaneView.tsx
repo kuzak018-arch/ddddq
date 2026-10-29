@@ -54,7 +54,7 @@ export function LaneMini({ hero, pos, enemies }: { hero: number | null; pos: num
   const them = enemy ? (heroes?.byId.get(enemy)?.name ?? '') : '';
   let body;
   if (!enemy || !o || !enemyPos) body = <span className="muted">из врагов на твоей линии обычно никто не стоит</span>;
-  else if (lane.isLoading) body = <span className="muted">загружаю…</span>;
+  else if (lane.isLoading || lane.isPlaceholderData) body = <span className="muted">загружаю…</span>;
   else if (!oc) body = <span className="muted">нет данных о линии</span>;
   else if (!oc.enough)
     body = (
@@ -133,7 +133,7 @@ export function LaneCard({ hero, pos, enemies, when, onMore }: {
   if (!hero) text = 'Возьми своего героя — здесь появится, кто фаворит на линии.';
   else if (!enemies.length) text = 'Добавь врагов: соперник по линии подставится сам.';
   else if (!enemy || !o || !enemyPos) text = 'Из этих врагов на твоей линии обычно никто не стоит.';
-  else if (lane.isLoading) text = <Loading inline>Загружаю…</Loading>;
+  else if (lane.isLoading || lane.isPlaceholderData) text = <Loading inline>Загружаю…</Loading>;
   else if (lane.error) text = <ErrorBox error={lane.error} />;
   else if (!oc) text = 'Нет данных о линии этой пары.';
   else if (!oc.enough) text = `Мало данных: ${oc.rated} ${plural(oc.rated, 'оценённая линия', 'оценённые линии', 'оценённых линий')}.`;
@@ -228,8 +228,8 @@ export function LaneView({ hero, pos, enemies }: { hero: number | null; pos: num
         </p>
       )}
       {lane.error && <ErrorBox error={lane.error} />}
-      {o && enemyPos && lane.isLoading && <Loading inline>Загружаю разбор линии…</Loading>}
-      {lane.data && !lane.data.off_lane && o && enemyPos ? <LaneBody r={lane.data} /> : null}
+      {o && enemyPos && (lane.isLoading || lane.isPlaceholderData) && <Loading inline>Загружаю разбор линии…</Loading>}
+      {lane.data && !lane.data.off_lane && !lane.isPlaceholderData && o && enemyPos ? <LaneBody r={lane.data} /> : null}
     </div>
   );
 }

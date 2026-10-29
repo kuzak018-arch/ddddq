@@ -5949,3 +5949,722 @@ a.btn {
   color: var(--text);
   font-weight: 600;
 }
+/* ---------- «Кто заруинил»: the breakdown of one match ---------- */
+.ruin {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ruin__ask {
+  display: flex;
+  gap: 8px;
+}
+.ruin__ask .input {
+  flex: 1;
+}
+.ruin__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+}
+.ruin__head .btn {
+  margin-left: auto;
+}
+.ruin__verdict {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--bad) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--bad) 35%, transparent);
+}
+.ruin__verdict.is-together {
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  border-color: color-mix(in srgb, var(--warn) 30%, transparent);
+}
+.ruin__verdict > div:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+.ruin__verdict b {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+}
+.ruin__verdict p {
+  margin: 4px 0 0;
+}
+.ruin__mvp {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--good) 16%, transparent);
+  white-space: nowrap;
+}
+.ruin__mvp span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.ruin__chart svg {
+  width: 100%;
+  height: 130px;
+  display: block;
+}
+.ruin__axis {
+  stroke: var(--hairline);
+  stroke-width: 1;
+}
+.ruin__line {
+  fill: none;
+  stroke: var(--text-2);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+.ruin__death {
+  stroke: var(--bad);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+.ruin__ticks {
+  display: flex;
+  justify-content: space-between;
+}
+.ruin__team .section-title {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+.ruin__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ruin__row {
+  display: grid;
+  grid-template-columns: auto minmax(110px, 1.2fr) 70px minmax(90px, 0.8fr) 120px auto minmax(0, 2fr);
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px;
+  border-radius: 10px;
+  background: var(--control-bg);
+}
+.ruin__row.is-ruiner {
+  background: color-mix(in srgb, var(--bad) 16%, var(--control-bg));
+}
+.ruin__row.is-mvp {
+  background: color-mix(in srgb, var(--good) 14%, var(--control-bg));
+}
+.ruin__who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ruin__who span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ruin__kda {
+  font-variant-numeric: tabular-nums;
+}
+.ruin__rating {
+  position: relative;
+  height: 18px;
+  border-radius: 99px;
+  background: var(--control-bg-active);
+  overflow: hidden;
+}
+.ruin__rating i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 99px;
+}
+.ruin__rating.is-good i {
+  background: color-mix(in srgb, var(--good) 55%, transparent);
+}
+.ruin__rating.is-meh i {
+  background: color-mix(in srgb, var(--warn) 45%, transparent);
+}
+.ruin__rating.is-bad i {
+  background: color-mix(in srgb, var(--bad) 55%, transparent);
+}
+.ruin__rating b {
+  position: relative;
+  display: block;
+  text-align: center;
+  font-size: 12px;
+  line-height: 18px;
+}
+.ruin__why {
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mh__ruin {
+  margin-left: 4px;
+}
+@media (max-width: 900px) {
+  .ruin__row {
+    grid-template-columns: auto 1fr auto auto;
+  }
+  .ruin__eco,
+  .ruin__why {
+    grid-column: 2 / -1;
+  }
+}
+/* ---------- overlay «План»: timing windows, tips, who to kill ---------- */
+.ov__plan {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ov__tip {
+  margin: 0;
+  padding: 6px 9px;
+  border-radius: 10px;
+  background: var(--control-bg);
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+.ov__tip.is-timing {
+  background: color-mix(in srgb, var(--accent) 16%, var(--control-bg));
+}
+.ov__tip.is-now {
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+}
+.ov__tip.is-finish {
+  background: color-mix(in srgb, var(--good) 14%, var(--control-bg));
+}
+.ov__timing {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.ov__timing-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 0;
+  border-radius: 8px;
+}
+.ov__timing-col.is-now {
+  background: var(--control-bg-active);
+}
+.ov__timing-bar {
+  position: relative;
+  width: 14px;
+  height: 44px;
+  border-radius: 7px;
+  background: var(--control-bg);
+}
+.ov__timing-bar::after {
+  content: '';
+  position: absolute;
+  left: -3px;
+  right: -3px;
+  top: 50%;
+  border-top: 1px solid var(--hairline);
+}
+.ov__timing-bar i {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-radius: 7px;
+}
+.ov__timing-bar i.is-us {
+  bottom: 50%;
+  background: var(--good);
+}
+.ov__timing-bar i.is-them {
+  top: 50%;
+  background: var(--bad);
+}
+.ov__kill {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ov__kill-row {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 8px;
+}
+.ov__kill-row b {
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+.ov__topvs .kicker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+/* «Как это считается»: the explanation folded into one quiet line */
+.howto {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.howto > summary {
+  cursor: pointer;
+  list-style: none;
+  width: max-content;
+  border-bottom: 1px dashed currentColor;
+}
+.howto > summary::-webkit-details-marker {
+  display: none;
+}
+.howto[open] > summary {
+  margin-bottom: 6px;
+}
+.howto__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  line-height: 1.45;
+}
+/* ---------- Profile → «Статистика» ---------- */
+.mys {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.mys__over {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 1px;
+  background: var(--hairline);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.mys__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  background: var(--slot-bg);
+  min-width: 0;
+}
+.mys__stat b {
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+.mys__stat .small {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mys__stat.is-link {
+  cursor: pointer;
+}
+.mys__stat.is-link:hover {
+  background: var(--row-bg-hover);
+}
+.mys__label {
+  font-size: 10.5px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+}
+.mys__advice {
+  padding: 8px 10px;
+  border-left: 3px solid var(--warn);
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+  font-size: 12.5px;
+}
+.mys__heroes td,
+.mys__heroes th {
+  white-space: nowrap;
+}
+.mys__hero {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mys__hero .hero-icon--sm {
+  width: 40px;
+  height: 23px;
+  aspect-ratio: auto;
+  border-radius: 2px;
+  object-fit: cover;
+}
+.mys__bar {
+  position: relative;
+  display: block;
+  min-width: 70px;
+  height: 18px;
+}
+.mys__bar i {
+  position: absolute;
+  inset: 3px auto 3px 0;
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: 1px;
+}
+.mys__bar span {
+  position: relative;
+  padding-left: 4px;
+  line-height: 18px;
+}
+.mys__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px 18px;
+}
+.mys__grid section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.mys__hours {
+  display: grid;
+  grid-template-columns: repeat(24, 1fr);
+  align-items: end;
+  gap: 2px;
+  height: 70px;
+}
+.mys__hour {
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+.mys__hour i {
+  width: 100%;
+  min-height: 2px;
+  background: currentColor;
+  opacity: 0.85;
+  border-radius: 1px 1px 0 0;
+}
+.mys__hour:not(.c-good):not(.c-bad):not(.muted) {
+  color: var(--text-2);
+}
+.mys__hours-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: -4px;
+}
+.mys__mini td,
+.mys__mini th {
+  padding: 3px 6px;
+}
+.mys__mini td:not(:first-child),
+.mys__mini th:not(:first-child) {
+  text-align: right;
+  width: 70px;
+}
+.mys__days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.mys__days span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 0;
+  background: var(--slot-bg);
+  border-radius: 2px;
+}
+.mys__mu {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.mys__mu ul {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.mys__mu li {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 6px;
+}
+.mys__mu li .hero-icon--sm {
+  width: 34px;
+  height: 20px;
+  aspect-ratio: auto;
+  border-radius: 2px;
+  object-fit: cover;
+}
+.mys__mu li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* ---------- «Кто заруинил» v2: player detail, lanes, fights, map ---------- */
+.ruin__row {
+  cursor: pointer;
+}
+.ruin__row.is-picked {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.ruin__obj {
+  font-size: 9px;
+  font-weight: 700;
+  fill: var(--text-2);
+}
+.ruin__player {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--slot-bg);
+}
+.ruin__parts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.ruin__parts span {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: var(--control-bg);
+}
+.ruin__parts span.is-good b {
+  color: var(--good);
+}
+.ruin__parts span.is-bad b {
+  color: var(--bad);
+}
+.ruin__parts small {
+  color: var(--text-3);
+}
+.ruin__cols {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 16px;
+}
+.ruin__mistakes,
+.ruin__items {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ruin__mistakes li {
+  display: grid;
+  grid-template-columns: 44px 1fr;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.ruin__mistakes code {
+  font-family: var(--font-mono);
+  color: var(--bad);
+  font-size: 12px;
+}
+.ruin__sum {
+  margin-top: 8px;
+}
+.ruin__items li {
+  display: grid;
+  grid-template-columns: auto 1fr 34px 34px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.ruin__items li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ruin__items b,
+.ruin__items small {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.ruin__lanes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.ruin__lane {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ruin__lane-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+}
+.ruin__lane-sides {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+.ruin__lane-sides > div:first-child {
+  border-right: 1px solid var(--hairline);
+  padding-right: 6px;
+}
+.ruin__lane-hero {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 6px;
+  align-items: center;
+  font-size: 12px;
+}
+.ruin__lane-hero .hero-icon--sm {
+  grid-row: span 2;
+  width: 32px;
+  height: 18px;
+  aspect-ratio: auto;
+  border-radius: 2px;
+  object-fit: cover;
+}
+.ruin__lane-hero span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ruin__fights td {
+  white-space: nowrap;
+}
+.ruin__fights .hero-icon--xs {
+  margin-right: 2px;
+}
+.ruin__mapwrap {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.ruin__map {
+  width: 300px;
+  height: 300px;
+  flex: none;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--hairline);
+}
+.ruin__map-bg {
+  fill: #172019;
+}
+.ruin__map-river {
+  fill: none;
+  stroke: #1f3447;
+  stroke-width: 14;
+}
+.ruin__map-lane {
+  fill: none;
+  stroke: #2a3326;
+  stroke-width: 6;
+}
+.ruin__dead {
+  stroke: rgba(0, 0, 0, 0.6);
+  stroke-width: 1;
+}
+.ruin__dead.is-radiant {
+  fill: var(--radiant);
+}
+.ruin__dead.is-dire {
+  fill: var(--dire);
+}
+.ruin__dead.is-focus {
+  stroke: #fff;
+  stroke-width: 1.5;
+}
+.ruin__ward.is-obs {
+  fill: #e3b341;
+}
+.ruin__ward.is-sen {
+  fill: #5aa0d8;
+}
+.ruin__legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ruin__dot,
+.ruin__sq {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+.ruin__dot {
+  border-radius: 50%;
+}
+.ruin__dot.is-radiant {
+  background: var(--radiant);
+}
+.ruin__dot.is-dire {
+  background: var(--dire);
+}
+.ruin__dot.is-focus {
+  background: transparent;
+  border: 1.5px solid #fff;
+}
+.ruin__sq.is-obs {
+  background: #e3b341;
+}
+.ruin__sq.is-sen {
+  background: #5aa0d8;
+}
+@media (max-width: 900px) {
+  .ruin__cols,
+  .ruin__lanes {
+    grid-template-columns: 1fr;
+  }
+}
+.ruin__heroes { white-space: nowrap; }
+.mys__rating {
+  width: 100%;
+  height: 120px;
+  display: block;
+}
+.mys__rating-mid {
+  stroke: var(--hairline);
+  stroke-dasharray: 3 3;
+}
+.mys__rating-line {
+  fill: none;
+  stroke: var(--text-3);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+.mys__rating-dot {
+  cursor: pointer;
+  stroke: rgba(0, 0, 0, 0.5);
+  vector-effect: non-scaling-stroke;
+}
+.mys__rating-dot.is-win {
+  fill: var(--good);
+}
+.mys__rating-dot.is-loss {
+  fill: var(--bad);
+}
+.mys__rating-dot.is-ruiner {
+  stroke: #fff;
+  stroke-width: 2;
+}
+.mys__rating-dot.is-mvp {
+  fill: var(--gold, #e3b341);
+}
