@@ -21,6 +21,7 @@ class Resp:
 @pytest.fixture()
 def site(tmp_path, monkeypatch):
     monkeypatch.setattr(G, "DIR", tmp_path)
+    monkeypatch.setattr(G, "_prefetch", lambda files: list(files))   # no background downloads in tests
     calls = []
     answers = {
         "/works": {"total": 3, "page": 0, "items": [
@@ -126,5 +127,19 @@ def test_cache_is_kept_under_its_limit_newest_first(tmp_path, monkeypatch):
         f.parent.mkdir(exist_ok=True)
         f.write_bytes(b"x" * 100)
         os.utime(f, (1000 + i, 1000 + i))
-    G._prune(limit=250)
+    G._prune(limit=250, force=True)
     assert sorted(p.name for p in (tmp_path / "backgrounds").iterdir()) == ["f3", "f4"]
+
+
+def test_a_list_prefetches_its_pictures_once(tmp_path, monkeypatch):
+    monkeypatch.setattr(G, "DIR", tmp_path)
+    fetched = []
+
+    class Pool:
+        def submit(self, fn, *a):
+            fn(*a)
+    monkeypatch.setattr(G, "_pool", Pool())
+    monkeypatch.setattr(G, "_get", lambda path, params=None: fetched.append(path) or Resp(content=b"jpg"))
+    G._prefetch([("previews", f"/preview/work/{WORK}.jpg", f"{WORK}@7")] * 2)
+    assert fetched == [f"/preview/work/{WORK}.jpg"]          # the second time it is on disk already
+    assert G.grid_preview(WORK, "7").read_bytes() == b"jpg"

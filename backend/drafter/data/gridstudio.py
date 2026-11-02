@@ -17,7 +17,9 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import httpx
@@ -41,14 +43,36 @@ _BG_ID = re.compile(r"^[1-9]\d{0,12}$")
 BG_FILES = {"poster.jpg": "image/jpeg", "preview.webm": "video/webm", "video.webm": "video/webm"}
 
 
+PRUNE_EVERY = 60            # seconds between cache size checks (each walks the whole cache folder)
+PREFETCH = 6               # pictures fetched at once in the background when a list comes in
+
+
 class WorkshopError(RuntimeError):
     pass
 
 
+# One client for every request: its connections are kept open, so the dozens of pictures of a page
+# don't each pay for a new TLS handshake (that, not the files, was most of the wait).
+_client: httpx.Client | None = None
+_client_lock = threading.Lock()
+_pool = ThreadPoolExecutor(max_workers=PREFETCH, thread_name_prefix="workshop")
+_file_locks: dict[str, threading.Lock] = {}
+_last_prune = 0.0
+
+
+def _http() -> httpx.Client:
+    global _client
+    with _client_lock:
+        if _client is None:
+            _client = httpx.Client(timeout=30, follow_redirects=True,
+                                   limits=httpx.Limits(max_connections=12, max_keepalive_connections=12),
+                                   headers={"User-Agent": f"{config.USER_AGENT} (Dota Drafter; workshop browser)"})
+        return _client
+
+
 def _get(path: str, params: dict | None = None) -> httpx.Response:
     try:
-        r = httpx.get(BASE + path, params=params, timeout=30, follow_redirects=True,
-                      headers={"User-Agent": f"{config.USER_AGENT} (Dota Drafter; workshop browser)"})
+        r = _http().get(BASE + path, params=params)
     except httpx.HTTPError as e:
         raise WorkshopError(f"GridStudio не ответил: {e}") from e
     if r.status_code == 429:
@@ -87,8 +111,14 @@ def _cached_json(kind: str, key: str, ttl: float, fetch):
     return data
 
 
-def _prune(limit: int = CACHE_MAX) -> None:
-    """Keep the cache under `limit`: every search, page and preview is a file of its own."""
+def _prune(limit: int = CACHE_MAX, force: bool = False) -> None:
+    """Keep the cache under `limit`: every search, page and preview is a file of its own. Walking
+    the folder costs more than a picture, so it is done at most every PRUNE_EVERY seconds."""
+    global _last_prune
+    now = time.time()
+    if not force and now - _last_prune < PRUNE_EVERY:
+        return
+    _last_prune = now
     try:
         files = sorted((f for f in DIR.rglob("*") if f.is_file()), key=lambda f: f.stat().st_mtime, reverse=True)
         total = 0
@@ -123,6 +153,7 @@ def grids(q: str = "", tag: str = "", sort: str = "popular", page: int = 0) -> d
               "downloads": w.get("downloads", 0), "stats": w.get("stats") or {}, "updated": w.get("updated"),
               "url": f"{SITE}/workshop?id={w['id']}"}
              for w in raw.get("items") or [] if not _adult(w)]
+    _prefetch(("previews", f"/preview/work/{w['id']}.jpg", f"{w['id']}@{w.get('revision') or ''}") for w in items)
     return {"items": items, "total": raw.get("total", len(items)), "page": raw.get("page", page), "stale": raw.get("stale", False)}
 
 
@@ -148,6 +179,7 @@ def backgrounds(q: str = "", tag: str = "", aspect: str = "", sort: str = "popul
               "likes": b.get("likes", 0), "downloads": b.get("downloads", 0), "has_preview": bool(b.get("preview")),
               "url": f"{SITE}/background?background={b['id']}"}
              for b in raw.get("items") or [] if not _adult(b)]
+    _prefetch(("backgrounds", f"/backgrounds/{b['id']}/poster.jpg", f"{b['id']}/poster.jpg") for b in items)
     return {"items": items, "total": raw.get("total", len(items)), "aspects": raw.get("aspects") or {}, "stale": raw.get("stale", False)}
 
 
@@ -163,6 +195,15 @@ def _file(kind: str, path: str, key: str) -> Path:
     dest = _cache_path(kind, key)
     if dest.exists():
         return dest
+    with _client_lock:
+        lock = _file_locks.setdefault(f"{kind}/{key}", threading.Lock())
+    with lock:                      # the page and the background prefetch asking for the same picture
+        if dest.exists():
+            return dest
+        return _download(path, dest)
+
+
+def _download(path: str, dest: Path) -> Path:
     r = _get(path)
     if len(r.content) > MAX_FILE:
         raise WorkshopError("файл в мастерской слишком большой")
@@ -172,6 +213,21 @@ def _file(kind: str, path: str, key: str) -> Path:
     tmp.replace(dest)
     _prune()
     return dest
+
+
+def _prefetch(files) -> None:
+    """Fetch a list's pictures in the background (PREFETCH at once) while the page is drawn: when
+    the cards ask for them they are already on disk."""
+    for kind, path, key in files:
+        if not _cache_path(kind, key).exists():
+            _pool.submit(_quiet_file, kind, path, key)
+
+
+def _quiet_file(kind: str, path: str, key: str) -> None:
+    try:
+        _file(kind, path, key)
+    except Exception:  # noqa: BLE001 - the card asks again and shows its own error
+        pass
 
 
 def background_file(bg_id: str, name: str) -> tuple[Path, str]:

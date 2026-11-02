@@ -93,16 +93,15 @@ function Grids({ meta, onNote }: { meta?: Meta; onNote: (s: string) => void }) {
   const list = useQuery({
     queryKey: ['ws-grids', query, tag, sort, pages],
     queryFn: async () => {
-      const all: GridCard[] = [];
-      let total = 0;
-      let stale = false;
-      for (let page = 0; page < pages; page++) {
-        const r = await api<{ items: GridCard[]; total: number; stale: boolean }>(`/workshop/grids?${q({ q: query, tag, sort, page })}`);
-        all.push(...r.items);
-        total = r.total;
-        stale ||= r.stale;
-      }
-      return { items: all, total, stale };
+      // the pages at once (the backend caches each), not one after another
+      const pagesData = await Promise.all(
+        Array.from({ length: pages }, (_, page) => api<{ items: GridCard[]; total: number; stale: boolean }>(`/workshop/grids?${q({ q: query, tag, sort, page })}`)),
+      );
+      return {
+        items: pagesData.flatMap((r) => r.items),
+        total: pagesData[pagesData.length - 1]?.total ?? 0,
+        stale: pagesData.some((r) => r.stale),
+      };
     },
     retry: false,
     staleTime: 5 * 60_000,
@@ -189,16 +188,15 @@ function Backgrounds({ meta, onNote }: { meta?: Meta; onNote: (s: string) => voi
   const list = useQuery({
     queryKey: ['ws-bgs', query, tag, aspect, sort, pages],
     queryFn: async () => {
-      const all: BgCard[] = [];
-      let total = 0;
-      let stale = false;
-      for (let page = 0; page < pages; page++) {
-        const r = await api<{ items: BgCard[]; total: number; stale: boolean }>(`/workshop/backgrounds?${q({ q: query, tag, aspect, sort, page })}`);
-        all.push(...r.items);
-        total = r.total;
-        stale ||= r.stale;
-      }
-      return { items: all, total, stale };
+      // the pages at once (the backend caches each), not one after another
+      const pagesData = await Promise.all(
+        Array.from({ length: pages }, (_, page) => api<{ items: BgCard[]; total: number; stale: boolean }>(`/workshop/backgrounds?${q({ q: query, tag, aspect, sort, page })}`)),
+      );
+      return {
+        items: pagesData.flatMap((r) => r.items),
+        total: pagesData[pagesData.length - 1]?.total ?? 0,
+        stale: pagesData.some((r) => r.stale),
+      };
     },
     retry: false,
     staleTime: 5 * 60_000,

@@ -560,6 +560,10 @@ def patch_notes(version: str):
 
 # ---------- GridStudio's workshop (data/gridstudio.py) ----------------------------------------
 
+# a work's picture and a background's files never change under the same address (a new revision
+# is a new address): the window keeps them instead of asking again on every visit
+_FOREVER = {"Cache-Control": "public, max-age=31536000, immutable"}
+
 def _workshop(fn, *a, **kw):
     if os.environ.get("DRAFTER_NO_BUILD_LOAD") == "1":   # tests: never hit the network
         raise HTTPException(503, "мастерская выключена в тестах")
@@ -597,14 +601,14 @@ def workshop_arts():
 @app.get("/workshop-media/grid/{work_id}.jpg")
 def workshop_grid_preview(work_id: str, rev: str = ""):
     from fastapi.responses import FileResponse
-    return FileResponse(_workshop(gridstudio.grid_preview, work_id, rev), media_type="image/jpeg")
+    return FileResponse(_workshop(gridstudio.grid_preview, work_id, rev), media_type="image/jpeg", headers=_FOREVER)
 
 
 @app.get("/workshop-media/bg/{bg_id}/{name}")
 def workshop_background_file(bg_id: str, name: str):
     from fastapi.responses import FileResponse
     path, kind = _workshop(gridstudio.background_file, bg_id, name)
-    return FileResponse(path, media_type=kind)
+    return FileResponse(path, media_type=kind, headers=_FOREVER)
 
 
 # ---------- links to the sites the app shows data from ------------------------------------------
