@@ -627,7 +627,7 @@ def workshop_background_file(bg_id: str, name: str):
 # sites only (a page can't make the backend open anything else).
 
 LINK_HOSTS = ("stratz.com", "www.dotabuff.com", "dotabuff.com", "www.opendota.com", "opendota.com",
-              "steamcommunity.com", "gridstudio.me", "github.com", "t.me")
+              "steamcommunity.com", "gridstudio.me", "github.com", "t.me", "h6rd.github.io")
 
 
 class OpenUrlIn(BaseModel):
@@ -1499,7 +1499,10 @@ async def game_mods_install_pack(request: Request, name: str = Query("", max_len
                 if written > mod_install.PACK_MAX:
                     raise HTTPException(413, "VPK больше 1,5 ГБ")
                 f.write(chunk)
-        return await run_in_threadpool(_mods_call, mod_install.install_pack, config.settings().account_id, part, name)
+        with part.open("rb") as f:
+            is_zip = f.read(4) == mod_install.ZIP_MAGIC
+        fn = mod_install.install_zip if is_zip else mod_install.install_pack
+        return await run_in_threadpool(_mods_call, fn, config.settings().account_id, part, name)
     finally:
         part.unlink(missing_ok=True)
 

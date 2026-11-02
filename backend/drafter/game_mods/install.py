@@ -436,6 +436,47 @@ def install_pack(account_id: int | None, data: bytes | Path, name: str) -> dict:
     return {**entry, "overlaps": overlaps}
 
 
+ZIP_MAGIC = b"PK\x03\x04"
+_CHUNK = re.compile(r"_\d{3}\.vpk$", re.I)
+
+
+def install_zip(account_id: int | None, path: Path, name: str) -> dict:
+    """Mods are often shared as a .zip with the VPK inside (downloaded by hand, for one's own game):
+    every single-file VPK in the archive goes in like «Добавить .vpk». A split VPK (pakNN_000.vpk…)
+    is refused, as a single upload of one is."""
+    import zipfile
+    try:
+        z = zipfile.ZipFile(path)
+    except zipfile.BadZipFile as e:
+        raise ModError("архив не читается") from e
+    with z:
+        members = [i for i in z.infolist() if not i.is_dir() and i.filename.lower().endswith(".vpk")]
+        if not members:
+            raise ModError("в архиве нет файла .vpk")
+        if any(_CHUNK.search(i.filename) for i in members):
+            raise ModError("в архиве многотомный VPK (_000.vpk, _001.vpk…): такой мод так не поставить")
+        if sum(i.file_size for i in members) > PACK_MAX:
+            raise ModError("VPK в архиве больше 1,5 ГБ")
+        done, errors = [], []
+        folder = incoming_dir()
+        folder.mkdir(parents=True, exist_ok=True)
+        for i in members:
+            part = folder / f"zip-{os.getpid()}-{time.time_ns()}.vpk"
+            try:
+                with z.open(i) as src, part.open("wb") as dst:
+                    shutil.copyfileobj(src, dst, 1 << 20)
+                label = f"{Path(name).stem} · {Path(i.filename).name}" if len(members) > 1 else Path(name).stem
+                done.append(install_pack(account_id, part, label))
+            except ModError as e:
+                errors.append(f"{Path(i.filename).name}: {e}")
+            finally:
+                part.unlink(missing_ok=True)
+    if not done:
+        raise ModError("; ".join(errors) or "ничего не поставлено")
+    first = done[0]
+    return {**first, "installed": done, "errors": errors}
+
+
 def incoming_dir() -> Path:
     """Where an upload is streamed before it is checked and copied into Dota's folder."""
     return root() / "incoming"

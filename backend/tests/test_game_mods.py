@@ -331,3 +331,26 @@ def test_a_font_updated_by_valve_comes_back_as_the_new_one(dota):
     I.install_fonts(files, {"font": "oswald"})
     I.remove_fonts()
     assert (fonts / "reaver-bold.otf").read_bytes() == b"VALVE NEW"
+
+
+def test_a_zip_with_vpks_inside_installs_each(dota, tmp_path):
+    import zipfile
+    root, _ = dota
+    z = tmp_path / "mod.zip"
+    with zipfile.ZipFile(z, "w") as f:
+        f.writestr("Cool Mod/pak01_dir.vpk", V.build_vpk([("particles/a.vpcf_c", b"A")]))
+        f.writestr("Cool Mod/readme.txt", "hi")
+    res = I.install_zip(None, z, "Cool Mod.zip")
+    assert res["files"] == 1 and res["name"] == "Cool Mod" and len(res["installed"]) == 1
+    assert Path(res["path"]).parent == root / "game" / "dota_russian"
+    split = tmp_path / "split.zip"
+    with zipfile.ZipFile(split, "w") as f:
+        f.writestr("pak01_dir.vpk", b"x")
+        f.writestr("pak01_000.vpk", b"y")
+    with pytest.raises(I.ModError, match="многотомный"):
+        I.install_zip(None, split, "split.zip")
+    empty = tmp_path / "empty.zip"
+    with zipfile.ZipFile(empty, "w") as f:
+        f.writestr("readme.txt", "no mod")
+    with pytest.raises(I.ModError, match="нет файла"):
+        I.install_zip(None, empty, "empty.zip")
