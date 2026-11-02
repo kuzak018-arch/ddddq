@@ -2,7 +2,7 @@
  * the app can open a breakdown by itself after a match (lib/afterMatch.ts). */
 import { create } from 'zustand';
 
-export type ProfileTab = 'stats' | 'matches' | 'ruin' | 'pool' | 'search';
+export type ProfileTab = 'stats' | 'history' | 'matches' | 'ruin' | 'pool' | 'search';
 
 interface NavState {
   profileTab: ProfileTab;

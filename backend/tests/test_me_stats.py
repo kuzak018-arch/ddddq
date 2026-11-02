@@ -60,3 +60,13 @@ def test_hours_are_local_time():
     t = int(time.mktime((2026, 10, 1, 21, 30, 0, 0, 0, -1)))
     out = me_stats.stats({"matches": [match(1, 1, True, t)]}, t)
     assert out["when"]["hours"][21]["games"] == 1 and out["when"]["blocks"][3]["games"] == 1
+
+
+def test_history_newest_first_filtered_and_paged():
+    data, now = history()
+    ratings = {"119": {"rating": 33, "tag": "ruiner"}}
+    out = me_stats.history(data, ratings, limit=10)
+    assert out["total"] == 120 and len(out["rows"]) == 10 and out["rows"][0]["match"] == 119
+    assert out["rows"][0]["rating"] == 33 and out["rows"][0]["tag"] == "ruiner"
+    only = me_stats.history(data, {}, hero=14, result="win", party="solo", limit=200)
+    assert only["rows"] and all(r["hero"] == 14 and r["win"] and r["party"] == 1 for r in only["rows"])

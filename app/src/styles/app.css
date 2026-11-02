@@ -6668,3 +6668,33 @@ a.btn {
 .mys__rating-dot.is-mvp {
   fill: var(--gold, #e3b341);
 }
+/* ---------- Profile → «История» ---------- */
+.myh {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.myh__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.myh__hero {
+  width: 220px;
+}
+.myh__table td {
+  white-space: nowrap;
+}
+.myh__table tr.is-win td:first-child {
+  box-shadow: inset 3px 0 0 var(--good);
+}
+.myh__table tr.is-loss td:first-child {
+  box-shadow: inset 3px 0 0 var(--bad);
+}
+.myh__pages {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+}

@@ -506,6 +506,17 @@ def my_stats():
     return {**me_stats.stats(data), "fetched": data["fetched"], "has_peers": "peers" in data}
 
 
+@app.get("/me/history")
+def my_history(offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200), hero: int | None = None,
+               result: Literal["win", "loss"] | None = None, party: Literal["solo", "party"] | None = None):
+    """Every ranked match of the history with the user's numbers (and the rating of those broken down)."""
+    from ..data import me_stats
+    data = me.load()
+    if not data:
+        raise HTTPException(404, "истории ещё нет: нажми «Обновить историю»")
+    return me_stats.history(data, after_match_mod.load(), offset, limit, hero, result, party)
+
+
 @app.get("/me/ratings")
 def my_ratings():
     """The user's rating in every match broken down (after each match by itself, or backfilled)."""

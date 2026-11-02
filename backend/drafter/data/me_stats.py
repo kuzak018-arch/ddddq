@@ -187,3 +187,27 @@ def stats(data: dict, now: float | None = None) -> dict:
                                 "match": longest["match_id"], "win": _won(longest)},
                     "avg_minutes": round(statistics.mean((m.get("duration") or 0) for m in matches) / 60, 1)},
     }
+
+
+def history(data: dict, ratings: dict | None = None, offset: int = 0, limit: int = 50, hero: int | None = None,
+            result: str | None = None, party: str | None = None) -> dict:
+    """Every ranked match of the history, newest first, with the user's numbers, filtered, a page at
+    a time; `ratings`: the «Кто заруинил» line of the matches already broken down (after_match.py)."""
+    ratings = ratings or {}
+    rows = []
+    for m in sorted((m for m in data.get("matches") or [] if m.get("hero_id")), key=lambda m: -(m.get("start_time") or 0)):
+        won = _won(m)
+        solo = (m.get("party_size") or 1) <= 1
+        if (hero and m["hero_id"] != hero) or (result == "win" and not won) or (result == "loss" and won) \
+                or (party == "solo" and not solo) or (party == "party" and solo):
+            continue
+        k, d, a = m.get("kills") or 0, m.get("deaths") or 0, m.get("assists") or 0
+        r = ratings.get(str(m["match_id"])) or {}
+        rows.append({"match": m["match_id"], "t": m.get("start_time"), "hero": m["hero_id"], "win": won,
+                     "k": k, "d": d, "a": a, "kda": round((k + a) / max(d, 1), 2),
+                     "minutes": round((m.get("duration") or 0) / 60), "party": m.get("party_size") or 1,
+                     "radiant": m["player_slot"] < 128, "parsed": bool(m.get("version")),
+                     "rating": r.get("rating"), "tag": r.get("tag")})
+    wins = sum(1 for r in rows if r["win"])
+    return {"total": len(rows), "wins": wins, "wr": _wr(wins, len(rows)), "rows": rows[offset:offset + limit],
+            "offset": offset, "limit": limit}

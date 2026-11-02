@@ -31,6 +31,7 @@ import { HeroSearch } from '../components/HeroSearch';
 import { Ti } from '../components/Icons';
 import { MatchHistory } from '../components/MatchHistory';
 import { MatchRuin } from '../components/MatchRuin';
+import { MyHistory } from '../components/MyHistory';
 import { MyStats } from '../components/MyStats';
 import { type ProfileTab, useNav } from '../state/nav';
 import { PlayerSearch } from '../components/PlayerSearch';
@@ -127,7 +128,8 @@ export function ProfilePage() {
             onChange={setTab}
             options={[
               { value: 'stats', label: <><Ti icon={ChartLine} />Статистика</> },
-              { value: 'matches', label: <><Ti icon={Gamepad2} />Матчи</> },
+              { value: 'history', label: <><Ti icon={Gamepad2} />История</> },
+              { value: 'matches', label: <><Ti icon={Gamepad2} />Оценки Stratz</> },
               { value: 'ruin', label: <><Ti icon={Skull} />Кто заруинил</> },
               { value: 'pool', label: <><Ti icon={LayoutGrid} />Пул героев</> },
               { value: 'search', label: <><Ti icon={UserSearch} />Найти игрока</> },
@@ -143,6 +145,14 @@ export function ProfilePage() {
           />
         )}
         {tab === 'ruin' && <MatchRuin initial={ruinId} />}
+        {tab === 'history' && (
+          <MyHistory
+            onAnalyze={(id) => {
+              setRuinId(id);
+              setTab('ruin');
+            }}
+          />
+        )}
         {tab === 'stats' && (
           <MyStats
             onAnalyze={(id) => {
