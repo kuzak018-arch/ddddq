@@ -9,11 +9,14 @@ import { useRef, useState } from 'react';
 
 import { api, apiBytes } from '../../api/client';
 import { useUi } from '../../state/ui';
+import { ExternalLink } from '../ExternalLink';
 import { Ti } from '../Icons';
 import { ErrorBox } from '../ui';
 import { blocker, useModsStatus } from './ModsGate';
 
 interface Installed {
+  installed?: Installed[];
+  errors?: string[];
   id: string;
   name: string;
   path: string;
@@ -52,11 +55,13 @@ export function PackManager() {
         </h2>
         <button className="btn btn--sm btn--accent" disabled={!!block || add.isPending} onClick={() => input.current?.click()}>
           <Ti icon={Upload} />
-          {add.isPending ? 'Ставлю…' : 'Добавить .vpk'}
+          {add.isPending ? 'Ставлю…' : 'Добавить .vpk или .zip'}
         </button>
       </div>
       <p className="hint">
-        Готовые моды Доты одним файлом <code>.vpk</code> (например, <code>pak01_dir.vpk</code> из мода). Файл кладётся в папку языка озвучки
+        Готовые моды Доты одним файлом <code>.vpk</code> (например, <code>pak01_dir.vpk</code> из мода) или архивом <code>.zip</code> с VPK
+        внутри — так их раздают, например, на <ExternalLink href="https://h6rd.github.io/Dota2PornFxWeb/">Dota2PornFx</ExternalLink> (скачай мод
+        там и добавь сюда; для себя это разрешено их лицензией). Файл кладётся в папку языка озвучки
         {s?.usable && s.language ? (
           <>
             {' '}
@@ -70,7 +75,7 @@ export function PackManager() {
       <input
         ref={input}
         type="file"
-        accept=".vpk"
+        accept=".vpk,.zip"
         hidden
         onChange={(e) => {
           const f = e.target.files?.[0];
@@ -85,9 +90,17 @@ export function PackManager() {
       {add.error && <ErrorBox error={add.error} />}
       {add.data && (
         <div className="small">
-          <p className="c-good">
-            {add.data.name} поставлен как {fileName(add.data.path)} · {add.data.files} файлов. Запусти Доту — мод подхватится.
-          </p>
+          {(add.data.installed ?? [add.data]).map((x) => (
+            <p key={x.id} className="c-good">
+              {x.name} поставлен как {fileName(x.path)} · {x.files} файлов.
+            </p>
+          ))}
+          <p className="muted">Запусти Доту — мод подхватится.</p>
+          {add.data.errors?.map((e) => (
+            <p key={e} className="warn">
+              {e}
+            </p>
+          ))}
           {add.data.overlaps.map((o) => (
             <p key={o.pack} className="warn">
               Меняет те же файлы, что и {o.pack} ({o.files}, например <code>{o.example}</code>): в игре сработает один из них.

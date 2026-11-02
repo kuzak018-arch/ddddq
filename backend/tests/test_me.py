@@ -41,3 +41,21 @@ def test_negative_synergy_wording(monkeypatch):
     monkeypatch.setattr(explain, "name", lambda h: {1: "Slark", 2: "Pudge"}[h])
     assert "плохо сочетается" in explain.term_text(Term("synergy", [1, 2], -0.02))
     assert explain.term_text(Term("synergy", [1, 2], 0.02)).startswith("синергия")
+
+
+def test_only_wins_gives_a_pool_not_an_error():
+    data = {"account_id": 1, "fetched": 1, "matches": [
+        {"hero_id": 1, "start_time": 1, "player_slot": 0, "radiant_win": True},
+        {"hero_id": 2, "start_time": 2, "player_slot": 0, "radiant_win": True}]}
+    pool = me.hero_pool(data)
+    assert pool["experience"]["A"] == 0.0 and pool["heroes"][1]["games"] == 1
+
+
+def test_broken_history_files_read_as_none(tmp_path, monkeypatch):
+    monkeypatch.setattr(me, "DIR", tmp_path)
+    monkeypatch.setattr(me, "POSITIONS", tmp_path / "positions.json")
+    (tmp_path / "history.json").write_text("{", encoding="utf-8")   # cut off by a crash mid-write
+    (tmp_path / "positions.json").write_text("", encoding="utf-8")
+    assert me.load() is None
+    data = {"matches": [{"hero_id": 1, "match_id": 5, "start_time": 1, "player_slot": 0, "radiant_win": True}]}
+    assert me.summary(None, data)["form"]

@@ -33,7 +33,8 @@ SOURCES = {
     "divine": {"brackets": ["DIVINE", "IMMORTAL"], "min_rank": 70, "label": "Divine+"},
     "pro": {"label": "Про-матчи"},
 }
-TARGET = 60                 # matches per hero and source
+TARGET = 60                 # new matches per load (hero and source)
+KEEP = 2 * TARGET           # the newest this many of the current patch are kept in the file
 STRATZ_MAX_REQUESTS = 16    # one leaderboard + players
 MATCHES_PER_PLAYER = 6
 PRO_MAX_DETAILS = 24
@@ -141,16 +142,29 @@ def _normalize_stratz(m: dict, hero_id: int, item_ids: dict, ability_ids: dict) 
         "skills": [ability_ids.get(a["abilityId"], str(a["abilityId"])) for a in sorted(me.get("abilities") or [], key=lambda a: a.get("time") or 0)],
         "curve": (me.get("stats") or {}).get("networthPerMinute"), "curve_kind": "networth",
         "allies": [p["heroId"] for p in team if p is not me], "enemies": [p["heroId"] for p in foes],
+        "foes_pos": {str(p["heroId"]): int(p["position"][-1]) for p in foes
+                     if str(p.get("position") or "").startswith("POSITION_")},
     }
+
+
+def _current(data: dict, since: int) -> dict:
+    """The file without older patches' matches: they are never shown and must not count toward TARGET."""
+    return {**data, "matches": [r for r in data["matches"] if (r.get("t") or 0) >= since]}
+
+
+def _store(source: str, hero_id: int, data: dict, new: list[dict]) -> None:
+    data["matches"] = sorted(data["matches"] + new, key=lambda r: -(r["t"] or 0))[:KEEP]
+    _write(source, hero_id, data)
 
 
 def _fill_stratz(hero_id: int, source: str, state: dict) -> None:
     spec = SOURCES[source]
     since = patch_start()
     item_ids, ability_ids = _maps()
-    data = _read(source, hero_id)
+    data = _current(_read(source, hero_id), since)
     have = {r["m"] for r in data["matches"]}
     fresh: list[dict] = []
+    added = 0
     sz = stratz.Stratz(min_interval=0.45)
     try:
         board = sz.q("""{ leaderboard { hero(request: {heroIds: [%d], bracketIds: [%s], take: 100}) { steamAccountId position wins losses } } }"""
@@ -159,7 +173,7 @@ def _fill_stratz(hero_id: int, source: str, state: dict) -> None:
         state["players"] = len(board)
         requests = 1
         for row in board:
-            if requests >= STRATZ_MAX_REQUESTS or len(have) + len(fresh) >= TARGET or state.get("stop"):
+            if requests >= STRATZ_MAX_REQUESTS or added >= TARGET or state.get("stop"):
                 break
             left = stratz.limits.get("hour")
             if left is not None and left <= BUDGET_FLOOR:
@@ -180,9 +194,9 @@ def _fill_stratz(hero_id: int, source: str, state: dict) -> None:
                     fresh.append(rec)
                     have.add(rec["m"])
             if fresh:
-                data["matches"] = sorted(data["matches"] + fresh, key=lambda r: -(r["t"] or 0))
+                added += len(fresh)
+                _store(source, hero_id, data, fresh)
                 fresh = []
-                _write(source, hero_id, data)
             state["requests"] = requests
     finally:
         sz.close()
@@ -228,6 +242,7 @@ def _normalize_pro(m: dict, hero_id: int, ability_ids: dict) -> dict | None:
         "skills": [ability_ids.get(a, str(a)) for a in upgrades],
         "curve": me.get("gold_t"), "curve_kind": "gold",
         "allies": [p["hero_id"] for p in team if p is not me], "enemies": [p["hero_id"] for p in foes],
+        "foes_pos": {str(p["hero_id"]): q for p in foes if (q := _pro_position(p, foes))},
     }
 
 
@@ -239,22 +254,23 @@ def _item_key(item_id: int) -> str | None:
 def _fill_pro(hero_id: int, state: dict) -> None:
     since = patch_start()
     _, ability_ids = _maps()
-    data = _read("pro", hero_id)
+    data = _current(_read("pro", hero_id), since)
     have = {r["m"] for r in data["matches"]}
+    added = 0
     od = OpenDota()
     try:
         recent = od.get(f"/heroes/{hero_id}/matches") or []
         ids = [r["match_id"] for r in recent if (r.get("start_time") or 0) >= since and r["match_id"] not in have]
         state["players"] = len(recent)
         for n, mid in enumerate(ids[:PRO_MAX_DETAILS], 1):
-            if len(have) >= TARGET or state.get("stop"):
+            if added >= TARGET or state.get("stop"):
                 break
             rec = _normalize_pro(od.get(f"/matches/{mid}"), hero_id, ability_ids)
             state["requests"] = n
             if rec:
-                data["matches"] = sorted(data["matches"] + [rec], key=lambda r: -(r["t"] or 0))
+                added += 1
                 have.add(rec["m"])
-                _write("pro", hero_id, data)
+                _store("pro", hero_id, data, [rec])
     finally:
         od.close()
 
@@ -311,9 +327,11 @@ def _maybe_start(hero_id: int, source: str, data: dict, matches: list, refresh: 
     key = (hero_id, source)
     state = _states.get(key)
     busy = bool(state and state.get("loading"))
-    stale = time.time() - data.get("fetched", 0) > REFRESH_AFTER
+    fetched = data.get("fetched", 0)
+    stale = time.time() - fetched > REFRESH_AFTER or fetched < patch_start()
     recently_failed = state and state.get("error") and time.time() - state.get("done", 0) < 60
-    if not busy and (refresh or stale or not matches) and not (recently_failed and not refresh):
+    # an empty list loads once; a load that found nothing waits for `stale` (no load on every poll)
+    if not busy and (refresh or stale or (not matches and not state)) and not (recently_failed and not refresh):
         state = {"loading": True, "requests": 0, "players": 0, "error": None, "note": None}
         _states[key] = state
         threading.Thread(target=_run, args=(hero_id, source, state), daemon=True, name=f"topgames-{hero_id}-{source}").start()
@@ -371,17 +389,9 @@ def _median_minute(times: list[int]) -> float:
     return round((ordered[mid] if len(ordered) % 2 else (ordered[mid - 1] + ordered[mid]) / 2) / 60, 1)
 
 
-def vs_draft(hero_id: int, enemies: list[int], pos: int | None = None, load: bool = True) -> dict:
-    """What top players (Divine+, Immortal, pros; this patch) bought on the hero in games where the
-    enemy team had this draft: matches sharing most of the known enemy heroes. Reads what is cached;
-    when the hero has not been loaded (or the list is stale) the load starts in the background and
-    `loading` says so. Nothing found is an answer too: the overlay then keeps its usual build."""
-    from .builds import sequences
-
-    enemies = sorted({int(e) for e in enemies if e})
-    if len(enemies) < VS_MIN_ENEMIES:
-        return {"found": False, "reason": "few_enemies", "loading": False, "error": None, "min_enemies": VS_MIN_ENEMIES}
-    need = _need(len(enemies))
+def _pool(hero_id: int, load: bool) -> tuple[dict[int, tuple[dict, str]], bool, str | None]:
+    """This patch's cached top games of the hero, every source; a load starts in the background when
+    the hero has none (or they are stale)."""
     since = patch_start()
     pool: dict[int, tuple[dict, str]] = {}
     loading, error = False, None
@@ -396,6 +406,21 @@ def vs_draft(hero_id: int, enemies: list[int], pos: int | None = None, load: boo
         error = error or (state.get("error") if not matches else None)
         for r in matches:
             pool.setdefault(r["m"], (r, source))
+    return pool, loading, error
+
+
+def vs_draft(hero_id: int, enemies: list[int], pos: int | None = None, load: bool = True) -> dict:
+    """What top players (Divine+, Immortal, pros; this patch) bought on the hero in games where the
+    enemy team had this draft: matches sharing most of the known enemy heroes. Reads what is cached;
+    when the hero has not been loaded (or the list is stale) the load starts in the background and
+    `loading` says so. Nothing found is an answer too: the overlay then keeps its usual build."""
+    from .builds import sequences
+
+    enemies = sorted({int(e) for e in enemies if e})
+    if len(enemies) < VS_MIN_ENEMIES:
+        return {"found": False, "reason": "few_enemies", "loading": False, "error": None, "min_enemies": VS_MIN_ENEMIES}
+    need = _need(len(enemies))
+    pool, loading, error = _pool(hero_id, load)
     hits = []
     for rec, source in pool.values():
         if pos is not None and rec.get("pos") not in (pos, None):
@@ -404,6 +429,36 @@ def vs_draft(hero_id: int, enemies: list[int], pos: int | None = None, load: boo
         if overlap >= need and (game := sequences.parse(rec)):
             hits.append((overlap, rec, source, game))
     base = {"found": False, "reason": "none", "loading": loading, "error": error, "checked": len(pool), "need": need}
+    return _summary(hits, base, len(enemies))
+
+
+def vs_lane(hero_id: int, lane: list[int], pos: int, load: bool = True) -> dict:
+    """The same for my lane only: games where the hero, on this position, laned against these heroes
+    (Axe and Lich against Anti-Mage on the safe lane). A game counts when all of them were in the
+    enemy team and, where the record knows the enemies' positions, stood on the positions facing mine."""
+    from .builds import sequences
+    from .lane.service import LANE_OPPONENTS
+
+    lane = sorted({int(e) for e in lane if e})
+    if not lane:
+        return {"found": False, "reason": "no_lane", "loading": False, "error": None}
+    facing = set(LANE_OPPONENTS.get(pos, ()))
+    pool, loading, error = _pool(hero_id, load)
+    hits = []
+    for rec, source in pool.values():
+        if rec.get("pos") not in (pos, None) or not set(lane) <= set(rec.get("enemies") or []):
+            continue
+        where = rec.get("foes_pos") or {}
+        if any(str(h) in where and where[str(h)] not in facing for h in lane):
+            continue        # they were in the game, not on my lane
+        if game := sequences.parse(rec):
+            hits.append((len(lane), rec, source, game))
+    base = {"found": False, "reason": "none", "loading": loading, "error": error, "checked": len(pool), "lane": lane}
+    return {**_summary(hits, base, len(lane)), "lane": lane}
+
+
+def _summary(hits: list, base: dict, enemies: int) -> dict:
+    """Boots and core items of these games with their usual minute, and the games themselves."""
     if not hits:
         return base
     hits.sort(key=lambda h: (-h[0], not h[1].get("w"), -(h[1].get("t") or 0)))
@@ -439,5 +494,5 @@ def vs_draft(hero_id: int, enemies: list[int], pos: int | None = None, load: boo
         "core": [k for k, _ in game.core][:MAX_CORE],
     } for overlap, rec, source, game in hits[:VS_SHOW_MATCHES]]
     return {**base, "found": True, "reason": None, "games": n, "wins": sum(1 for h in hits if h[1].get("w")),
-            "full": sum(1 for h in hits if h[0] == len(enemies)), "enemies": len(enemies), "sources": labels,
+            "full": sum(1 for h in hits if h[0] == enemies), "enemies": enemies, "sources": labels,
             "boots": boot, "core": core_out, "matches": shown}

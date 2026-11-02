@@ -1,8 +1,9 @@
 """What happens after a collected draft is over, with no clicks needed:
 
-1. calibration: if the user hasn't placed the rects by hand, fit them to a complete frame of the
-   draft (autocal) - the preset is only a guess about Valve's UI;
-2. templates: on that frame, each team's crops are matched to the team's five heroes (best
+1. calibration: if the user hasn't placed the rects by hand, the rects for frames where the colour
+   bars can't be seen: the bars' own slots when the complete frame shows them, else a fit to the
+   frame by the heroes on the board (autocal) - the preset is only a guess about Valve's UI;
+2. templates: on that frame (cut by the same slots the reader uses: the bars first), each team's crops are matched to the team's five heroes (best
    one-to-one assignment) and saved as learned templates tagged with the draft, when the match is
    clear; accuracy on a draft is always measured without its own templates;
 3. accuracy on everything collected and confirmed so far. Reading is on from the first draft;
@@ -19,7 +20,7 @@ import numpy as np
 from scipy.optimize import linear_sum_assignment
 
 from .. import config
-from . import autocal, calibration, collector, evaluate, layout, matcher, reader
+from . import autocal, bars, calibration, collector, evaluate, layout, matcher, reader
 
 STATE = config.DATA / "vision" / "auto.json"
 AUTO_MIN_DRAFTS = 2
@@ -60,11 +61,19 @@ KEEP_FOUND = 8               # an automatic calibration that still finds this ma
 def calibrate(d: dict) -> dict:
     lab = d.get("labels") or {}
     f = complete_frame(d)
-    if not f or len(lab.get("radiant", [])) < 4 or len(lab.get("dire", [])) < 4:
-        return {"done": False, "reason": "нет кадра со всеми героями или разметки составов"}
+    if not f:
+        return {"done": False, "reason": "нет кадра со всеми героями"}
     img = matcher._read(collector.frame_path(f["id"]))
     if img is None:
         return {"done": False, "reason": "кадр не читается"}
+    found = bars.find(img)
+    if found is not None:
+        # the slots under the colour bars are exact: a fit by the board's heroes could only be worse
+        # (and a wrong hero on the board would pull it off the portraits)
+        calibration.save(found.model_copy(update={"preset": False, "auto": True, "source": "auto"}))
+        return {"done": True, "frame": f["id"], "bars": True}
+    if len(lab.get("radiant", [])) < 4 or len(lab.get("dire", [])) < 4:
+        return {"done": False, "reason": "нет разметки составов"}
     current = calibration.load()
     if current.auto:
         res = reader.read(img, current, exclude=d["id"])
@@ -94,7 +103,7 @@ def learn(d: dict, cal: calibration.Calibration | None = None) -> int:
     img = matcher._read(collector.frame_path(f["id"]))
     if img is None:
         return 0
-    crops = reader.crops(img, cal or layout.for_frame(img.shape[1], img.shape[0]))
+    crops = reader.crops(img, cal or bars.find(img) or layout.for_frame(img.shape[1], img.shape[0]))
     learned = 0
     for g in ("radiant", "dire"):
         heroes = [h for h in lab.get(g, []) if h]

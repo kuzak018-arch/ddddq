@@ -15,9 +15,14 @@ def clear_caches():
     predictor.get.cache_clear()
     constants.hero_index.cache_clear()
     from .. import search
-    from ..builds import standard
+    from ..builds import sequences, standard, tags
+    from ..data import stratz_matches
     search._haystacks.cache_clear()
     standard._maps.cache_clear()
+    # id -> key maps and item data: stale ones would store a new patch's items as raw ids for good
+    stratz_matches._id_maps.cache_clear()
+    for fn in (sequences._items, sequences._abilities, sequences._parents, tags._raw):
+        fn.cache_clear()
 
 
 def run(log) -> None:

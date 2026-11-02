@@ -201,6 +201,16 @@ def status(account_id: int | None) -> dict:
     return out
 
 
+def _six(v):
+    if isinstance(v, float):
+        return round(v, 6)
+    if isinstance(v, dict):
+        return {k: _six(x) for k, x in v.items()}
+    if isinstance(v, list):
+        return [_six(x) for x in v]
+    return v
+
+
 def _write_verified(path: Path, new: dict, before: dict, ours_names: set[str], backup: Path | None) -> None:
     """Atomic write, then read back: the user's grids must be unchanged and ours must be as built."""
     tmp = path.with_name(path.name + ".drafter-tmp")
@@ -208,8 +218,10 @@ def _write_verified(path: Path, new: dict, before: dict, ours_names: set[str], b
         tmp.write_text(dumps(new), encoding="utf-8", newline="")
         os.replace(tmp, path)
         after = _read(path)
-        keep_before = [c for c in before["configs"] if not is_ours(c)]
-        keep_after = [c for c in after["configs"] if not is_ours(c)]
+        # floats are written with six decimals, as the game does: a grid another tool wrote with
+        # more of them is the same grid after the write
+        keep_before = _six([c for c in before["configs"] if not is_ours(c)])
+        keep_after = _six([c for c in after["configs"] if not is_ours(c)])
         got = {c["config_name"]: c for c in after["configs"] if is_ours(c)}
         want = {c["config_name"]: c for c in new["configs"] if is_ours(c)}
         if keep_before != keep_after or got != want or set(got) != ours_names:

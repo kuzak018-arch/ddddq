@@ -4,6 +4,7 @@ import '@fontsource-variable/jetbrains-mono';
 import './styles/tokens.css';
 import './styles/glass.css';
 import './styles/app.css';
+import './styles/crisp.css';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MotionConfig } from 'motion/react';

@@ -136,8 +136,14 @@ export function BrandMark() {
   return <img className="brand-mark" src="/brand.svg" alt="" draggable={false} data-tauri-drag-region />;
 }
 
-/** Built-in wallpapers (graphite, light, dark, night); `luma` is how bright each one is (for the glass veil). */
+/** Built-in wallpapers (slate, graphite, light, dark, night); `luma` is how bright each one is (for the glass veil). */
 export const PRESETS: { id: string; name: string; css: string; luma: number }[] = [
+  {
+    id: 'slate',
+    name: 'Сланец',
+    css: 'linear-gradient(180deg, #12161c 0%, #0c0f13 55%, #0a0c10 100%)',
+    luma: 0.03,
+  },
   {
     id: 'graphite',
     name: 'Графит',
@@ -164,7 +170,7 @@ export const PRESETS: { id: string; name: string; css: string; luma: number }[] 
   },
 ];
 /** What a fresh install (and a wallpaper that is no longer offered) shows. */
-export const DEFAULT_PRESET = 'night';
+export const DEFAULT_PRESET = 'slate';
 const GRAPHITE = PRESETS.find((p) => p.id === 'graphite')!.css;
 
 export const heroArt = (key: string) =>

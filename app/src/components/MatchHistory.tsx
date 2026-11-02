@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import { useHeroes } from '../api/hooks';
 import { useUi } from '../state/ui';
-import { Empty, ErrorBox, HeroIcon } from './ui';
+import { Empty, ErrorBox, HeroIcon, HowTo } from './ui';
 
 interface MatchRow {
   id: number;
@@ -73,7 +73,7 @@ const fmtDur = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2
 const fmtDate = (t: number | null) =>
   t ? new Date(t * 1000).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
 
-export function MatchHistory() {
+export function MatchHistory({ onAnalyze }: { onAnalyze?: (matchId: number) => void }) {
   const qc = useQueryClient();
   const heroes = useHeroes().data;
   const openHero = useUi((s) => s.openHero);
@@ -148,6 +148,11 @@ export function MatchHistory() {
                   {STATUS[m.status]?.text}
                 </span>
                 <span className="muted mh__date">{fmtDate(m.start)}</span>
+                {onAnalyze && (
+                  <button className="btn btn--sm btn--ghost mh__ruin" onClick={() => onAnalyze(m.id)} title="Разбор всех десяти игроков: кто заруинил, кто MVP">
+                    Кто заруинил
+                  </button>
+                )}
               </div>
               {m.label ? (
                 <div className="mh__verdict">
@@ -161,12 +166,13 @@ export function MatchHistory() {
           </li>
         ))}
       </ul>
-      <p className="hint">
+      <HowTo>
+        <p>
         Оценка приблизительная. Основа — IMP от Stratz (оценка вклада игрока: 0 — обычная игра на этом герое, «хорошо» от +{h?.good_imp ?? 10},
         «плохо» от −{h?.good_imp ?? 10}); причины — сравнение с нормой героя на этой позиции на твоём ранге. Статистика видит не всё: вижн,
         позиционку, сейвы и размены она почти не замечает, особенно на саппортах.
-      </p>
-      <p className="hint">
+        </p>
+        <p>
         Матч без разбора программа сама отправляет на разбор в OpenDota и перепроверяет Stratz каждые {h?.recheck_min ?? 5} минут. Если запись
         игры уже недоступна или Stratz не разобрал её за {h?.wait_hours ?? 24} ч, оценка считается упрощённо — по итоговым KDA, GPM, XPM,
         ластхитам, урону и нетворсу против нормы героя — и помечается «упрощённая».
@@ -176,7 +182,8 @@ export function MatchHistory() {
             : h.stratz_parse_api.found.length
               ? ` В API Stratz нашлось похожее на запрос разбора: ${h.stratz_parse_api.found.map((f) => f.name).join(', ')} — пока не используется.`
               : ' Запроса на разбор в API Stratz нет: он разбирает рейтинговые матчи сам.')}
-      </p>
+        </p>
+      </HowTo>
     </div>
   );
 }

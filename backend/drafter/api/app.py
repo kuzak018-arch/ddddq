@@ -24,7 +24,8 @@ from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel, Field, model_validator
 
-from .. import config, dota_paths, gsi, hero_grid, ingame, keybinds, pace, search, updates
+from .. import after_match as after_match_mod
+from .. import config, dota_paths, gsi, hero_grid, ingame, keybinds, pace, ruin, search, updates
 from .. import settings as user_settings
 from ..builds import counter, standard
 from ..builds import service as build_service
@@ -93,10 +94,16 @@ vision_collector = vcollect.Collector(
 vision_runner.on_frame = vision_collector.offer
 
 
+after_match = after_match_mod.AfterMatch(publish=bus.publish)
+
+
 def _on_gsi(payload: dict) -> None:
+    before = tracker.last.get("game_state")
     changes = tracker.handle(payload, session.get().model_dump())
     vision_runner.new_match(tracker.match_id)
     bus.publish("gsi", status=tracker.status(), changes=changes)
+    # a match just ended: its breakdown is made by itself (after_match.py)
+    after_match.on_state(before, tracker.last.get("game_state"), tracker.match_id, tracker.last.get("hero_id"))
 
 
 @asynccontextmanager
@@ -212,12 +219,13 @@ def _term(t) -> dict:
 def health():
     meta_path = train.ART / "meta.json"
     trained = None
-    if meta_path.exists():
-        import json
-        trained = json.loads(meta_path.read_text(encoding="utf-8")).get("trained")
+    try:   # the app waits for /health at start: a broken file must not keep it from starting
+        trained = json.loads(meta_path.read_text(encoding="utf-8")).get("trained") if meta_path.exists() else None
+    except (OSError, ValueError, AttributeError):
+        trained = None
     try:
         patch = constants.current_patch()["name"]
-    except FileNotFoundError:
+    except (FileNotFoundError, ValueError, IndexError, KeyError):
         patch = None
     return {"ok": True, "patch": patch, "model_trained": trained, "matches": matches.summary().get("after_filters", 0),
             "stratz": bool(config.settings().stratz_token), "account_id": config.settings().account_id}
@@ -488,6 +496,39 @@ def my_profile():
                        for h, s in heroes]}
 
 
+@app.get("/me/stats")
+def my_stats():
+    """The profile's «Статистика»: heroes, time of day, tilt, party, matchups, records (me_stats.py)."""
+    from ..data import me_stats
+    data = me.load()
+    if not data:
+        raise HTTPException(404, "истории ещё нет: нажми «Обновить историю»")
+    return {**me_stats.stats(data), "fetched": data["fetched"], "has_peers": "peers" in data}
+
+
+@app.get("/me/history")
+def my_history(offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200), hero: int | None = None,
+               result: Literal["win", "loss"] | None = None, party: Literal["solo", "party"] | None = None):
+    """Every ranked match of the history with the user's numbers (and the rating of those broken down)."""
+    from ..data import me_stats
+    data = me.load()
+    if not data:
+        raise HTTPException(404, "истории ещё нет: нажми «Обновить историю»")
+    return me_stats.history(data, after_match_mod.load(), offset, limit, hero, result, party)
+
+
+@app.get("/me/ratings")
+def my_ratings():
+    """The user's rating in every match broken down (after each match by itself, or backfilled)."""
+    return {"matches": after_match_mod.history(), "backfill": after_match_mod.BACKFILL}
+
+
+@app.post("/me/ratings/backfill")
+def my_ratings_backfill():
+    """Rate the last ranked matches of the history (a job; one OpenDota request per match)."""
+    return jobs.start("ratings", after_match_mod.backfill).public()
+
+
 @app.get("/me/avatar")
 def my_avatar():
     from fastapi.responses import FileResponse
@@ -530,6 +571,10 @@ def patch_notes(version: str):
 
 # ---------- GridStudio's workshop (data/gridstudio.py) ----------------------------------------
 
+# a work's picture and a background's files never change under the same address (a new revision
+# is a new address): the window keeps them instead of asking again on every visit
+_FOREVER = {"Cache-Control": "public, max-age=31536000, immutable"}
+
 def _workshop(fn, *a, **kw):
     if os.environ.get("DRAFTER_NO_BUILD_LOAD") == "1":   # tests: never hit the network
         raise HTTPException(503, "мастерская выключена в тестах")
@@ -567,14 +612,14 @@ def workshop_arts():
 @app.get("/workshop-media/grid/{work_id}.jpg")
 def workshop_grid_preview(work_id: str, rev: str = ""):
     from fastapi.responses import FileResponse
-    return FileResponse(_workshop(gridstudio.grid_preview, work_id, rev), media_type="image/jpeg")
+    return FileResponse(_workshop(gridstudio.grid_preview, work_id, rev), media_type="image/jpeg", headers=_FOREVER)
 
 
 @app.get("/workshop-media/bg/{bg_id}/{name}")
 def workshop_background_file(bg_id: str, name: str):
     from fastapi.responses import FileResponse
     path, kind = _workshop(gridstudio.background_file, bg_id, name)
-    return FileResponse(path, media_type=kind)
+    return FileResponse(path, media_type=kind, headers=_FOREVER)
 
 
 # ---------- links to the sites the app shows data from ------------------------------------------
@@ -582,7 +627,7 @@ def workshop_background_file(bg_id: str, name: str):
 # sites only (a page can't make the backend open anything else).
 
 LINK_HOSTS = ("stratz.com", "www.dotabuff.com", "dotabuff.com", "www.opendota.com", "opendota.com",
-              "steamcommunity.com", "gridstudio.me", "github.com", "t.me")
+              "steamcommunity.com", "gridstudio.me", "github.com", "t.me", "h6rd.github.io")
 
 
 class OpenUrlIn(BaseModel):
@@ -654,6 +699,17 @@ def hero_render_segment(key: str):
 @app.get("/me/summary")
 def my_summary():
     return me.summary(_pred().pos_mat)
+
+
+@app.get("/match/{match_id}/ruin")
+def match_ruin(match_id: int, refresh: bool = False):
+    """«Кто заруинил»: every player of the match rated, the ruiner and the MVP named (ruin.py)."""
+    if match_id <= 0:
+        raise HTTPException(422, "нужен номер матча")
+    try:
+        return ruin.breakdown(match_id, refresh)
+    except ruin.RuinError as e:
+        raise HTTPException(404, str(e)) from e
 
 
 @app.get("/me/matches")
@@ -787,9 +843,13 @@ def get_session():
     return session.get()
 
 
+class SessionPut(session.Session):
+    base_rev: int | None = None    # the rev the window's edit was made from (see session.put_from)
+
+
 @app.put("/session", response_model=session.Session)
-def put_session(s: session.Session):
-    return session.put(s)
+def put_session(s: SessionPut):
+    return session.put_from(session.Session.model_validate(s.model_dump(exclude={"base_rev"})), s.base_rev)
 
 
 # ---------- Dota install: display mode and key bindings (read-only) -----------------------------
@@ -1078,6 +1138,31 @@ def vision_reset_calibration():
     return {"removed": had}
 
 
+@app.delete("/vision/learning")
+def vision_reset_learning():
+    """Everything screen reading learned and saved about this screen goes: learned portraits,
+    confirmed and collected frames, the rects (saved and detected) and the accuracy record. Reading
+    starts again from the colour bars and the hero art, cautiously, as on a new computer. The on/off
+    choice and the wizard's own snapshots stay."""
+    import shutil
+    removed = 0
+    for folder in (vmatch.LEARNED, veval.LABELED, vcollect.DRAFTS):
+        if folder.exists():
+            removed += sum(1 for p in folder.rglob("*") if p.is_file())
+            shutil.rmtree(folder, ignore_errors=True)
+    for p in vcollect.SNAPSHOTS.glob("auto-*.jpg") if vcollect.SNAPSHOTS.exists() else []:
+        p.unlink(missing_ok=True)
+        removed += 1
+    vcal.PATH.unlink(missing_ok=True)
+    vlayout.forget_fits()
+    vauto._save_state({k: v for k, v in vauto.state().items() if k == "manual_off"})
+    vmatch.reload()
+    vision_collector.draft = None
+    vision_runner.reset_learning()
+    bus.publish("vision", status=vision_runner.status())
+    return {"removed": removed}
+
+
 @app.get("/vision/calibration/preset", response_model=vcal.Calibration)
 def vision_preset(width: int = 1920, height: int = 1080):
     return vlayout.profile(width, height)
@@ -1237,6 +1322,36 @@ def top_games(hero_id: int, source: Literal["immortal", "divine", "pro"] = "immo
     return topgames.get(hero_id, source, refresh)
 
 
+class PlanIn(BaseModel):
+    allies: list[int] = Field(default_factory=list, max_length=5)
+    enemies: list[int] = Field(default_factory=list, max_length=5)
+    me: int | None = None
+    minute: float | None = Field(default=None, ge=0, le=300)
+
+
+@app.post("/game/plan")
+def game_plan(body: PlanIn):
+    """The overlay's «План»: when each team is strongest, how to play and finish this draft, and
+    which enemies my hero can kill (gameplan.py)."""
+    from .. import gameplan
+    known = constants.hero_by_id()
+    if bad := [h for h in body.allies + body.enemies + ([body.me] if body.me else []) if h not in known]:
+        raise HTTPException(422, f"неизвестные id героев: {bad}")
+    minute = body.minute
+    if minute is None and (tracker.live or {}).get("clock") is not None:
+        minute = max(0.0, tracker.live["clock"] / 60)      # in a match: GSI's clock
+    out = gameplan.plan(body.allies, body.enemies, minute)
+    out["minute"] = minute
+    if body.me and body.enemies:
+        P = _pred()
+        n = P.C.shape[0]
+        out["kill"] = gameplan.killable(body.me, body.enemies, lambda a, b: P.cal_a * P.C[a, b] if a < n and b < n else 0.0,
+                                        minute if minute is not None else 10.0)
+    else:
+        out["kill"] = []
+    return out
+
+
 class TopVsIn(BaseModel):
     hero: int
     enemies: list[int] = Field(default_factory=list, max_length=5)
@@ -1250,7 +1365,14 @@ def top_games_vs(body: TopVsIn):
     from .. import topgames
     if body.hero not in constants.hero_by_id():
         raise HTTPException(404, "нет такого героя")
-    return topgames.vs_draft(body.hero, body.enemies, body.pos)
+    out = topgames.vs_draft(body.hero, body.enemies, body.pos)
+    if not out.get("found") and body.pos and body.enemies:
+        # no game against the whole draft: games against my lane (its likely heroes in this draft)
+        pos_mat = _pred().pos_mat
+        lane = [o["hero"] for o in lane_service.opponents(body.pos, [e for e in body.enemies if e != body.hero], pos_mat)
+                if o["on_lane"]]
+        out["lane"] = topgames.vs_lane(body.hero, lane, body.pos) if lane else None
+    return out
 
 
 # ---------- «Оформление игры»: the menu background and fonts (off by default) -----------------
@@ -1377,7 +1499,10 @@ async def game_mods_install_pack(request: Request, name: str = Query("", max_len
                 if written > mod_install.PACK_MAX:
                     raise HTTPException(413, "VPK больше 1,5 ГБ")
                 f.write(chunk)
-        return await run_in_threadpool(_mods_call, mod_install.install_pack, config.settings().account_id, part, name)
+        with part.open("rb") as f:
+            is_zip = f.read(4) == mod_install.ZIP_MAGIC
+        fn = mod_install.install_zip if is_zip else mod_install.install_pack
+        return await run_in_threadpool(_mods_call, fn, config.settings().account_id, part, name)
     finally:
         part.unlink(missing_ok=True)
 

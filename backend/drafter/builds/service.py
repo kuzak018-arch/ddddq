@@ -98,7 +98,10 @@ def get(hero: int, pos: int, mode: str, bracket: str, pos_mat=None, fallback: bo
     accounts = None
     if mode == "specialists":
         spec_file = sm._spec_path(hero)
-        accounts = sm.specialist_accounts(hero, pos) if spec_file.exists() else set()
+        try:
+            accounts = sm.specialist_accounts(hero, pos) if spec_file.exists() else set()
+        except RuntimeError:   # a broken file and Stratz unreachable: none known yet
+            accounts = set()
     records = sm.load(hero)
     res = sequences.builds(records, hero, pos, accounts)
     games = [g for r in records if not r.get("unparsed") and r.get("pos") == pos

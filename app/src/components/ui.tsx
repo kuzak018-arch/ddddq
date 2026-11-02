@@ -180,3 +180,14 @@ export function Empty({ children }: { children: ReactNode }) {
 export function ErrorBox({ error }: { error: unknown }) {
   return <div className="error-box">{error instanceof Error ? error.message : String(error)}</div>;
 }
+
+/** How a number is made: one quiet line that opens into the explanation (instead of a paragraph
+ * under every block). */
+export function HowTo({ title = 'Как это считается', children }: { title?: string; children: ReactNode }) {
+  return (
+    <details className="howto">
+      <summary>{title}</summary>
+      <div className="howto__body">{children}</div>
+    </details>
+  );
+}

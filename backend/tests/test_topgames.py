@@ -114,3 +114,44 @@ def test_errors_become_messages(tmp_path, monkeypatch):
     state = {"loading": True}
     T._run(HERO, "divine", state)
     assert "токена" in state["error"] and not state["loading"]
+
+
+def test_old_patch_matches_do_not_block_a_new_load(tmp_path, monkeypatch):
+    monkeypatch.setattr(T, "ROOT", tmp_path)
+    since = T.patch_start()
+    old = [{"m": 1000 + i, "t": since - 100 - i, "items": [], "skills": []} for i in range(T.TARGET)]
+    T._write("divine", HERO, {"fetched": 0, "matches": old})
+    asked = []
+
+    class Fake:
+        def __init__(self, **kw):
+            pass
+
+        def close(self):
+            pass
+
+        def q(self, query):
+            if "leaderboard" in query:
+                return {"leaderboard": {"hero": [{"steamAccountId": 7, "wins": 5, "losses": 5}]}}
+            asked.append(query)
+            return {"player": {"matches": [_match(mid=5, rank=80)]}}
+
+    monkeypatch.setattr(T.stratz, "Stratz", Fake)
+    monkeypatch.setattr(T, "_working", {g: True for g in T._GROUPS})
+    T._fill_stratz(HERO, "divine", {})
+    data = T._read("divine", HERO)
+    assert asked and [r["m"] for r in data["matches"]] == [5]  # last patch's matches are gone, the new one is in
+
+
+def test_a_load_that_found_nothing_is_not_restarted_on_every_poll(tmp_path, monkeypatch):
+    monkeypatch.setattr(T, "ROOT", tmp_path)
+    monkeypatch.setattr(T, "_states", {})
+    started = []
+    monkeypatch.setattr(T.threading, "Thread", lambda **kw: type("X", (), {"start": lambda self: started.append(kw)})())
+    T.get(HERO, "divine")
+    assert len(started) == 1  # nothing cached: one load
+    T._states[(HERO, "divine")].update(loading=False, done=time.time())
+    T._write("divine", HERO, {"fetched": time.time(), "matches": []})
+    T.get(HERO, "divine")
+    T.get(HERO, "divine")
+    assert len(started) == 1  # it found nothing: wait for the list to go stale

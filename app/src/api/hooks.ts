@@ -1,4 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
 import { api, backendImage } from './client';
 import type {
@@ -6,6 +7,7 @@ import type {
   BuildsResponse,
   DraftRequest,
   EvaluateResponse,
+  GamePlan,
   Health,
   Hero,
   HeroPage,
@@ -38,15 +40,47 @@ export function useSettings() {
   return useQuery({ queryKey: ['settings'], queryFn: () => api<Settings>('/settings'), staleTime: Infinity });
 }
 
+// Saves run one after another and only the last one's answer is applied: a slider sends one save
+// per step, and answers arriving out of order must not put an older value back.
+let saveChain: Promise<unknown> = Promise.resolve();
+let saveSeq = 0;
+const SETTINGS_SIGNAL = 'drafter-settings-saved';
+
 export function useSaveSettings() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (s: Settings) => api<Settings>('/settings', { method: 'PUT', body: s }),
-    onSuccess: (s) => {
-      qc.setQueryData(['settings'], s);
+    mutationFn: (s: Settings) => {
+      const seq = ++saveSeq;
+      const run = saveChain.then(() => api<Settings>('/settings', { method: 'PUT', body: s }));
+      saveChain = run.catch(() => undefined);
+      return run.then((saved) => ({ saved, seq }));
+    },
+    onSuccess: ({ saved, seq }) => {
+      if (seq !== saveSeq) return;
+      qc.setQueryData(['settings'], saved);
       qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== 'settings' && q.queryKey[0] !== 'heroes' });
+      try {
+        localStorage.setItem(SETTINGS_SIGNAL, String(Date.now()));   // the other window (overlay) reloads them
+      } catch {
+        /* no storage: the other window picks them up on its next start */
+      }
     },
   });
+}
+
+/** Settings saved in the other window (the main window's Settings → the overlay): reload them and
+ * everything computed with them. Both windows share localStorage, whose `storage` event fires only
+ * in the window that didn't write. */
+export function useSettingsFromOtherWindow() {
+  const qc = useQueryClient();
+  useEffect(() => {
+    const on = (e: StorageEvent) => {
+      if (e.key !== SETTINGS_SIGNAL) return;
+      qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== 'heroes' });
+    };
+    window.addEventListener('storage', on);
+    return () => window.removeEventListener('storage', on);
+  }, [qc]);
 }
 
 const draftKey = (d: DraftRequest) => [d.allies, d.enemies, d.bans, d.pos, d.side, d.use_comfort, d.comfort_weight];
@@ -112,10 +146,23 @@ export function useBuild(hero: number | null, pos: number, enemies: number[], fa
 export function useTopVs(hero: number | null, pos: number, enemies: number[]) {
   return useQuery({
     queryKey: ['top-vs', hero, pos, enemies],
-    enabled: !!hero && enemies.length >= 3,
+    // the whole draft from 3 enemies; before that, the lane's heroes alone
+    enabled: !!hero && enemies.length >= 1,
     retry: false,
-    refetchInterval: (q) => (q.state.data?.loading ? 4000 : false),
+    refetchInterval: (q) => (q.state.data?.loading || q.state.data?.lane?.loading ? 4000 : false),
     queryFn: () => api<TopVs>('/top-games/vs', { body: { hero, enemies, pos } }),
+  });
+}
+
+/** The overlay's «План»: timing windows, how to play and finish, who to kill (backend gameplan.py).
+ * In a match the backend adds GSI's minute; the plan is asked again every minute then. */
+export function usePlan(allies: number[], enemies: number[], me: number | null, inGame: boolean) {
+  return useQuery({
+    queryKey: ['plan', allies, enemies, me, inGame],
+    enabled: allies.length > 0 || enemies.length > 0,
+    retry: false,
+    refetchInterval: inGame ? 60_000 : false,
+    queryFn: () => api<GamePlan>('/game/plan', { body: { allies, enemies, me } }),
   });
 }
 

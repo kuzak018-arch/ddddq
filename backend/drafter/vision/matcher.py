@@ -35,6 +35,18 @@ EMPTY_STD = 9.0        # a flat (empty / placeholder) slot has almost no texture
 WRONG_HERO_SCORE = 0.6  # a learned crop is thrown out when the art says it is another hero this surely...
 WRONG_HERO_GAP = 0.15   # ...and its own hero's art matches it this much worse
 
+# The finer search: the slot's upper part (above the rank plate that Dota draws over the lower half
+# of a portrait: «Легенда V», «Властелин II») is looked for inside each candidate's art, zoomed in
+# up to 1.7x and shifted anywhere (normalised cross-correlation, cv2.matchTemplate). The game shows
+# the art zoomed and cropped differently by phase and UI scale; a fixed crop-to-crop comparison
+# lost half the slots on such frames. The quick comparison above picks the candidates first.
+SLIDE_W = 40               # the slot is brought to this width for the search
+SLIDE_TOP = 0.55           # share of the slot height searched (the plate covers the rest)
+SLIDE_SCALES = (1.0, 1.12, 1.25, 1.4, 1.55, 1.7)
+SLIDE_CANDIDATES = 40
+SLIDE_MIN_SCORE = 0.80     # measured on the user's frames: right heroes 0.82-0.99, unknown portraits <= 0.83 with no lead
+SLIDE_MIN_MARGIN = 0.06
+
 
 @dataclass
 class SlotResult:
@@ -137,6 +149,41 @@ def _art(aspect_key: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     return np.array(ids), np.stack(greys), np.stack(hists)
 
 
+def _slide_prep(img_bgr: np.ndarray, width: int) -> np.ndarray:
+    grey = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY) if img_bgr.ndim == 3 else img_bgr
+    h = max(4, int(round(width * grey.shape[0] / grey.shape[1])))
+    return cv2.GaussianBlur(cv2.resize(grey, (width, h), interpolation=cv2.INTER_AREA), (3, 3), 0)
+
+
+@lru_cache(maxsize=4)
+def _slide_art() -> dict[int, list[np.ndarray]]:
+    """Every hero's art (both copies), greyscale, at each search scale."""
+    out: dict[int, list[np.ndarray]] = {}
+    for h in constants.hero_index():
+        for art in template_paths(h["key"]):
+            img = _read(art)
+            if img is None:
+                continue
+            out.setdefault(h["id"], []).extend(_slide_prep(img, int(round(SLIDE_W * s))) for s in SLIDE_SCALES)
+    return out
+
+
+def _slide_target(crop_bgr: np.ndarray) -> np.ndarray:
+    small = _slide_prep(crop_bgr, SLIDE_W)
+    return small[: max(4, int(small.shape[0] * SLIDE_TOP))]
+
+
+def _slide_score(target: np.ndarray, templates: list[np.ndarray]) -> float:
+    best = -1.0
+    for t in templates:
+        if t.shape[0] < target.shape[0] or t.shape[1] < target.shape[1]:
+            continue
+        v = float(cv2.matchTemplate(t, target, cv2.TM_CCOEFF_NORMED).max())
+        if v > best:
+            best = v
+    return best
+
+
 def _contradicts(art_ids: np.ndarray, art_grey: np.ndarray, hero_id: int, grey_feature: np.ndarray) -> bool:
     """The crop clearly shows another hero by the art templates: it was filed under the wrong name
     (a mislabelled slot). Without art for comparison nothing is judged."""
@@ -163,6 +210,8 @@ class TemplateBank:
         # learned crops: how a portrait looks in the user's game, but only those that really are the
         # hero they are filed under: one wrong crop would otherwise win for every later look-alike
         self.dropped = 0
+        self.learned_slide: dict[int, list[np.ndarray]] = {}   # the user's crops, as they are, for the finer search
+        self._cache: dict[bytes, SlotResult] = {}
         for h in constants.hero_index():
             learned = sorted((LEARNED / str(h["id"])).glob("*.png"))
             if exclude:
@@ -178,27 +227,57 @@ class TemplateBank:
                 ids.append(h["id"])
                 greys.append(g)
                 hists.append(hh)
+                self.learned_slide.setdefault(h["id"], []).append(_slide_prep(crop, SLIDE_W))
         self.ids = np.array(ids)
         self.grey = np.stack(greys)
         self.hist = np.stack(hists)
         self.learned = {int(p.name) for p in LEARNED.glob("*") if p.is_dir() and any(p.glob("*.png"))} \
             if LEARNED.exists() else set()
 
-    def match(self, crop_bgr: np.ndarray, threshold: float, margin: float, ban: bool = False) -> SlotResult:
-        grey_raw = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2GRAY)
-        if grey_raw.std() < EMPTY_STD:
-            return SlotResult(None, 0.0, 0.0, [], empty=True)
+    def quick(self, crop_bgr: np.ndarray, ban: bool = False) -> list[tuple[int, float]]:
+        """The quick comparison: every hero's best template score, best first."""
         g, hh = _features(crop_bgr, self.aspect)
         score = self.grey @ g if ban else W_NCC * (self.grey @ g) + W_HIST * (self.hist @ hh)
         best: dict[int, float] = {}
         for hid, s in zip(self.ids.tolist(), score.tolist()):   # several templates per hero: keep the best
             if s > best.get(hid, -9):
                 best[hid] = s
-        ranked = sorted(best.items(), key=lambda kv: -kv[1])
-        (h1, s1), (_, s2) = ranked[0], ranked[1]
-        ok = s1 >= threshold and s1 - s2 >= margin
-        return SlotResult(h1 if ok else None, round(s1, 4), round(s1 - s2, 4),
-                          [(h, round(s, 4)) for h, s in ranked[:3]])
+        return sorted(best.items(), key=lambda kv: -kv[1])
+
+    def match(self, crop_bgr: np.ndarray, threshold: float, margin: float, ban: bool = False) -> SlotResult:
+        grey_raw = cv2.cvtColor(crop_bgr, cv2.COLOR_BGR2GRAY)
+        if grey_raw.std() < EMPTY_STD:
+            return SlotResult(None, 0.0, 0.0, [], empty=True)
+        ranked = self.quick(crop_bgr, ban)
+        if ban:   # greyed-out ban portraits: the quick comparison on brightness alone
+            (h1, s1), (_, s2) = ranked[0], ranked[1]
+            ok = s1 >= threshold and s1 - s2 >= margin
+            return SlotResult(h1 if ok else None, round(s1, 4), round(s1 - s2, 4), [(h, round(s, 4)) for h, s in ranked[:3]])
+        # the same portrait in the next frames: the answer is kept (the finer search is the slow part)
+        key = cv2.resize(grey_raw, (16, 10), interpolation=cv2.INTER_AREA).__floordiv__(12).tobytes() + \
+            f"{threshold:.3f}{margin:.3f}".encode()
+        if (hit := self._cache.get(key)) is not None:
+            return hit
+        target = _slide_target(crop_bgr)
+        art = _slide_art()
+        fine = []
+        for hid, _ in ranked[:SLIDE_CANDIDATES]:
+            v = _slide_score(target, art.get(hid, []))
+            learned = self.learned_slide.get(hid)
+            if learned:
+                v = max(v, _slide_score(target, learned))
+            fine.append((hid, v))
+        fine.sort(key=lambda kv: -kv[1])
+        (h1, s1), (_, s2) = fine[0], fine[1]
+        # the calibration's limits are for the quick score: stricter ones (cautious) raise the finer ones as much
+        need_score = SLIDE_MIN_SCORE + max(0.0, threshold - 0.55)
+        need_margin = max(SLIDE_MIN_MARGIN, margin - 0.02)
+        ok = s1 >= need_score and s1 - s2 >= need_margin
+        res = SlotResult(h1 if ok else None, round(s1, 4), round(s1 - s2, 4), [(h, round(s, 4)) for h, s in fine[:3]])
+        if len(self._cache) > 256:
+            self._cache.clear()
+        self._cache[key] = res
+        return res
 
 
 @lru_cache(maxsize=16)
@@ -212,6 +291,7 @@ _learned_version = 0.0
 def reload() -> None:
     """Forget the cached template banks (the art on disk changed)."""
     _art.cache_clear()
+    _slide_art.cache_clear()
     _bank.cache_clear()
 
 

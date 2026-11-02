@@ -94,7 +94,7 @@ def load(a: int, b: int) -> list[dict]:
             out.append(json.loads(line))
         except ValueError:
             continue  # half-written last line after a crash
-    return out
+    return sm.dedupe(out)
 
 
 def _append(a: int, b: int, rec: dict) -> None:
@@ -240,9 +240,15 @@ def collect(a: int, pa: int, b: int, pb: int, target: int, *, stop: threading.Ev
             want = max(1, min(st["size"], round((target - count) / rate)))
             chunk = ids[asked:asked + want]
             asked += len(chunk)
+            # another load of this pair (other positions, the bulk download) may have them already
+            chunk = [m for m in chunk if sm._claim(("pair", *_key(a, b)), m)]
+            if not chunk:
+                continue
             try:
                 recs, spent = fetch_batch(sz, chunk, a, b, st)
             except RuntimeError as e:
+                for m in chunk:
+                    sm._unclaim(("pair", *_key(a, b)), m)
                 if "429" in str(e) or "401" in str(e) or "403" in str(e):
                     raise
                 info["requests"] += 1

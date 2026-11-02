@@ -223,7 +223,8 @@ pub fn on_shortcut(app: &AppHandle, shortcut: &Shortcut, pressed: ShortcutState)
         let on = !*app.state::<OverlayState>().click_through.lock().unwrap();
         if let Ok(w) = window(app) {
             if !w.is_visible().unwrap_or(false) {
-                let _ = w.show();
+                let _ = show_keeping_focus(&w);
+                let _ = w.set_always_on_top(true);
             }
         }
         let _ = set_click_through_inner(app, on);

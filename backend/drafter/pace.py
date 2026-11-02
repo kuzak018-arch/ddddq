@@ -27,8 +27,10 @@ BAD = 0.85                # below 85% of the top median is «behind»
 GOOD = 1.10               # above 110% is «ahead»
 LH_LOW = 0.30             # last hits per minute under the 30th percentile of the hero: «few»
 FARMING = (1, 2, 3)       # positions whose last hits matter
+RETRY_S = 600             # a failed benchmark download is tried again after this long, not on every poll
 _lock = threading.Lock()
 _loading: set[int] = set()
+_failed: dict[int, float] = {}   # hero -> when its last download failed
 
 
 # ---------- net worth against the top curves ---------------------------------------------------
@@ -91,7 +93,8 @@ def _fetch(hero_id: int) -> None:
         _file(hero_id).write_text(json.dumps({"fetched": time.time(), "lh": res.get("last_hits_per_min") or [],
                                               "gpm": res.get("gold_per_min") or []}), encoding="utf-8")
     except Exception:  # noqa: BLE001 - no benchmark is no hint, never an error in a match
-        pass
+        with _lock:
+            _failed[hero_id] = time.time()
     finally:
         with _lock:
             _loading.discard(hero_id)
@@ -102,7 +105,7 @@ def benchmark(hero_id: int) -> dict | None:
     data = _load(hero_id)
     if (not data or time.time() - data.get("fetched", 0) > TTL):
         with _lock:
-            if hero_id not in _loading:
+            if hero_id not in _loading and time.time() - _failed.get(hero_id, 0) > RETRY_S:
                 _loading.add(hero_id)
                 threading.Thread(target=_fetch, args=(hero_id,), daemon=True, name=f"benchmark-{hero_id}").start()
     return data
