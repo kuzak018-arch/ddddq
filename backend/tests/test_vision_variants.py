@@ -94,3 +94,42 @@ def test_a_hero_whose_art_is_stale_can_still_be_learned_from_the_screen():
     tinker = reader.crops(frame, bars.find(frame))["radiant"][3]
     assert not matcher.contradicts_art(ids["tinker"], tinker)
     assert matcher.contradicts_art(ids["crystal_maiden"], reader.crops(frame, bars.find(frame))["dire"][3])   # Warlock's face is not CM
+
+
+# ---------- portraits under Dota's rank plates («Легенда V», «Властелин II») ----------------------
+
+PLATES = Path(__file__).parent / "fixtures"
+
+
+def _strip_frame(name):
+    """The user's top bar (portraits only, nicknames cut off) put at the top of a 16:9 frame."""
+    strip = cv2.imread(str(PLATES / name))
+    w = strip.shape[1]
+    frame = np.full((round(w * 9 / 16), w, 3), 30, np.uint8)
+    frame[: strip.shape[0]] = strip
+    return frame
+
+
+@needs_heroes
+@pytest.mark.parametrize("name,expected", [
+    ("draft_plates_planning.png", ["necrolyte", "phantom_assassin", "enigma", "kez", "lina",
+                                   "gyrocopter", "earthshaker", "witch_doctor", "broodmother", "antimage"]),
+    ("draft_plates_allpick.png", [None, "night_stalker", "witch_doctor", "zuus", "lone_druid",
+                                  "death_prophet", "grimstroke", "sniper", "antimage", "legion_commander"]),
+])
+def test_portraits_under_rank_plates_are_read(name, expected):
+    keys = {h["id"]: h["key"] for h in constants.hero_index()}
+    frame = _strip_frame(name)
+    res = reader.read(frame, bars.find(frame).model_copy(update={"threshold": 0.55, "margin": 0.08}))
+    got = [keys.get(r.hero) for g in ("radiant", "dire") for r in res[g]]
+    assert got == expected
+
+
+@needs_heroes
+def test_zoomed_portraits_of_the_pick_phase_are_read_or_left_empty():
+    keys = {h["id"]: h["key"] for h in constants.hero_index()}
+    frame = _strip_frame("draft_plates_penalty.png")
+    res = reader.read(frame, bars.find(frame).model_copy(update={"threshold": 0.55, "margin": 0.08}))
+    got = [keys.get(r.hero) for g in ("radiant", "dire") for r in res[g]]
+    for i, hero in {0: "kez", 3: "dragon_knight", 6: "nevermore", 8: "ursa", 9: "venomancer"}.items():
+        assert got[i] == hero
