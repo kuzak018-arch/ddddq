@@ -119,3 +119,31 @@ def test_no_key_and_errors(env, monkeypatch):
     out = G.for_hero(1, http=bad, now=1)
     assert out["status"] == "error" and "ключ" in out["error"]
     assert json.loads((env / "1.json").read_text(encoding="utf-8"))["status"] == "error"
+
+
+def test_a_guide_without_file_url_is_fetched_by_its_content_handle(env):
+    calls = []
+
+    def handler(req):
+        calls.append(req.url.path)
+        if "QueryFiles" in req.url.path:
+            ft = req.url.params["filetype"]
+            files = [{"publishedfileid": "7", "result": 1, "hcontent_file": "555", "time_updated": 3000}] if ft == "20" else []
+            return httpx.Response(200, json={"response": {"publishedfiledetails": files}})
+        if "GetUGCFileDetails" in req.url.path:
+            assert req.url.params["ugcid"] == "555"
+            return httpx.Response(200, json={"data": {"url": "https://ugc/7"}})
+        if str(req.url) == "https://ugc/7":
+            return httpx.Response(200, text=GUIDE)
+        return httpx.Response(200, json={"response": {"players": []}})
+    out = G.for_hero(1, http=httpx.Client(transport=httpx.MockTransport(handler)), now=50_000)
+    assert [g["id"] for g in out["guides"]] == ["7"]
+    assert out["diag"] == {"queried": 1, "with_file": 1, "downloaded": 1, "guides": 1, "this_hero": 1}
+
+
+def test_an_old_cache_is_asked_again(env):
+    (env / "1.json").write_text(json.dumps({"status": "ok", "guides": [], "fetched": 9_999_999_999}), encoding="utf-8")
+    hits = []
+    http = httpx.Client(transport=httpx.MockTransport(lambda r: hits.append(1) or httpx.Response(200, json={"response": {}})))
+    G.for_hero(1, http=http, now=10_000)
+    assert hits         # the old cache (no version) is not trusted

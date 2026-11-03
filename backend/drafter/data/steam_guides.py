@@ -37,6 +37,7 @@ CANDIDATES = 20
 SHOWN = 3
 CACHE_TTL = 24 * 3600
 ERROR_TTL = 15 * 60
+CACHE_VERSION = 2
 DIR = config.DATA / "steam_guides"
 
 CATEGORY_RU = {
@@ -179,12 +180,31 @@ def _get(http: httpx.Client, path: str, params: dict) -> dict:
         raise SteamError("Steam прислал не JSON") from e
 
 
-def _query(http: httpx.Client, key: str, text: str) -> list[dict]:
-    params = {"key": key, "appid": APPID, "query_type": 3, "days": TREND_DAYS, "numperpage": CANDIDATES,
-              "search_text": text, "return_vote_data": "true", "return_metadata": "true",
+# Steam's EPublishedFileInfoMatchingFileType: Dota's in-game guides are not «items» to Steam's
+# default filter but game-managed items (20); integrated guides (12) and plain items (0) are tried too
+FILETYPES = (20, 12, 0)
+
+
+def _query(http: httpx.Client, key: str, text: str, filetype: int, query_type: int = 3) -> list[dict]:
+    params = {"key": key, "appid": APPID, "query_type": query_type, "days": TREND_DAYS, "numperpage": CANDIDATES,
+              "filetype": filetype, "search_text": text, "return_vote_data": "true", "return_metadata": "true",
               "return_tags": "true", "return_short_description": "true", "return_previews": "false",
               "strip_description_bbcode": "true"}
     return (_get(http, "/IPublishedFileService/QueryFiles/v1/", params).get("response") or {}).get("publishedfiledetails") or []
+
+
+def _file_url(http: httpx.Client, key: str, f: dict) -> str | None:
+    """The guide file's address: given directly, or asked for by its content handle."""
+    if f.get("file_url"):
+        return f["file_url"]
+    ugc = f.get("hcontent_file")
+    if not ugc or str(ugc) == "0":
+        return None
+    try:
+        d = _get(http, "/ISteamRemoteStorage/GetUGCFileDetails/v1/", {"key": key, "appid": APPID, "ugcid": ugc})
+    except SteamError:
+        return None
+    return (d.get("data") or {}).get("url") or None
 
 
 def _names(http: httpx.Client, key: str, ids: list[str]) -> dict[str, str]:
@@ -211,19 +231,38 @@ def search(hero_id: int, key: str, http: httpx.Client | None = None) -> list[dic
     http = http or httpx.Client(timeout=15, headers={"User-Agent": config.USER_AGENT}, follow_redirects=True)
     try:
         found = []
-        for f in _query(http, key, hero["name"]):
-            url = f.get("file_url")
-            if not url or int(f.get("result") or 1) != 1:
+        diag = {"queried": 0, "with_file": 0, "downloaded": 0, "guides": 0, "this_hero": 0}
+        seen: set[str] = set()
+        files = []
+        for filetype in FILETYPES:
+            for text in dict.fromkeys((hero["name"], f"npc_dota_hero_{hero['key']}")):
+                for f in _query(http, key, text, filetype):
+                    fid = str(f.get("publishedfileid"))
+                    if fid not in seen and int(f.get("result") or 1) == 1:
+                        seen.add(fid)
+                        files.append(f)
+            if len(files) >= CANDIDATES:
+                break
+        diag["queried"] = len(files)
+        for f in files[:CANDIDATES * 2]:
+            url = _file_url(http, key, f)
+            if not url:
                 continue
+            diag["with_file"] += 1
             try:
                 r = http.get(url)
             except httpx.HTTPError:
                 continue
             if not r.is_success or len(r.content) > 512_000:
                 continue
+            diag["downloaded"] += 1
             g = guide_from_kv(parse_kv(r.content.decode("utf-8", "replace")))
-            if not g or g["hero"] != hero["key"]:
+            if not g:
                 continue
+            diag["guides"] += 1
+            if g["hero"] != hero["key"]:
+                continue
+            diag["this_hero"] += 1
             v = f.get("vote_data") or {}
             found.append({
                 "id": str(f.get("publishedfileid")), "title": g["title"] or f.get("title") or "Руководство",
@@ -235,6 +274,7 @@ def search(hero_id: int, key: str, http: httpx.Client | None = None) -> list[dic
                 "updated": int(f.get("time_updated") or 0), "description": (f.get("short_description") or "").strip()[:400] or None,
                 "items": g["items"], "abilities": g["abilities"], "_score": _score(f, constants.current_patch()["ts"]),
             })
+        search.diag = diag
         found.sort(key=lambda g: -g.pop("_score"))
         top = found[:SHOWN]
         names = _names(http, key, [g["author_id"] for g in top if g["author_id"]])
@@ -266,14 +306,19 @@ def _for_hero(hero_id: int, refresh: bool, now: float | None, http: httpx.Client
         cached = json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
     except (OSError, ValueError):
         cached = None
+    if cached and cached.get("v") != CACHE_VERSION:
+        cached = None          # made by an older search (it found nothing for anybody): ask again
     if cached and not refresh:
         ttl = CACHE_TTL if cached.get("status") == "ok" else ERROR_TTL
         if now - (cached.get("fetched") or 0) < ttl:
             return {**cached, "patch_ts": patch_ts}
     try:
-        out = {"status": "ok", "error": None, "guides": search(hero_id, key, http), "fetched": now}
+        guides = search(hero_id, key, http)
+        out = {"status": "ok", "error": None, "guides": guides, "fetched": now, "diag": getattr(search, "diag", None),
+               "v": CACHE_VERSION}
     except SteamError as e:
-        out = {"status": "error", "error": str(e), "guides": (cached or {}).get("guides") or [], "fetched": now}
+        out = {"status": "error", "error": str(e), "guides": (cached or {}).get("guides") or [], "fetched": now,
+               "v": CACHE_VERSION}
     DIR.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(out, ensure_ascii=False), encoding="utf-8")
     return {**out, "patch_ts": patch_ts}

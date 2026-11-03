@@ -31,6 +31,7 @@ interface GuidesResponse {
   fetched: number | null;
   patch_ts: number;
   item_names?: Record<string, string>;
+  diag?: { queried: number; with_file: number; downloaded: number; guides: number; this_hero: number } | null;
 }
 
 export function useSteamGuides(hero: number | null, refresh = 0) {
@@ -107,7 +108,19 @@ export function SteamGuides({ hero }: { hero: number }) {
   return (
     <div className="sguide">
       {d.status === 'error' && <p className="warn">{d.error}{d.guides.length ? ' — показаны сохранённые' : ''}</p>}
-      {!d.guides.length && d.status === 'ok' && <p className="muted small">В мастерской не нашлось руководств с билдом для этого героя.</p>}
+      {!d.guides.length && d.status === 'ok' && (
+        <p className="muted small">
+          В мастерской не нашлось руководств с билдом для этого героя.
+          {d.diag && (
+            <>
+              {' '}
+              <span title="Что нашёл Steam на каждом шаге: если пришлёшь эту строку, будет видно, где теряются руководства">
+                (Steam: найдено {d.diag.queried}, с файлом {d.diag.with_file}, скачано {d.diag.downloaded}, руководств {d.diag.guides}, на героя {d.diag.this_hero})
+              </span>
+            </>
+          )}
+        </p>
+      )}
       {d.guides.length > 1 && (
         <div className="sguide__tabs">
           {d.guides.map((x, i) => (
