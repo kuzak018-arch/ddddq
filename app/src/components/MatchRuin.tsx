@@ -1,6 +1,6 @@
 /** «Кто заруинил»: the breakdown of one match — every player rated, the ruiner and the MVP named. */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Crown, Skull, Search } from 'lucide-react';
+import { Crown, Skull, Search } from './glyphs';
 import { useEffect, useState } from 'react';
 
 import { api } from '../api/client';

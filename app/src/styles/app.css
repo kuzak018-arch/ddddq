@@ -2664,10 +2664,10 @@ html:not(.kbd-nav) :focus-visible {
   color: var(--text-2);
   overflow-wrap: anywhere;
 }
-.wiz__found.is-ok > svg {
+.wiz__found.is-ok > .glyph {
   color: var(--good);
 }
-.wiz__found.is-warn > svg {
+.wiz__found.is-warn > .glyph {
   color: var(--warn, #f0b54a);
 }
 .wiz__inline {
@@ -5709,7 +5709,7 @@ a.btn {
   display: flex;
   align-items: center;
 }
-.patch__search svg {
+.patch__search .glyph {
   position: absolute;
   left: 12px;
   color: var(--text-3);
@@ -6972,7 +6972,7 @@ a.btn {
   white-space: nowrap;
   vertical-align: baseline;
 }
-.mins svg {
+.mins .glyph {
   opacity: 0.75;
   transform: translateY(0.05em);
 }
@@ -7008,4 +7008,19 @@ a.btn {
 }
 .ability-icon--glyph img {
   object-fit: contain;
+}
+
+/* Dota's own interface icons (components/glyphs.tsx): a white icon from the game used as a mask, so
+   it takes the text colour; `size` sets --gs, inside .ti the text size does */
+.glyph {
+  display: inline-block;
+  flex: none;
+  vertical-align: middle;
+  background-color: currentColor;
+  -webkit-mask: var(--ico) center / contain no-repeat;
+  mask: var(--ico) center / contain no-repeat;
+}
+.glyph:not(.ti) {
+  width: var(--gs, 24px);
+  height: var(--gs, 24px);
 }

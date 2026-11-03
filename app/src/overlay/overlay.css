@@ -1146,3 +1146,14 @@ html.perf .hud-gold.is-ready .hud-fill {
 .hud-gold__nums {
   align-items: flex-end;
 }
+
+/* a picture of Dota's HUD in a line (gold, buyback, Aegis) */
+.hud-img {
+  flex: none;
+  object-fit: contain;
+  vertical-align: middle;
+}
+.hud-ring__img--hud {
+  border-radius: 0;
+  object-fit: contain;
+}

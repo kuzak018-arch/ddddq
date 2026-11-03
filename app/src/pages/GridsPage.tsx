@@ -6,7 +6,7 @@
  * of the file in Steam, export to a file and the safe write into Dota.
  */
 import { useQuery } from '@tanstack/react-query';
-import { FileArchive, Image, LayoutGrid, Store, Type } from 'lucide-react';
+import { FileArchive, Image, LayoutGrid, Store, Type } from '../components/glyphs';
 import { useState } from 'react';
 
 import { api } from '../api/client';

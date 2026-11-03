@@ -20,7 +20,7 @@ import {
   TriangleAlert,
   User,
   type LucideIcon,
-} from 'lucide-react';
+} from './glyphs';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { create } from 'zustand';

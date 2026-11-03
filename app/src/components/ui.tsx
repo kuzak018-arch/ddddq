@@ -1,5 +1,5 @@
 /** Small shared pieces: icons, segmented control, toggle, slider, win bar, sparkline, explanations. */
-import { Clock } from 'lucide-react';
+import { Clock } from './glyphs';
 import { motion, useSpring, useTransform } from 'motion/react';
 import { useEffect, useId, type ReactNode } from 'react';
 

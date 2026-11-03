@@ -5,7 +5,7 @@
  * confirm frames, which also measures accuracy. Dragging the rects by hand is the fallback.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { RotateCcw, ScanEye, Target } from 'lucide-react';
+import { RotateCcw, ScanEye, Target } from '../components/glyphs';
 import { useEffect, useRef, useState } from 'react';
 
 import { api, backend } from '../api/client';

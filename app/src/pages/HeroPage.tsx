@@ -1,4 +1,4 @@
-import { Ban, BookOpen, Hammer, HeartHandshake, Percent, Shield, Star, Swords, ThumbsDown, Trophy, TrendingUp, User, type LucideIcon } from 'lucide-react';
+import { Ban, BookOpen, Hammer, HeartHandshake, Percent, Shield, Star, Swords, ThumbsDown, Trophy, TrendingUp, User, type LucideIcon } from '../components/glyphs';
 import type { CSSProperties } from 'react';
 import { useEffect, useState } from 'react';
 

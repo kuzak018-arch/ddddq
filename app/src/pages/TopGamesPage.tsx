@@ -6,7 +6,7 @@
  * looks at the user's current match.
  */
 import { useQuery } from '@tanstack/react-query';
-import { ChartLine, Crown, Hammer, ShoppingBag, Swords, Trophy } from 'lucide-react';
+import { ChartLine, Crown, Hammer, ShoppingBag, Swords, Trophy } from '../components/glyphs';
 import { useMemo, useState } from 'react';
 
 import { api } from '../api/client';

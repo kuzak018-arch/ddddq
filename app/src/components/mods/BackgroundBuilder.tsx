@@ -6,7 +6,7 @@
  * the backend's (drafter/game_mods).
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { House, LayoutGrid, Shield } from 'lucide-react';
+import { House, LayoutGrid, Shield } from '../glyphs';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { create } from 'zustand';
 

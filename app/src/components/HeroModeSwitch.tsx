@@ -1,5 +1,5 @@
 /** «Герои» holds two views: the hero page and its builds. The switch keeps the chosen hero. */
-import { Hammer, Shield } from 'lucide-react';
+import { Hammer, Shield } from './glyphs';
 
 import { useUi } from '../state/ui';
 import { Ti } from './Icons';

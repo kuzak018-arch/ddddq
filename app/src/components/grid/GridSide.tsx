@@ -2,7 +2,7 @@
  * The editor's side panel: what is selected (name, size, heroes, glyphs the game will not show)
  * and the heroes to drag onto the grid, found by name or slang like the draft's search.
  */
-import { Layers, Shapes, Tag, Users } from 'lucide-react';
+import { Layers, Shapes, Tag, Users } from '../glyphs';
 import { useMemo, useState } from 'react';
 
 import { useHeroes } from '../../api/hooks';

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AppWindow, Database, KeyRound, Lightbulb, Monitor, Palette, Plug, ScanEye, Volume2, Wand } from 'lucide-react';
+import { AppWindow, Database, KeyRound, Lightbulb, Monitor, Palette, Plug, ScanEye, Volume2, Wand } from '../components/glyphs';
 
 import { comboFromEvent, dotaKeyName, toggleOverlay, useHotkeyStatus } from '../lib/overlay';
 

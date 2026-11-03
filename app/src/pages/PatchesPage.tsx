@@ -5,7 +5,7 @@
  * are marked in the list of patches.
  */
 import { useQuery } from '@tanstack/react-query';
-import { CalendarDays, Globe, Package, RefreshCw, ScrollText, Search, Shield, Star } from 'lucide-react';
+import { CalendarDays, Globe, Package, RefreshCw, ScrollText, Search, Shield, Star } from '../components/glyphs';
 import { useMemo, useState } from 'react';
 
 import { api, asset } from '../api/client';

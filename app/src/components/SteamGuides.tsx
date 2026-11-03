@@ -1,7 +1,7 @@
 /** The hero's best Steam Workshop guides (the ones Dota's guide panel shows): the item build by
  * the author's categories and the skill order, with votes, subscribers and the update date. */
 import { useQuery } from '@tanstack/react-query';
-import { ExternalLink as LinkIcon, RefreshCw } from 'lucide-react';
+import { ExternalLink as LinkIcon, RefreshCw } from './glyphs';
 import { useState } from 'react';
 
 import { api } from '../api/client';

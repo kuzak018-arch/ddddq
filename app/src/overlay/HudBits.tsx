@@ -12,7 +12,6 @@ import {
   Hexagon,
   Moon,
   RotateCcw,
-  Shield,
   Skull,
   Sun,
   TrendingDown,
@@ -21,7 +20,7 @@ import {
   X,
   Zap,
   type LucideIcon,
-} from 'lucide-react';
+} from '../components/glyphs';
 import type { CSSProperties } from 'react';
 
 import { api, asset } from '../api/client';
@@ -33,18 +32,28 @@ import { HeroIcon, ItemIcon, Mins } from '../components/ui';
 import { mmss, useThreats, type NeutralTierNow, type Objectives } from './InGame';
 import type { GameLive, PlanItem } from './live';
 
-const LOOK: Record<string, { icon: LucideIcon; color: string; label: string; item?: string }> = {
-  power: { icon: Zap, color: '#c77dff', label: 'Сила' },
+/** Dota's own HUD pictures (public/dota-icons/hud, from the game's panorama files). */
+const HUD = (name: string) => `/dota-icons/hud/${name}.webp`;
+
+// the runes and the lotus as the game's map timers draw them
+const LOOK: Record<string, { icon: LucideIcon; color: string; label: string; item?: string; src?: string }> = {
+  power: { icon: Zap, color: '#c77dff', label: 'Сила', src: HUD('power') },
   water: { icon: Droplet, color: '#4fb3ff', label: 'Вода' },
-  bounty: { icon: Coins, color: '#f2c14e', label: 'Богатство' },
-  wisdom: { icon: BookOpen, color: '#7ee08a', label: 'Мудрость' },
-  lotus: { icon: Flower2, color: '#ff8fc8', label: 'Лотос', item: 'famango' },
+  bounty: { icon: Coins, color: '#f2c14e', label: 'Богатство', src: HUD('bounty') },
+  wisdom: { icon: BookOpen, color: '#7ee08a', label: 'Мудрость', src: HUD('wisdom') },
+  lotus: { icon: Flower2, color: '#ff8fc8', label: 'Лотос', src: HUD('lotus') },
 };
 
+/** A small picture from Dota's HUD in a line of text (gold, buyback). */
+function HudImg({ name, size = 16 }: { name: string; size?: number }) {
+  return <img className="hud-img" src={HUD(name)} alt="" width={size} height={size} draggable={false} />;
+}
+
 /** A round icon with a ring that closes as the moment comes; `left` seconds of `period`. */
-export function Ring({ icon: Icon, item, color, left, period, label, size = 30, pulse }: {
+export function Ring({ icon: Icon, item, src, color, left, period, label, size = 30, pulse }: {
   icon: LucideIcon;
-  item?: string;   // a game item's picture instead of the vector icon (Aegis for Roshan, Healing Lotus…)
+  item?: string;   // a game item's picture instead of the vector icon
+  src?: string;    // a picture of Dota's HUD (the rune, Roshan, the Tormentor…), before `item`
   color: string;
   left: number | null;
   period: number | null;
@@ -69,7 +78,9 @@ export function Ring({ icon: Icon, item, color, left, period, label, size = 30, 
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
       </svg>
-      {item ? (
+      {src ? (
+        <img className="hud-ring__img hud-ring__img--hud" src={src} alt="" style={{ width: size * 0.7, height: size * 0.7 }} draggable={false} />
+      ) : item ? (
         <img className="hud-ring__img" src={asset(`/icons/items/${item}.png`)} alt="" style={{ width: size * 0.62, height: size * 0.62 }} draggable={false} />
       ) : (
         <Icon size={size * 0.46} className="hud-ring__icon" />
@@ -93,12 +104,12 @@ export function TimersHud({ g, elapsed = 0, max = 5 }: { g: GameLive; elapsed?: 
       {g.timers.slice(0, max).map((t) => {
         const left = Math.max(0, Math.round(t.in - elapsed));
         const night = t.key === 'night';
-        const look: { icon: LucideIcon; color: string; label: string; item?: string } = night
+        const look: { icon: LucideIcon; color: string; label: string; item?: string; src?: string } = night
           ? { icon: t.name === 'Ночь' ? Moon : Sun, color: t.name === 'Ночь' ? '#9db4ff' : '#ffcf5a', label: t.name }
           : (LOOK[t.key] ?? { icon: Clock, color: '#bbb', label: t.name });
         return (
           <Chip key={t.key} className="hud-chip--col" title={`${t.name} через ${mmss(left)}`}>
-            <Ring icon={look.icon} item={look.item} color={look.color} left={left} period={t.period ?? null} label={t.name} pulse={left <= 15} />
+            <Ring icon={look.icon} item={look.item} src={look.src} color={look.color} left={left} period={t.period ?? null} label={t.name} pulse={left <= 15} />
             <b className={left <= 15 ? 'is-soon' : ''}>{mmss(left)}</b>
             <small>{look.label}</small>
           </Chip>
@@ -125,14 +136,14 @@ export function ObjectivesHud({ o }: { o: Objectives }) {
   return (
     <div className="hud-obj">
       <Chip className={`hud-chip--obj is-${r.state}`} title={rTitle}>
-        <Ring icon={Skull} item="aegis" color={color(r.state)} left={r.in ?? null} period={rPeriod} label={rTitle} />
+        <Ring icon={Skull} src={HUD('roshan')} color={color(r.state)} left={r.in ?? null} period={rPeriod} label={rTitle} />
         <span className="hud-obj__text">
           <b>{r.state === 'alive' ? (r.pit === 'top' ? 'жив ▲' : r.pit === 'bottom' ? 'жив ▼' : 'жив') : r.in != null ? mmss(r.in) : '?'}</b>
           <small>Рошан{r.state === 'maybe' ? ' · может' : ''}</small>
         </span>
         {r.aegis != null && (
           <span className="hud-aegis" title={`Аегис ещё ${mmss(r.aegis)}`}>
-            <Shield size={12} /> {mmss(r.aegis)}
+            <HudImg name="aegis" size={14} /> {mmss(r.aegis)}
           </span>
         )}
         {r.source !== 'dota' &&
@@ -147,7 +158,7 @@ export function ObjectivesHud({ o }: { o: Objectives }) {
           ))}
       </Chip>
       <Chip className={`hud-chip--obj is-${t.state}`} title={`Терзатель ${t.state === 'alive' ? 'жив' : `через ${mmss(t.in ?? 0)}`} · сторона ${side}`}>
-        <Ring icon={Hexagon} item="aghanims_shard" color={color(t.state)} left={t.in} period={t.state === 'dead' ? 10 * 60 : null} label="Терзатель" />
+        <Ring icon={Hexagon} src={HUD(t.side === 'dire' ? 'tormentor_dire' : 'tormentor_radiant')} color={color(t.state)} left={t.in} period={t.state === 'dead' ? 10 * 60 : null} label="Терзатель" />
         <span className="hud-obj__text">
           <b>{t.state === 'alive' ? `жив · ${side}` : mmss(t.in ?? 0)}</b>
           <small>Терзатель</small>
@@ -179,7 +190,7 @@ export function NeutralHud({ t, hero, pos, held }: { t: NeutralTierNow; hero: nu
     <div className={`hud-neutral ${fresh ? 'is-fresh' : ''}`}>
       <Chip className="hud-chip--col" title={fresh ? `Открылся тир ${t.tier}` : t.next ? `Тир ${t.next} через ${mmss(t.in ?? 0)}` : 'Открыты все тиры'}>
         <span className="hud-gem">
-          <Ring icon={Gem} item="madstone_bundle" color="#59d7c8" left={fresh ? 0 : t.in} period={t.next ? periods[t.next] ?? 600 : null} label="Нейтралки" />
+          <Ring icon={Gem} src={HUD('neutral_timer')} color="#59d7c8" left={fresh ? 0 : t.in} period={t.next ? periods[t.next] ?? 600 : null} label="Нейтралки" />
           <i>{fresh ? t.tier : (t.next ?? t.tier ?? '')}</i>
         </span>
         <b>{fresh ? 'открыт' : t.in != null ? mmss(t.in) : '—'}</b>
@@ -229,7 +240,7 @@ export function GoldHud({ g, plan }: { g: GameLive; plan: PlanItem[] }) {
         <b className="hud-gold__name">{n.name}</b>
         <span className="hud-stat">
           <Chip className={n.ready ? 'c-good' : ''} title={n.ready ? 'Хватает — можно покупать' : `Не хватает ${n.missing.toLocaleString('ru')} золота`}>
-            <Coins size={13} /> {n.ready ? 'хватает' : `−${n.missing.toLocaleString('ru')}`}
+            <HudImg name="gold_small" size={14} /> {n.ready ? 'хватает' : `−${n.missing.toLocaleString('ru')}`}
           </Chip>
           <small>золото</small>
         </span>

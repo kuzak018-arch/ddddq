@@ -6,7 +6,7 @@
  * which caches it; works tagged 18+ are not shown.
  */
 import { useQuery } from '@tanstack/react-query';
-import { CalendarDays, Download, Flame, Image, LayoutGrid, Palette, Sparkles } from 'lucide-react';
+import { CalendarDays, Download, Flame, Image, LayoutGrid, Palette, Sparkles } from '../glyphs';
 import { useState, type ReactNode } from 'react';
 import { create } from 'zustand';
 
