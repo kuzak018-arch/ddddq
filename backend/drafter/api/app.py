@@ -496,6 +496,15 @@ def my_profile():
                        for h, s in heroes]}
 
 
+@app.get("/heroes/{hero_id}/abilities")
+def hero_abilities_full(hero_id: int):
+    """The hero page's «Способности»: what each ability does, its numbers and the talent tree."""
+    from ..data import abilities as ab
+    if hero_id not in constants.hero_by_id():
+        raise HTTPException(404, "нет такого героя")
+    return ab.details(hero_id)
+
+
 @app.get("/me/stats")
 def my_stats():
     """The profile's «Статистика»: heroes, time of day, tilt, party, matchups, records (me_stats.py)."""

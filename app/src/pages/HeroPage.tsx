@@ -10,6 +10,7 @@ import { BuildView } from '../components/BuildView';
 import { HeroModel, useHeroModel } from '../components/HeroModel';
 import { Panel } from '../components/Glass';
 import { AttrIcon, RoleIcon } from '../components/DotaIcons';
+import { HeroAbilities } from '../components/HeroAbilities';
 import { HeroModeSwitch } from '../components/HeroModeSwitch';
 import { Ti } from '../components/Icons';
 import { HeroSearch } from '../components/HeroSearch';
@@ -43,6 +44,10 @@ export function HeroPage() {
       {p && (
         <>
           <Panel className="hero-page__matchups">
+            <section>
+              <h3 className="section-title">Способности</h3>
+              {id && <HeroAbilities hero={id} />}
+            </section>
             <MatchupList icon={Swords} title="Хорош против" rows={p.matchups.counters} />
             <MatchupList icon={Shield} title="Его контрят" rows={p.matchups.countered_by} />
             <MatchupList icon={HeartHandshake} title="Лучшие союзники" rows={p.matchups.synergy} />
