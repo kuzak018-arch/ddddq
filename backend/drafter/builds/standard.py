@@ -261,5 +261,55 @@ def approximate(b: dict) -> dict:
         "boots_upgrade": ups if ups and ups["share"] >= ALT_MIN_SHARE else None,
         "core": [entry(x) for x in core],
         "situational": [entry(x) | {"wr": x.get("wr")} for x in b["situational"] if not part(x)],
-        "skills": [], "skill_order": b["skills"], "talents": b["talents"],
+        "skills": synth_skills(b["hero"], b["skills"]), "skill_order": b["skills"], "talents": b["talents"],
     }
+
+
+ULT_LEVELS = (6, 12, 18)
+TALENT_LEVELS = (10, 15, 20, 25)
+
+
+def synth_skills(hero_id: int, order: list[dict]) -> list[dict]:
+    """A skill per point level when only the max order is known (the aggregated build): the overlay's
+    «Качай» needs one. Dota's rules: the ultimate at 6/12/18, a talent at 10/15/20/25, a basic
+    ability's level k from hero level 2k-1; each basic ability gets its first point at its usual first
+    level, then the one maxed first is raised. Abilities the max order lacks (Stratz had too few
+    games) come after it, by the hero's own list."""
+    from .sequences import POINT_LEVELS
+    vh = constants.valve_hero(hero_id)
+    if not vh:
+        return []
+    basic, ult = [], None
+    for a in vh["abilities"]:
+        if not a.get("name_loc") or str(a.get("ability_is_innate")) == "True" or int(a.get("behavior") or 0) & 1:
+            continue
+        if int(a.get("type") or 0) == 1:
+            ult = ult or a["name"]
+        elif int(a.get("max_level") or 0) >= 3:
+            basic.append(a["name"])
+    if not basic:
+        return []
+    known = [s["key"] for s in order if s["key"] in basic]
+    prio = known + [k for k in basic if k not in known]
+    first = {s["key"]: s.get("first_level") for s in order if s["key"] in basic and s.get("first_level")}
+    names = {a["name"]: a.get("name_loc") or a["name"] for a in vh["abilities"]}
+    lv = {k: 0 for k in basic}
+    ult_lv = 0
+    out = []
+    for L in POINT_LEVELS:
+        if L in TALENT_LEVELS:
+            out.append({"level": L, "key": "talent", "name": "Талант", "share": 0.0})
+            continue
+        if ult and L in ULT_LEVELS and ult_lv < 3:
+            ult_lv += 1
+            out.append({"level": L, "key": ult, "name": names[ult], "share": 0.0})
+            continue
+        cap = (L + 1) // 2
+        due = sorted((k for k in basic if lv[k] == 0 and first.get(k) and first[k] <= L), key=lambda k: first[k])
+        pick = due[0] if due else next((k for k in prio if lv[k] < 4 and lv[k] < cap), None)
+        if pick is None:
+            out.append({"level": L, "key": "talent", "name": "Талант", "share": 0.0})
+            continue
+        lv[pick] += 1
+        out.append({"level": L, "key": pick, "name": names[pick], "share": 0.0})
+    return out

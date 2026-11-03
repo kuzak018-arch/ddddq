@@ -110,3 +110,25 @@ def test_threats_from_a_synthetic_feed(monkeypatch):
     assert not stun["pierces"] and stun["dispel"] == "развеивается" and stun["tags"] == ["оглушение"]
     assert stun["desc"] == "Оглушает врага на 1,5 / 2 сек."
     assert buff["dispel"] is None and buff["tags"] == []       # a self-buff: dispel says nothing here
+
+
+def test_synthetic_skill_order_follows_dota_rules(monkeypatch):
+    from drafter.builds import standard
+    feed = {"abilities": [
+        {"name": "x_a", "name_loc": "A", "type": 0, "max_level": 4, "behavior": 8},
+        {"name": "x_b", "name_loc": "B", "type": 0, "max_level": 4, "behavior": 8},
+        {"name": "x_c", "name_loc": "C", "type": 0, "max_level": 4, "behavior": 8},
+        {"name": "x_inn", "name_loc": "I", "type": 0, "max_level": 1, "ability_is_innate": "True"},
+        {"name": "x_ult", "name_loc": "U", "type": 1, "max_level": 3, "behavior": 4},
+    ]}
+    monkeypatch.setattr(standard.constants, "valve_hero", lambda h: feed)
+    out = standard.synth_skills(7, [{"key": "x_b", "first_level": 1}, {"key": "x_a", "first_level": 2}])
+    by = {s["level"]: s["key"] for s in out}
+    assert by[1] == "x_b" and by[2] == "x_a" and by[6] == by[12] == by[18] == "x_ult" and by[10] == "talent"
+    counts = {}
+    for s in out:
+        counts[s["key"]] = counts.get(s["key"], 0) + 1
+        if s["key"].startswith("x_") and s["key"] != "x_ult":     # level k of a basic ability from hero level 2k-1
+            assert counts[s["key"]] <= (s["level"] + 1) // 2
+    assert counts["x_b"] == counts["x_a"] == counts["x_c"] == 4 and counts["x_ult"] == 3 and "x_inn" not in counts
+    assert [s["key"] for s in out if s["level"] <= 7].count("x_b") == 4     # the one maxed first
