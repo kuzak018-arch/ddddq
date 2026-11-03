@@ -7024,3 +7024,6 @@ a.btn {
   width: var(--gs, 24px);
   height: var(--gs, 24px);
 }
+.ability-icon--glyph.ability-icon--talent {
+  background: none;
+}
