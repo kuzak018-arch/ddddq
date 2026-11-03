@@ -49,43 +49,21 @@ export function AbilityIcon({ info, name, size = 32 }: { info?: AbilityInfo | nu
 
 /** The talent tree glyph (a level where a talent is taken, or a talent with no ability of its own). */
 /** Dota's innate-ability mark (the same for every hero), else a hexagon badge with the initials. */
+/** The innate ability: Dota's own innate glyph (public/dota-icons/hud/innate.webp, from the game's
+ * files), shipped with the app so it shows without the network. */
 export function InnateIcon({ size = 32, label = 'Врождённая' }: { size?: number; label?: string }) {
-  const icons = useUiIcons();
-  const [broken, setBroken] = useState(false);
-  if (icons?.innate && !broken)
-    return (
-      <span className="ability-icon ability-icon--glyph is-innate" style={{ width: size, height: size }} title={label}>
-        <img src={asset(icons.innate)} alt={label} width={size * 0.78} height={size * 0.78} draggable={false} onError={() => setBroken(true)} />
-      </span>
-    );
   return (
-    <span className="ability-icon ability-icon--badge is-innate" style={{ width: size, height: size }} aria-label={label}>
-      {abbr(label)}
+    <span className="ability-icon ability-icon--glyph is-innate" style={{ width: size, height: size }} title={label}>
+      <img src="/dota-icons/hud/innate.webp" alt={label} width={size * 0.86} height={size * 0.86} draggable={false} />
     </span>
   );
 }
 
+/** A talent level: the talent tree of Dota's HUD, lit as when a talent can be taken (public/dota-icons/hud/talent.webp). */
 export function TalentIcon({ size = 32 }: { size?: number }) {
-  const icons = useUiIcons();
-  const [broken, setBroken] = useState(false);
-  if (icons?.talent && !broken)
-    return (
-      <span className="ability-icon ability-icon--glyph ability-icon--talent" style={{ width: size, height: size }} aria-label="Талант">
-        <img src={asset(icons.talent)} alt="Талант" width={size * 0.8} height={size * 0.8} draggable={false} onError={() => setBroken(true)} />
-      </span>
-    );
   return (
-    <span className="ability-icon ability-icon--talent" style={{ width: size, height: size }} aria-label="Талант">
-      <svg viewBox="0 0 24 24" width={size * 0.62} height={size * 0.62} aria-hidden>
-        <path
-          d="M12 21V11m0 0L7 6m5 5 5-5M7 6V3m0 3H4m13 0V3m0 3h3M12 11V7"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
+    <span className="ability-icon ability-icon--glyph ability-icon--talent" style={{ width: size, height: size }} aria-label="Талант">
+      <img src="/dota-icons/hud/talent.webp" alt="Талант" width={size} height={size} draggable={false} />
     </span>
   );
 }

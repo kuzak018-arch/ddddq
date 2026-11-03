@@ -1,4 +1,4 @@
-"""The reader takes back its own wrong pick, keeps a right hero in its slot, and GSI's first match id
+"""The reader keeps a placed hero, replaces it only with another hero it reads in that slot, keeps a right hero in its slot, and GSI's first match id
 in a running draft doesn't wipe the board."""
 
 from drafter import gsi
@@ -25,18 +25,28 @@ def step(r, state):
     r.step(None, dict(state, allies=list(state["allies"]), enemies=list(state["enemies"])))
 
 
-def test_a_wrong_pick_the_screen_stops_showing_is_taken_back():
+def test_a_placed_hero_stays_when_the_screen_stops_showing_it():
     state = {"allies": [None] * 5, "enemies": [None] * 5, "bans": [], "side": "radiant", "phase": "draft", "my_hero": None}
-    frames = [res([W, None, None, None, None])] * 2 + [res([None] * 5)] * runner.DOUBT_FRAMES
+    frames = [res([W, None, None, None, None])] * 2 + [res([None] * 5)] * 30
+    r = make(state, frames)
+    for _ in range(32):
+        step(r, state)
+    assert state["allies"][0] == W            # unreadable frames never empty a slot
+
+
+def test_a_wrong_pick_is_replaced_by_the_hero_the_slot_shows():
+    state = {"allies": [None] * 5, "enemies": [None] * 5, "bans": [], "side": "radiant", "phase": "draft", "my_hero": None}
+    need = runner.STABLE_FRAMES + runner.CORRECT_EXTRA
+    frames = [res([W, None, None, None, None])] * 2 + [res([B, None, None, None, None])] * need
     r = make(state, frames)
     for _ in range(2):
         step(r, state)
     assert state["allies"][0] == W
-    for _ in range(runner.DOUBT_FRAMES - 1):
+    for _ in range(need - 1):
         step(r, state)
-    assert state["allies"][0] == W            # a few unreadable frames are not enough
+    assert state["allies"][0] == W            # one or two frames of another hero are not enough
     step(r, state)
-    assert state["allies"][0] is None
+    assert state["allies"][0] == B
 
 
 def test_a_right_hero_is_not_pulled_out_by_a_look_alike():

@@ -15,8 +15,9 @@ Rules that keep it from getting in the way:
   - my own hero (GSI) that no template recognises (a persona, a redrawn portrait) is placed by
     elimination once the four other allies are read, and that portrait is learned;
   - Radiant/Dire are mapped to my team / enemies only when my side is known (GSI or chosen);
-  - a hero the reader put in that the screen stops showing (not even among the slot's three best
-    matches for DOUBT_FRAMES frames in a row: a wrong read, a hero changed) is taken back out;
+  - a hero the reader put in stays put: a slot that stops showing it (a hover, an animation, the
+    strategy phase) never empties it; only another hero read in that slot for
+    STABLE_FRAMES + CORRECT_EXTRA frames in a row replaces it (a wrong read gets corrected);
   - the reader's own pick moves to another slot of its team only when its own slot no longer shows
     it (a look-alike portrait elsewhere must not pull a right hero out of its slot);
   - nothing is captured outside hero selection.
@@ -42,7 +43,6 @@ BARS_THRESHOLD = 0.55
 BARS_MARGIN = 0.08
 CORRECT_EXTRA = 2   # frames more than a first fill that a different hero must be read to replace the reader's own pick
 ME_FRAMES = 3       # frames in a row my hero's slot must be the only unread one before it is placed by elimination
-DOUBT_FRAMES = 8    # frames in a row (~5 s) a slot must not show the reader's own pick before the pick is taken back
 
 
 def unique(res: dict) -> dict:
@@ -82,7 +82,6 @@ class Runner:
         self.locked: set[tuple[str, int]] = set()      # slots the user edited by hand
         self.pending: dict[tuple[str, int], tuple[int, int]] = {}  # slot -> (hero, frames seen)
         self.me_seen = 0        # frames in a row my hero's screen slot was found by elimination
-        self.doubt: dict[tuple[str, int], int] = {}   # slot -> frames in a row it hasn't shown the reader's pick
         self.me_learned = False
 
     def reset_learning(self) -> None:
@@ -192,13 +191,6 @@ class Runner:
                 key = (group, i)
                 if key in self.applied and board[i] != self.applied[key]:
                     self.locked.add(key)          # the user replaced or cleared what we put
-                if key in self.applied and board[i] == self.applied[key] and key not in self.locked:
-                    if self._doubted(key, raw[group][i], self.applied[key]):
-                        board[i] = None           # the screen hasn't shown it for a while: a wrong read
-                        self.applied.pop(key, None)
-                        self.pending.pop(key, None)
-                        changed.add(team_key)
-                        continue
                 if key in self.locked or not r.hero:
                     continue
                 hero, seen = self.pending.get(key, (None, 0))
@@ -226,17 +218,6 @@ class Runner:
         if changes:
             self.patch(**changes)
         return changes or None
-
-    def _doubted(self, key: tuple[str, int], r, hero: int) -> bool:
-        """Count the frames in a row this slot hasn't shown `hero` (not even as a near match)."""
-        if r.hero == hero or any(h == hero for h, _ in (r.candidates or [])[:3]):
-            self.doubt.pop(key, None)
-            return False
-        self.doubt[key] = self.doubt.get(key, 0) + 1
-        if self.doubt[key] >= DOUBT_FRAMES:
-            self.doubt.pop(key, None)
-            return True
-        return False
 
     def _place(self, boards: dict, bans: list, team_key: str, group: str, i: int, hero: int, me: int | None,
                raw: dict | None = None) -> bool:

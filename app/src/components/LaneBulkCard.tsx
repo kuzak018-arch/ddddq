@@ -1,6 +1,6 @@
 /** Settings card: an option to download lane data for the user's pool in the background. */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Route } from 'lucide-react';
+import { Route } from './glyphs';
 
 import { api } from '../api/client';
 import { useHeroes } from '../api/hooks';

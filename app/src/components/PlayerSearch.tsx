@@ -4,7 +4,7 @@
  * A closed profile (no public match data) says so plainly; its rank medal is still shown.
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Clock, ExternalLink as LinkIcon, LayoutGrid, RefreshCw, Search } from 'lucide-react';
+import { Clock, ExternalLink as LinkIcon, LayoutGrid, RefreshCw, Search } from './glyphs';
 import { useEffect, useState } from 'react';
 
 import { api } from '../api/client';

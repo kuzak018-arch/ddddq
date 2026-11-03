@@ -5,7 +5,7 @@
  * only replace Valve's files: Panorama reads them with fontconfig from the folder, not from packs).
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Type } from 'lucide-react';
+import { Type } from '../glyphs';
 import { useEffect, useMemo, useState } from 'react';
 
 import { api, apiBytes, apiUpload, backend } from '../../api/client';

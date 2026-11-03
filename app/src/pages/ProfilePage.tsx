@@ -17,7 +17,7 @@ import {
   User,
   UserSearch,
   Skull,
-} from 'lucide-react';
+} from '../components/glyphs';
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent, type ReactNode } from 'react';
 
 import { api } from '../api/client';

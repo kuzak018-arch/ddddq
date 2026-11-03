@@ -2,7 +2,7 @@
  * wallpaper behind everything (picture, GIF, video, hero art or a built-in one). */
 import { isTauri } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { ChartColumnIncreasing, Palette, ScrollText, Shield, Swords, Trophy, User, type LucideIcon } from 'lucide-react';
+import { ChartColumnIncreasing, Palette, ScrollText, Shield, Swords, Trophy, User, type LucideIcon } from './glyphs';
 import { motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 

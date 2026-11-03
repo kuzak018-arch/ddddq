@@ -1,4 +1,4 @@
-import { Activity, Ban, CalendarDays, ChartColumnIncreasing, Layers, Percent, Table2, TrendingUp, type LucideIcon } from 'lucide-react';
+import { Activity, Ban, CalendarDays, ChartColumnIncreasing, Layers, Percent, Table2, TrendingUp, type LucideIcon } from '../components/glyphs';
 import { useMemo, useState } from 'react';
 
 import { useHeroes, useSettings, useTierList } from '../api/hooks';

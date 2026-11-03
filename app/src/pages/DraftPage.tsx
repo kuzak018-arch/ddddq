@@ -3,7 +3,7 @@
  * advice at the bottom), the win chance ring with the main reasons between them. Below: the best
  * picks for my position and, at the right, the lane and the build against this draft.
  */
-import { Ban, Crosshair, Hammer, ShieldBan, Sparkles, Users } from 'lucide-react';
+import { Ban, Crosshair, Hammer, ShieldBan, Sparkles, Users } from '../components/glyphs';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 

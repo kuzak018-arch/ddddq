@@ -1,7 +1,7 @@
 /** «Вышел патч 7.42 — данные с 7.41f»: Dota has a newer patch than the app's data (backend
  * patch_watch.py). One button starts the usual refresh job and opens Settings to watch it. */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { RefreshCw, X } from 'lucide-react';
+import { RefreshCw, X } from './glyphs';
 import { useEffect, useState } from 'react';
 
 import { api, subscribe } from '../api/client';

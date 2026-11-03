@@ -204,3 +204,16 @@ def test_attribute_levels_from_dota_count_as_spent():
     live = _live(level=11, abilities=(("a", 4), ("b", 3), ("c", 1), ("u", 1)), talents=1)
     live["attributes"] = 0
     assert ingame.next_skill(live, order)["now"] is True       # 11 points earned, 10 spent
+
+
+def test_a_swapped_in_ability_while_casting_is_not_an_untaken_skill():
+    # Keeper of the Light: casting Illuminate puts «Release Illuminate» in its slot for a while
+    order = ["kotl_illuminate", "kotl_blinding", "kotl_illuminate"]
+    ingame._slots.update(hero=None, slots={})
+    before = _live(level=1, abilities=(("kotl_illuminate", 1), ("kotl_blinding", 0)))
+    assert ingame.next_skill(before, order)["now"] is False
+    casting = _live(level=1, abilities=(("kotl_illuminate_end", 1), ("kotl_blinding", 0)))
+    assert ingame.next_skill(casting, order)["now"] is False          # the point is still spent
+    after = _live(level=2, abilities=(("kotl_illuminate", 1), ("kotl_blinding", 0)))
+    s = ingame.next_skill(after, order)
+    assert s["key"] == "kotl_blinding" and s["now"] is True

@@ -1,4 +1,4 @@
-import { Crosshair, Route, Shield, Users } from 'lucide-react';
+import { Crosshair, Route, Shield, Users } from '../components/glyphs';
 
 import { useHeroes, useBuild } from '../api/hooks';
 import { BuildView } from '../components/BuildView';

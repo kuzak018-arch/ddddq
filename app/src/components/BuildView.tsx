@@ -3,7 +3,7 @@
  * ("or" alternatives with share), core items in order with median timings and alternatives,
  * situational items, skill order by level and talents from the same games.
  */
-import { ChevronsUp, Crosshair, Flag, Footprints, Gem, GitFork, ListOrdered, Shuffle, Sunrise } from 'lucide-react';
+import { ChevronsUp, Crosshair, Flag, Footprints, Gem, GitFork, ListOrdered, Shuffle, Sunrise } from './glyphs';
 import { createContext, useContext, useEffect, useState } from 'react';
 
 import { useTopTimings } from '../api/hooks';

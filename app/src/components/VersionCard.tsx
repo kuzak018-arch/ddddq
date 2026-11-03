@@ -2,7 +2,7 @@
  * Settings card «Версия и обновления»: the app's version, checking for a newer one, downloading
  * and installing it (lib/updates.ts), automatic updates, and the author's Telegram.
  */
-import { Download, Info, RefreshCw, RotateCw } from 'lucide-react';
+import { Download, Info, RefreshCw, RotateCw } from './glyphs';
 import { useEffect } from 'react';
 
 import { useUi } from '../state/ui';

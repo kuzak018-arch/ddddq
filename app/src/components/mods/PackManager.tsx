@@ -4,7 +4,7 @@
  * over another file, removed one by one or with «Убрать всё».
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { FileArchive, Trash2, Upload } from 'lucide-react';
+import { FileArchive, Trash2, Upload } from '../glyphs';
 import { useRef, useState } from 'react';
 
 import { api, apiBytes } from '../../api/client';

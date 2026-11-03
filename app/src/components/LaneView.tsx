@@ -2,7 +2,7 @@
  * Lane matchup: who wins the lane (Stratz lane outcomes) and how it goes minute by minute in real
  * matches of the pair: the gap in networth or experience, pressure windows and both heroes' spikes.
  */
-import { Clock, Route } from 'lucide-react';
+import { Clock, Route } from './glyphs';
 import { useEffect, useMemo, useState } from 'react';
 
 import { useHeroes, useLane, useLaneOpponents } from '../api/hooks';
