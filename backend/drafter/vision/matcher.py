@@ -34,6 +34,9 @@ W_NCC, W_HIST = 0.75, 0.25
 EMPTY_STD = 9.0        # a flat (empty / placeholder) slot has almost no texture
 WRONG_HERO_SCORE = 0.6  # a learned crop is thrown out when the art says it is another hero this surely...
 WRONG_HERO_GAP = 0.15   # ...and its own hero's art matches it this much worse
+PLACEHOLDER_SIM = 0.92  # a crop this close to another slot of the same frame is a placeholder, not a portrait
+REPEATED_SLOTS = 3      # one hero «found» in this many pick slots of a frame: a generic template
+QUARANTINE = config.DATA / "vision" / "learned-quarantine"
 
 # The finer search: the slot's upper part (above the rank plate that Dota draws over the lower half
 # of a portrait: «Легенда V», «Властелин II») is looked for inside each candidate's art, zoomed in
@@ -308,12 +311,42 @@ def contradicts_art(hero_id: int, crop_bgr: np.ndarray) -> bool:
     return _contradicts(art_ids, art_grey, hero_id, g)
 
 
-def learn(hero_id: int, crop_bgr: np.ndarray, tag: str | None = None) -> Path | None:
-    """Save how this hero's portrait looks in the user's game; used as a template from now on.
-    `tag`: the draft an automatic template came from (see TemplateBank's exclude). None: the crop
-    is not this hero by the art (a mislabelled slot) and is not saved."""
+def looks_like_another_slot(crop_bgr: np.ndarray, others: list[np.ndarray]) -> bool:
+    """The crop is nearly the same picture as another slot of its frame: an empty or placeholder
+    slot (they all look alike), never a hero's portrait (no two slots show the same hero)."""
+    aspect = crop_bgr.shape[1] / crop_bgr.shape[0]
+    g, _ = _features(crop_bgr, aspect)
+    for o in others:
+        if o is crop_bgr or not o.size:
+            continue
+        og, _ = _features(o, aspect)
+        if float(g @ og) >= PLACEHOLDER_SIM:
+            return True
+    return False
+
+
+def quarantine(hero_id: int) -> int:
+    """Move the hero's learned portraits aside (they matched slots of other heroes): returns how many."""
     global _learned_version
-    if contradicts_art(hero_id, crop_bgr):
+    src = LEARNED / str(hero_id)
+    files = list(src.glob("*.png")) if src.exists() else []
+    if not files:
+        return 0
+    dst = QUARANTINE / str(hero_id)
+    dst.mkdir(parents=True, exist_ok=True)
+    for f in files:
+        f.replace(dst / f.name)
+    _learned_version = time.time()
+    return len(files)
+
+
+def learn(hero_id: int, crop_bgr: np.ndarray, tag: str | None = None, others: list[np.ndarray] | None = None) -> Path | None:
+    """Save how this hero's portrait looks in the user's game; used as a template from now on.
+    `tag`: the draft an automatic template came from (see TemplateBank's exclude). `others`: the
+    frame's other slots. None: not saved — the crop is another hero by the art (a mislabelled
+    slot), or it looks like another slot of the frame (a placeholder)."""
+    global _learned_version
+    if contradicts_art(hero_id, crop_bgr) or (others and looks_like_another_slot(crop_bgr, others)):
         return None
     folder = LEARNED / str(hero_id)
     folder.mkdir(parents=True, exist_ok=True)

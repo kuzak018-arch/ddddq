@@ -272,10 +272,12 @@ class Runner:
         board[k] = me
         self.applied[key] = me
         if not self.me_learned and self._last_cal is not None:
-            crop = reader.crops(frame, self._last_cal)[mine][k]
+            all_crops = reader.crops(frame, self._last_cal)
+            crop = all_crops[mine][k]
             if crop.size:
                 try:
-                    self.me_learned = matcher.learn(me, crop) is not None
+                    others = all_crops["radiant"] + all_crops["dire"]
+                    self.me_learned = matcher.learn(me, crop, others=others) is not None
                 except (OSError, ValueError):
                     pass
         return changed

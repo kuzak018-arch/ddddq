@@ -111,6 +111,9 @@ async def lifespan(app: FastAPI):
     bus.bind(asyncio.get_running_loop())
     if copied := config.ensure_seed():
         print(f"стартовые данные: скопировано {copied}", flush=True)
+    from ..vision import migrate as vmigrate
+    if (cleaned := vmigrate.run()) and (cleaned["learned"] or cleaned["calibration"] or cleaned["collected"]):
+        print(f"чтение экрана: обучение старой версии сброшено один раз ({cleaned})", flush=True)
     server = None
     if os.environ.get("DRAFTER_NO_GSI") != "1":
         try:
@@ -1210,7 +1213,7 @@ def vision_reset_learning():
     choice and the wizard's own snapshots stay."""
     import shutil
     removed = 0
-    for folder in (vmatch.LEARNED, veval.LABELED, vcollect.DRAFTS):
+    for folder in (vmatch.LEARNED, vmatch.QUARANTINE, veval.LABELED, vcollect.DRAFTS):
         if folder.exists():
             removed += sum(1 for p in folder.rglob("*") if p.is_file())
             shutil.rmtree(folder, ignore_errors=True)
