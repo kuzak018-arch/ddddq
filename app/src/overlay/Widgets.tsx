@@ -13,8 +13,9 @@ import { onWidgetsInteractive, placeOnce, showWidget, WIDGET_KINDS, widgetsInter
 import { useDraft } from '../state/draft';
 import { startSync } from '../state/sync';
 import { useUi } from '../state/ui';
-import { NeutralTierLine, ObjectivesRow, SkillAnnounce, useElapsed, WinStrip } from './InGame';
-import { Buyback, NextItem, NightLine, PaceLines, TimersRow, useBuildPlan, useGameLive } from './live';
+import { BuybackHud, GoldHud, NeutralHud, NightHud, ObjectivesHud, PaceHud, TimersHud, WinBar } from './HudBits';
+import { SkillAnnounce, useElapsed } from './InGame';
+import { useBuildPlan, useGameLive } from './live';
 
 export function WidgetApp({ kind }: { kind: WidgetKind }) {
   const [ready, setReady] = useState(false);
@@ -105,23 +106,28 @@ function TimersWidget() {
   if (!g?.live) return null;
   return (
     <>
-      <TimersRow g={g} max={5} elapsed={g.live.paused ? 0 : elapsed} />
-      {g.neutral_tier && <NeutralTierLine t={g.neutral_tier} hero={hero} pos={pos} held={g.live.neutral ?? null} />}
-      {g.objectives && <ObjectivesRow o={g.objectives} />}
+      <TimersHud g={g} max={6} elapsed={g.live.paused ? 0 : elapsed} />
+      <div className="hud-line">
+        {g.neutral_tier && <NeutralHud t={g.neutral_tier} hero={hero} pos={pos} held={g.live.neutral ?? null} />}
+        {g.objectives && <ObjectivesHud o={g.objectives} />}
+      </div>
     </>
   );
 }
 
 function NowWidget() {
-  const { req, me, hero, plan, skillOrder, ab, pos } = useBuildPlan();
-  const phase = useDraft((s) => s.phase);
-  const g = useGameLive(plan, skillOrder, pos).data;
+  const { req, hero, plan, skillOrder, ab, pos } = useBuildPlan();
+  const q = useGameLive(plan, skillOrder, pos);
+  const elapsed = useElapsed(q.dataUpdatedAt);
+  const g = q.data;
   if (!g?.live) return null;
   return (
     <>
       <SkillAnnounce s={g.skill} order={skillOrder} ab={ab} />
-      <NightLine g={g} hero={hero} enemies={req.enemies} />
-      <WinStrip req={req} me={me} inGame={phase === 'game'} />
+      <div className="hud-line">
+        <WinBar req={req} />
+        <NightHud g={g} me={hero} enemies={req.enemies} elapsed={g.live.paused ? 0 : elapsed} />
+      </div>
     </>
   );
 }
@@ -132,9 +138,11 @@ function GoldWidget() {
   if (!g?.live) return null;
   return (
     <>
-      <NextItem g={g} plan={plan} size={30} />
-      <Buyback g={g} />
-      {g.pace && <PaceLines pace={g.pace} />}
+      <GoldHud g={g} plan={plan} />
+      <div className="hud-line">
+        <BuybackHud g={g} />
+        <PaceHud g={g} />
+      </div>
     </>
   );
 }

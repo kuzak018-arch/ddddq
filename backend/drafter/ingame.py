@@ -103,11 +103,11 @@ def timers(clock: float | None, daytime: bool | None) -> list[dict]:
     for key, first, period, until in TIMERS:
         s = next_spawn(clock, first, period, until)
         if s is not None:
-            out.append({"key": key, "name": TIMER_NAMES[key], "in": s})
+            out.append({"key": key, "name": TIMER_NAMES[key], "in": s, "period": period if clock >= first else first})
     if clock >= 0:
         flip = int(DAY_NIGHT - clock % DAY_NIGHT)
         night_now = (clock // DAY_NIGHT) % 2 == 1 if daytime is None else not daytime
-        out.append({"key": "night", "name": "День" if night_now else "Ночь", "in": flip})
+        out.append({"key": "night", "name": "День" if night_now else "Ночь", "in": flip, "period": DAY_NIGHT})
     return sorted(out, key=lambda t: t["in"])
 
 

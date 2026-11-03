@@ -55,20 +55,18 @@ export function HeroAbilities({ hero }: { hero: number }) {
       {d.talents.length > 0 && (
         <div className="habs__talents">
           <span className="mys__label">Таланты</span>
-          <table className="table habs__tree">
-            <tbody>
-              {d.talents.map((t) => (
-                <tr key={t.level}>
-                  <td className="table__hero habs__tl">{t.left}</td>
-                  <td className="habs__lvl">
-                    <TalentIcon size={18} />
-                    {t.level}
-                  </td>
-                  <td className="table__hero habs__tr">{t.right}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="habs__tree">
+            {d.talents.map((t) => (
+              <div key={t.level} className="habs__trow">
+                <span className="habs__tl">{t.left}</span>
+                <span className="habs__lvl">
+                  <TalentIcon size={18} />
+                  {t.level}
+                </span>
+                <span className="habs__tr">{t.right}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

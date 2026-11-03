@@ -6792,21 +6792,31 @@ a.btn {
   font-size: 12px;
 }
 .habs__tree {
-  width: 100%;
-  table-layout: fixed;
-  border-collapse: collapse;
+  display: flex;
+  flex-direction: column;
 }
-.habs__tree td {
-  padding: 4px 6px;
-  font-size: 12px;
+/* the talent tree: left option | level | right option, the same width on both sides */
+.habs__trow {
+  display: grid;
+  grid-template-columns: 1fr 64px 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+  font-size: 12.5px;
+  line-height: 1.3;
 }
 .habs__tl {
   text-align: right;
-  width: 45%;
+}
+.habs__tr {
+  text-align: left;
 }
 .habs__lvl {
-  width: 64px;
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   white-space: nowrap;
   color: var(--gold, #e3b341);
   font-weight: 700;
