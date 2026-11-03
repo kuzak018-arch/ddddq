@@ -49,3 +49,64 @@ def test_build_response_carries_abilities_and_talent_targets():
     ab = service._abilities(1, [b], download=False)
     assert set(ab) == {"antimage_mana_break", "antimage_mana_void"}
     assert [o["ability"] for o in b["talents"][0]["options"]] == [None, "antimage_mana_void"]
+
+
+def test_details_from_a_synthetic_feed(monkeypatch):
+    feed = {
+        "abilities": [
+            {"name": "x_nuke", "name_loc": "Удар", "type": 0, "desc_loc": "Наносит %damage% урона.",
+             "notes_loc": ["Оглушение длится %stun%s сек."], "scepter_loc": "Урон %damage%.",
+             "cooldowns": [10.5, 9, 7.5, 6], "mana_costs": [0, 0, 0, 0], "cast_ranges": [600, 600, 600, 600],
+             "special_values": [
+                 {"name": "damage", "values_float": [100, 200], "values_scepter": [300, 400], "heading_loc": "урон:"},
+                 {"name": "stun", "values_float": [1.5], "heading_loc": "", "is_percentage": False},
+                 {"name": "AbilityCooldown", "values_float": [10], "heading_loc": "Перезарядка:"},
+                 {"name": "radius", "values_float": [300], "heading_loc": "Радиус:",
+                  "bonuses": [{"name": "special_bonus_unique_x_radius", "value": 150}]},
+             ]},
+            {"name": "x_ult", "name_loc": "Ульта", "type": 1, "desc_loc": "", "ability_is_innate": "False"},
+            {"name": "generic_hidden", "name_loc": "скрытая"},
+        ],
+        "talents": [{"name": "special_bonus_hp", "name_loc": "+{s:value} к здоровью",
+                     "special_values": [{"name": "value", "values_float": [-200]}]},
+                    {"name": "special_bonus_unique_x_radius", "name_loc": "+{s:bonus_radius} к радиусу Удара"}],
+    }
+    monkeypatch.setattr(constants, "valve_hero", lambda h: feed)
+    monkeypatch.setattr(abilities, "hero_abilities", lambda h, download=True: {"x_nuke": {"icon": "/icons/abilities/x_nuke.png"}})
+    d = abilities.details(5, download=False)
+    assert d["source"] == "valve"
+    nuke, ult = d["abilities"]
+    assert [a["key"] for a in d["abilities"]] == ["x_nuke", "x_ult"]
+    assert nuke["desc"] == "Наносит 100 / 200 урона."
+    assert nuke["notes"] == ["Оглушение длится 1,5 сек."]
+    assert nuke["scepter"] == "Урон 300 / 400."
+    assert nuke["cooldown"] == "10,5 / 9 / 7,5 / 6"
+    assert nuke["mana"] is None and nuke["range"] == "600"
+    assert {"label": "Урон", "value": "100 / 200"} in nuke["values"]
+    assert all(v["label"] != "Перезарядка" for v in nuke["values"])  # shown on its own line
+    assert ult["ultimate"] and not ult["innate"] and ult["icon"] is None
+    assert d["talents"][0]["level"] == 25 and d["talents"][-1] == {
+        "level": 10, "left": "+200 к здоровью", "right": "+150 к радиусу Удара"}
+
+
+def test_threats_from_a_synthetic_feed(monkeypatch):
+    feed = {"abilities": [
+        {"name": "x_stun", "name_loc": "Удар", "type": 0, "behavior": 8, "target_team": 2, "immunity": 4, "dispellable": 2,
+         "desc_loc": "Оглушает врага на %stun% сек.", "cooldowns": [12, 10],
+         "special_values": [{"name": "stun", "values_float": [1.5, 2]}]},
+        {"name": "x_buff", "name_loc": "Щит", "type": 0, "behavior": 4, "target_team": 0, "dispellable": 3,
+         "desc_loc": "Даёт щит.", "cooldowns": [20]},
+        {"name": "x_passive", "name_loc": "Ночной охотник", "type": 0, "behavior": 2, "desc_loc": "Ночью быстрее."},
+        {"name": "x_ult", "name_loc": "Дыра", "type": 1, "behavior": 4, "target_team": 0, "immunity": 3,
+         "desc_loc": "Враги не могут двигаться и применять способности.", "cooldowns": [180, 160]},
+    ]}
+    monkeypatch.setattr(constants, "valve_hero", lambda h: feed)
+    monkeypatch.setattr(abilities, "hero_abilities", lambda h, download=True: {})
+    t = abilities.threats(7, download=False)
+    assert t["night"] is True                                  # from the passive's text
+    assert [a["key"] for a in t["abilities"]] == ["x_ult", "x_stun", "x_buff"]  # ultimate first, passive left out
+    ult, stun, buff = t["abilities"]
+    assert ult["pierces"] and ult["tags"] == ["безмолвие", "обездвиживание"] and ult["cooldown"] == "180 / 160"
+    assert not stun["pierces"] and stun["dispel"] == "развеивается" and stun["tags"] == ["оглушение"]
+    assert stun["desc"] == "Оглушает врага на 1,5 / 2 сек."
+    assert buff["dispel"] is None and buff["tags"] == []       # a self-buff: dispel says nothing here

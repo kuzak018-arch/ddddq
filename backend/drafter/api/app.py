@@ -270,6 +270,16 @@ def items():
     return out
 
 
+@app.get("/heroes/threats")
+def hero_threats(ids: str = Query(..., max_length=100)):
+    """What to watch out for on each of these heroes (the overlay's «Враги»): abilities with
+    cooldown, BKB, dispel and effects."""
+    from ..data import abilities as ab
+    known = constants.hero_by_id()
+    heroes = [int(x) for x in ids.split(",") if x.strip().isdigit() and int(x) in known][:10]
+    return {"heroes": [t for t in (ab.threats(h) for h in heroes) if t]}
+
+
 @app.get("/heroes/{hero_id}")
 def hero_page(hero_id: int, rank_tier: int | None = None):
     h = _hero_or_404(hero_id)
@@ -371,6 +381,22 @@ def _builds(hero_id: int, pos: int, mode: str, rank_tier: int | None, fallback: 
     if mode not in ("all", "specialists"):
         raise HTTPException(422, "mode: all или specialists")
     return build_service.get(hero_id, pos, mode, stratz.bracket_for(_rank(rank_tier)), _pred().pos_mat, fallback)
+
+
+@app.get("/heroes/{hero_id}/guides")
+def hero_guides(hero_id: int, refresh: bool = False):
+    """The hero's best Steam Workshop guides (needs the user's Steam Web API key)."""
+    from ..data import steam_guides
+    _hero_or_404(hero_id)
+    return steam_guides.for_hero(hero_id, refresh)
+
+
+@app.get("/heroes/{hero_id}/neutrals")
+def hero_neutrals(hero_id: int, pos: int | None = Query(None, ge=1, le=5), rank_tier: int | None = None):
+    """Neutral items by tier with what each does; the hero's players' popular ones first."""
+    from ..builds import neutrals
+    _hero_or_404(hero_id)
+    return neutrals.for_hero(hero_id, pos, stratz.bracket_for(_rank(rank_tier)))
 
 
 @app.get("/builds/{hero_id}")
@@ -494,6 +520,15 @@ def my_profile():
             "experience": pool["experience"],
             "heroes": [{"hero": h, **{k: (round(v, 4) if isinstance(v, float) else v) for k, v in s.items()}}
                        for h, s in heroes]}
+
+
+@app.get("/heroes/{hero_id}/abilities")
+def hero_abilities_full(hero_id: int):
+    """The hero page's «Способности»: what each ability does, its numbers and the talent tree."""
+    from ..data import abilities as ab
+    if hero_id not in constants.hero_by_id():
+        raise HTTPException(404, "нет такого героя")
+    return ab.details(hero_id)
 
 
 @app.get("/me/stats")
@@ -737,13 +772,15 @@ def my_refresh():
 @app.get("/setup")
 def get_setup():
     s = config.settings()
-    return {"account_id": s.account_id, "has_stratz_token": bool(s.stratz_token), "env_file": str(config.ENV_FILE),
+    return {"account_id": s.account_id, "has_stratz_token": bool(s.stratz_token), "has_steam_key": bool(s.steam_api_key),
+            "env_file": str(config.ENV_FILE),
             "installed": config.FROZEN, "has_matches": matches.summary().get("matches", 0) > 0}
 
 
 class SetupIn(BaseModel):
     account_id: int | None = Field(None, gt=0, lt=2**32)
     stratz_token: str | None = Field(None, max_length=2000)
+    steam_key: str | None = Field(None, max_length=64)
 
 
 @app.put("/setup")
@@ -757,6 +794,11 @@ def put_setup(body: SetupIn):
         if token and not re.fullmatch(r"[A-Za-z0-9._\-]+", token):
             raise HTTPException(422, "токен Stratz выглядит неправильно")
         values["STRATZ_TOKEN"] = token
+    if body.steam_key is not None:
+        key = body.steam_key.strip()
+        if key and not re.fullmatch(r"[A-Fa-f0-9]{32}", key):
+            raise HTTPException(422, "ключ Steam Web API — 32 знака 0–9 и A–F (steamcommunity.com/dev/apikey)")
+        values["STEAM_API_KEY"] = key
     if values:
         config.write_env(**values)
     return get_setup()
@@ -991,17 +1033,39 @@ def gsi_status():
     return {"port": gsi.PORT, **gsi.installed(), **tracker.status()}
 
 
-@app.get("/game/live")
-def game_live(targets: str = "", pos: int | None = Query(None, ge=1, le=5)):
-    """In-game hints for the overlay (ingame.py): timers, the next item of the build, buyback.
-    `targets` is the build's item order, comma-separated. null live: no match or GSI silent."""
+def _live() -> dict | None:
     live = tracker.live
     if live and time.time() - live["ts"] > 15:
         live = None  # Dota closed or the match ended without a final message
+    return live
+
+
+@app.get("/game/live")
+def game_live(targets: str = "", skills: str = "", pos: int | None = Query(None, ge=1, le=5)):
+    """In-game hints for the overlay (ingame.py): timers, the next item and skill of the build,
+    buyback, neutral tiers, Roshan and the Tormentor. `targets` is the build's item order and
+    `skills` its skill order by level, comma-separated. null live: no match or GSI silent."""
+    live = _live()
     keys = [k for k in targets.split(",") if re.fullmatch(r"[a-z0-9_]{1,60}", k)][:30]
-    out = ingame.hints(live, keys)
+    order = [k for k in skills.split(",") if re.fullmatch(r"[a-z0-9_]{1,80}", k)][:30]
+    out = ingame.hints(live, keys, order)
     out["pace"] = pace.pace(live, (live or {}).get("hero_id"), pos)
     return out
+
+
+class MarkIn(BaseModel):
+    kind: str = Field(..., pattern="^(roshan|tormentor)$")
+    undo: bool = False
+
+
+@app.post("/game/mark")
+def game_mark(body: MarkIn):
+    """The user marks a Roshan / Tormentor kill (the overlay's button): timers count from now."""
+    live = _live()
+    if not live and not body.undo:
+        raise HTTPException(409, "нет данных матча от Доты")
+    ingame.mark(body.kind, live, body.undo)
+    return ingame.objectives(live)
 
 
 @app.post("/gsi/install")

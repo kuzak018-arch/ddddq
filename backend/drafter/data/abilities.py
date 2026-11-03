@@ -140,3 +140,149 @@ def all_ability_keys() -> list[str]:
     for h in constants.hero_by_id():
         keys += list(_hero(h)["abilities"])
     return keys
+
+
+# ---------- the hero page's «Способности»: everything the game's tooltip says ----------------------
+
+ULTIMATE = 1
+HEADING_SKIP = {"AbilityCastRange", "AbilityCastPoint", "AbilityManaCost", "AbilityCooldown", "AbilityDuration",
+                "AbilityChannelTime", "AbilityDamage", "AbilityHealthCost", "AbilityCharges", "AbilityChargeRestoreTime"}
+
+
+def _all_values(ab: dict, kind: str = "values_float") -> dict[str, list[float]]:
+    out = {}
+    for sv in ab.get("special_values", []):
+        vals = sv.get(kind) or sv.get("values_float") or []
+        if vals:
+            out[sv["name"]] = vals
+    return out
+
+
+def _text(text: str, values: dict[str, list[float]]) -> str:
+    """The whole text, markup cleaned and Valve's %placeholders% filled in."""
+    text = re.sub(r"<[^>]+>", "", text or "").replace("\\n", "\n")
+    return re.sub(r"(\d)s сек", r"\1 сек", _fill(text, values)).strip()
+
+
+def _levels(vals) -> str | None:
+    vals = [v for v in (vals or []) if v]
+    if not vals:
+        return None
+    uniq = list(dict.fromkeys(vals))
+    return " / ".join(_num(v) for v in (uniq if len(uniq) > 1 else vals[:1]))
+
+
+def _talent_name(t: dict, bonuses: dict[str, dict[str, float]]) -> str:
+    """«+{s:value} здоровья в секунду» with the talent's number: its own value, or (a unique talent)
+    the bonus it gives to an ability's value, stored on that ability («bonus_<value name>»)."""
+    vals = {sv["name"]: sv.get("values_float") or [] for sv in t.get("special_values", [])}
+    mine = bonuses.get(t.get("name", ""), {})
+
+    def sub(m: re.Match) -> str:
+        key = m.group(1)
+        v = vals.get(key)
+        if v:
+            return _num(abs(v[0]))
+        b = mine.get(key.removeprefix("bonus_"), mine.get(key))
+        if b is None and len(mine) == 1:
+            b = next(iter(mine.values()))
+        return _num(abs(b)) if b is not None else "?"
+    return re.sub(r"\{s:(\w+)\}", sub, t.get("name_loc") or t.get("name") or "").strip()
+
+
+def details(hero_id: int, download: bool = True) -> dict:
+    """Every ability as the game describes it (Valve's feed, Russian): full description, notes,
+    Aghanim's Scepter and Shard, cooldown / mana / range per level, the numbers with their headings,
+    and the talent tree by level. Without the feed: OpenDota's English names and descriptions."""
+    vh = constants.valve_hero(hero_id)
+    icons = hero_abilities(hero_id, download=download)
+    if not vh:
+        return {"abilities": [{**a, "full": a["desc"], "notes": [], "scepter": None, "shard": None, "cooldown": None,
+                               "mana": None, "range": None, "values": [], "ultimate": False} for a in icons.values()],
+                "talents": [], "source": "opendota"}
+    out = []
+    for ab in vh["abilities"] + vh.get("facet_abilities", []):
+        if not ab.get("name_loc") or ab["name"].startswith("generic_hidden"):
+            continue
+        values = _all_values(ab)
+        rows = []
+        for sv in ab.get("special_values", []):
+            head = (sv.get("heading_loc") or "").strip().rstrip(":")
+            if not head or sv["name"] in HEADING_SKIP:
+                continue
+            lv = _levels(sv.get("values_float"))
+            if lv:
+                rows.append({"label": head.capitalize(), "value": lv + ("%" if sv.get("is_percentage") else "")})
+        notes = ab.get("notes_loc") or []
+        if isinstance(notes, str):
+            notes = [notes]
+        out.append({
+            "key": ab["name"], "name": ab["name_loc"],
+            "icon": (icons.get(ab["name"]) or {}).get("icon"),
+            "innate": str(ab.get("ability_is_innate")) == "True", "ultimate": int(ab.get("type") or 0) == ULTIMATE,
+            "desc": _text(ab.get("desc_loc", ""), values),
+            "notes": [n for n in (_text(x, values) for x in notes) if n],
+            "scepter": _text(ab.get("scepter_loc", ""), _all_values(ab, "values_scepter")) or None,
+            "shard": _text(ab.get("shard_loc", ""), _all_values(ab, "values_shard")) or None,
+            "cooldown": _levels(ab.get("cooldowns")), "mana": _levels(ab.get("mana_costs")),
+            "range": _levels(ab.get("cast_ranges")), "values": rows,
+        })
+    # Valve lists the talents bottom-up in pairs: 10, 15, 20, 25
+    bonuses: dict[str, dict[str, float]] = {}
+    for ab in vh["abilities"] + vh.get("facet_abilities", []):
+        for sv in ab.get("special_values", []):
+            for b in sv.get("bonuses", []):
+                bonuses.setdefault(b.get("name", ""), {})[sv["name"]] = b.get("value", 0)
+    talents = [_talent_name(t, bonuses) for t in vh.get("talents", [])]
+    tree = [{"level": lvl, "left": talents[2 * i] if 2 * i < len(talents) else None,
+             "right": talents[2 * i + 1] if 2 * i + 1 < len(talents) else None}
+            for i, lvl in enumerate((10, 15, 20, 25))]
+    return {"abilities": out, "talents": list(reversed(tree)), "source": "valve"}
+
+
+# ---------- what to watch out for: the enemies' abilities in a few words -----------------------
+
+PIERCES_IMMUNITY = 3        # Valve's SPELL_IMMUNITY_ENEMIES_YES: goes through Black King Bar
+DISPEL = {1: "только сильное развеивание", 2: "развеивается", 3: "не развеивается"}
+BEHAVIOR_HIDDEN, BEHAVIOR_PASSIVE = 1, 2
+TAGS = [("stun", "оглушение", r"оглуш"), ("silence", "безмолвие", r"безмолв|обезмолв|немот|применять способности"),
+        ("root", "обездвиживание", r"обездвиж|корн|не могут двигаться|не может двигаться"),
+        ("hex", "превращение", r"превращ"), ("disarm", "обезоруживание", r"обезоруж"), ("invis", "невидимость", r"невидим"),
+        ("slow", "замедление", r"замедл")]
+NIGHT = re.compile(r"\bночь|\bночью|\bночи\b", re.I)
+
+
+def threats(hero_id: int, download: bool = True) -> dict | None:
+    """The hero's castable abilities with the ultimate first: cooldown by level, whether it goes
+    through BKB, whether it can be dispelled, and the effects its text names (stun, silence…);
+    `night`: some ability of the hero changes at night (Night Stalker, Luna…)."""
+    vh = constants.valve_hero(hero_id)
+    if not vh:
+        return None
+    icons = hero_abilities(hero_id, download=download)
+    out = []
+    night = False
+    for ab in vh["abilities"]:
+        if not ab.get("name_loc") or ab["name"].startswith("generic_hidden"):
+            continue
+        values = _all_values(ab)
+        text = _text(ab.get("desc_loc", ""), values)
+        if NIGHT.search(text):
+            night = True
+        behavior = int(ab.get("behavior") or 0)
+        if str(ab.get("ability_is_innate")) == "True" or behavior & BEHAVIOR_HIDDEN or behavior & BEHAVIOR_PASSIVE:
+            continue
+        low = text.lower()
+        tags = [label for _, label, rx in TAGS if re.search(rx, low)]
+        on_enemy = bool(int(ab.get("target_team") or 0) & 2) or bool(tags)
+        out.append({
+            "key": ab["name"], "name": ab["name_loc"], "icon": (icons.get(ab["name"]) or {}).get("icon"),
+            "ultimate": int(ab.get("type") or 0) == ULTIMATE, "cooldown": _levels(ab.get("cooldowns")),
+            "pierces": int(ab.get("immunity") or 0) == PIERCES_IMMUNITY,
+            # dispel is about what lands on the enemy; on a self-buff it says nothing useful here
+            "dispel": DISPEL.get(int(ab.get("dispellable") or 0)) if on_enemy else None,
+            "tags": tags,
+            "desc": short_desc(ab.get("desc_loc", ""), values),
+        })
+    out.sort(key=lambda a: not a["ultimate"])
+    return {"hero": hero_id, "abilities": out, "night": night}

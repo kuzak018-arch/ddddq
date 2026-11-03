@@ -3,12 +3,13 @@
  * ("or" alternatives with share), core items in order with median timings and alternatives,
  * situational items, skill order by level and talents from the same games.
  */
-import { ChevronsUp, Crosshair, Flag, Footprints, GitFork, ListOrdered, Shuffle, Sunrise } from 'lucide-react';
+import { ChevronsUp, Crosshair, Flag, Footprints, Gem, GitFork, ListOrdered, Shuffle, Sunrise } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import type { AbilityInfo, Build, BuildEntry, BuildsResponse, VsItem } from '../api/types';
 import { AbilityIcon, TalentIcon } from './Ability';
 import { Ti } from './Icons';
+import { NeutralItems } from './NeutralItems';
 import { Tip } from './Tip';
 import { fmtPct, ItemIcon, Segmented } from './ui';
 
@@ -57,8 +58,9 @@ function AbilityTip({ info, name, extra }: { info?: AbilityInfo; name: string; e
   );
 }
 
-/** Skill order by hero level as ability icons; talent levels marked with the talent glyph. */
-function Skills({ b, ab }: { b: Build; ab: Record<string, AbilityInfo> }) {
+/** Skill order by hero level as ability icons; talent levels marked with the talent glyph.
+ * `size`: icon size (the overlay uses a smaller strip without the legend). */
+export function Skills({ b, ab, size = 30, legend = true }: { b: Build; ab: Record<string, AbilityInfo>; size?: number; legend?: boolean }) {
   if (b.skills.length) {
     const keys = [...new Set(b.skills.map((s) => s.key))].filter((k) => k !== 'talent');
     return (
@@ -69,13 +71,13 @@ function Skills({ b, ab }: { b: Build; ab: Record<string, AbilityInfo> }) {
               {s.key === 'talent' ? (
                 <Tip content={<AbilityTip name="Талант" extra={`Уровень ${s.level}: здесь берут талант (${fmtPct(s.share, 0)}). Какой — в «Талантах» ниже.`} />}>
                   <span className="skill-strip__cell is-talent" tabIndex={0}>
-                    <TalentIcon size={30} />
+                    <TalentIcon size={size} />
                   </span>
                 </Tip>
               ) : (
                 <Tip content={<AbilityTip info={ab[s.key]} name={s.name} extra={`Уровень ${s.level} · так качают ${fmtPct(s.share, 0)} игр`} />}>
                   <span className={`skill-strip__cell k${keys.indexOf(s.key) % 5}`} tabIndex={0}>
-                    <AbilityIcon info={ab[s.key]} name={s.name} size={30} />
+                    <AbilityIcon info={ab[s.key]} name={s.name} size={size} />
                   </span>
                 </Tip>
               )}
@@ -83,7 +85,7 @@ function Skills({ b, ab }: { b: Build; ab: Record<string, AbilityInfo> }) {
             </li>
           ))}
         </ol>
-        <div className="skill-legend">
+        {legend && <div className="skill-legend">
           {keys.map((k, i) => {
             const s = b.skills.find((x) => x.key === k)!;
             return (
@@ -95,7 +97,7 @@ function Skills({ b, ab }: { b: Build; ab: Record<string, AbilityInfo> }) {
               </Tip>
             );
           })}
-        </div>
+        </div>}
       </div>
     );
   }
@@ -105,7 +107,7 @@ function Skills({ b, ab }: { b: Build; ab: Record<string, AbilityInfo> }) {
         <li key={s.key}>
           <Tip content={<AbilityTip info={ab[s.key]} name={s.name} />}>
             <span className="skill-order__icon" tabIndex={0}>
-              <AbilityIcon info={ab[s.key]} name={s.name} size={26} />
+              <AbilityIcon info={ab[s.key]} name={s.name} size={Math.min(26, size)} />
             </span>
           </Tip>
           <span>
@@ -341,6 +343,13 @@ export function BuildView({ r, vs }: { r: BuildsResponse; vs: VsItem[] }) {
         />
       )}
       {b ? <BuildBody b={b} vs={vs} reliableGames={r.reliable_games} ab={r.abilities ?? {}} /> : <p className="muted">Пока нет данных.</p>}
+      <section className="build__group">
+        <h4>
+          <Ti icon={Gem} />
+          Нейтральные предметы
+        </h4>
+        <NeutralItems hero={r.hero} pos={r.pos} />
+      </section>
     </div>
   );
 }

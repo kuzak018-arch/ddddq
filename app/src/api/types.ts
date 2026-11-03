@@ -172,6 +172,7 @@ export interface TopVs {
 export interface GamePlan {
   shape: 'early' | 'late' | 'ahead' | 'behind' | 'even';
   minute: number | null;
+  cross?: number | null;
   timing: { buckets: string[]; diff: number[]; now: number | null } | null;
   tips: { kind: 'timing' | 'now' | 'style' | 'finish'; text: string }[];
   kill: { hero: number; verdict: 'kill' | 'team' | 'avoid'; score: number; reasons: string[] }[];

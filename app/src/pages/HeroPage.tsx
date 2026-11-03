@@ -1,4 +1,4 @@
-import { Ban, Hammer, HeartHandshake, Percent, Shield, Star, Swords, ThumbsDown, Trophy, TrendingUp, User, type LucideIcon } from 'lucide-react';
+import { Ban, BookOpen, Hammer, HeartHandshake, Percent, Shield, Star, Swords, ThumbsDown, Trophy, TrendingUp, User, type LucideIcon } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { useEffect, useState } from 'react';
 
@@ -10,9 +10,11 @@ import { BuildView } from '../components/BuildView';
 import { HeroModel, useHeroModel } from '../components/HeroModel';
 import { Panel } from '../components/Glass';
 import { AttrIcon, RoleIcon } from '../components/DotaIcons';
+import { HeroAbilities } from '../components/HeroAbilities';
 import { HeroModeSwitch } from '../components/HeroModeSwitch';
 import { Ti } from '../components/Icons';
 import { HeroSearch } from '../components/HeroSearch';
+import { SteamGuides } from '../components/SteamGuides';
 import { Empty, ErrorBox, fmtPct, fmtSigned, HeroIcon, Loading, Segmented } from '../components/ui';
 import { useUi } from '../state/ui';
 
@@ -43,6 +45,10 @@ export function HeroPage() {
       {p && (
         <>
           <Panel className="hero-page__matchups">
+            <section>
+              <h3 className="section-title">Способности</h3>
+              {id && <HeroAbilities hero={id} />}
+            </section>
             <MatchupList icon={Swords} title="Хорош против" rows={p.matchups.counters} />
             <MatchupList icon={Shield} title="Его контрят" rows={p.matchups.countered_by} />
             <MatchupList icon={HeartHandshake} title="Лучшие союзники" rows={p.matchups.synergy} />
@@ -73,6 +79,13 @@ export function HeroPage() {
             {build.isPending && <Empty>Загрузка…</Empty>}
             {build.error && <ErrorBox error={build.error} />}
             {build.data && <BuildView r={build.data.build} vs={[]} />}
+            <section className="build__group">
+              <h4>
+                <Ti icon={BookOpen} />
+                Руководства Steam
+              </h4>
+              {id && <SteamGuides hero={id} />}
+            </section>
           </Panel>
         </>
       )}
