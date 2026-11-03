@@ -1,14 +1,13 @@
 import type { LucideIcon } from 'lucide-react';
 import type { SVGProps } from 'react';
 
-// the same size and stroke as the Lucide icons (Ti): 16px, 1.75
 const base = (p: SVGProps<SVGSVGElement>) => ({
-  width: 16,
-  height: 16,
+  width: 22,
+  height: 22,
   viewBox: '0 0 24 24',
   fill: 'none',
   stroke: 'currentColor',
-  strokeWidth: 1.75,
+  strokeWidth: 1.8,
   strokeLinecap: 'round' as const,
   strokeLinejoin: 'round' as const,
   ...p,
@@ -58,7 +57,7 @@ export const IconTelegram = (p: SVGProps<SVGSVGElement>) => (
 );
 
 export const IconSearch = (p: SVGProps<SVGSVGElement>) => (
-  <svg {...base(p)}>
+  <svg {...base({ width: 18, height: 18, ...p })}>
     <circle cx="11" cy="11" r="7" />
     <path d="m20 20-3.5-3.5" />
   </svg>
@@ -85,7 +84,6 @@ export const IconReset = (p: SVGProps<SVGSVGElement>) => (
 );
 
 /** A line icon in front of a title or label (lucide), sized to the text around it (CSS .ti). */
-/** Every line icon in the app: Lucide, 16px, one stroke width (see .ti and .lucide in app.css). */
 export function Ti({ icon: I, className = '' }: { icon: LucideIcon; className?: string }) {
-  return <I className={`ti ${className}`} aria-hidden size={16} strokeWidth={1.75} />;
+  return <I className={`ti ${className}`} aria-hidden strokeWidth={1.9} />;
 }

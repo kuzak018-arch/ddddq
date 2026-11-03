@@ -81,7 +81,7 @@ export const HeroSearch = forwardRef<HeroSearchHandle, Props>(function HeroSearc
       <AnimatePresence>
         {open && q && (
           <motion.div
-            className="hero-search__list glass glass--float"
+            className="hero-search__list glass glass--strong"
             initial={{ opacity: 0, y: -8, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.98 }}

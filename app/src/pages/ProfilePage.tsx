@@ -1,20 +1,20 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  
-  
+  Activity,
+  CalendarDays,
   ChartLine,
-  
-  
+  CircleUser,
+  Droplet,
   Gamepad2,
-  
+  Image,
   LayoutGrid,
-  
+  MessageSquareText,
   Paintbrush,
-  
+  Percent,
   RefreshCw,
-  
+  Star,
   Upload,
-  
+  User,
   UserSearch,
   Skull,
 } from 'lucide-react';
@@ -26,7 +26,7 @@ import type { MeSummary, Profile, RankProgress } from '../api/types';
 import { heroArt, PRESETS } from '../components/Chrome';
 import { useHeroModel } from '../components/HeroModel';
 import { Panel } from '../components/Glass';
-import { AttrIcon, PlusBadge, PosTag, RankMedal } from '../components/DotaIcons';
+import { AttrIcon, PlusBadge, RankMedal, RoleIcon } from '../components/DotaIcons';
 import { HeroSearch } from '../components/HeroSearch';
 import { Ti } from '../components/Icons';
 import { MatchHistory } from '../components/MatchHistory';
@@ -79,6 +79,7 @@ export function ProfilePage() {
         <Banner>
           <div className="panel__head">
             <h2>
+              <Ti icon={User} />
               Профиль
             </h2>
             <button className="btn btn--sm" onClick={() => setLook(true)}>
@@ -108,6 +109,7 @@ export function ProfilePage() {
         {exp && (
           <div className="exp">
             <h3 className="section-title">
+              <Ti icon={ChartLine} />
               Твоя кривая опыта на героях
             </h3>
             <p className="muted">
@@ -179,7 +181,7 @@ export function ProfilePage() {
                     <HeroIcon id={h.hero} size="sm" /> <AttrIcon attr={heroes?.byId.get(h.hero)?.attr ?? ''} size={14} /> {heroes?.byId.get(h.hero)?.name}
                   </td>
                   <td>{h.games}</td>
-                  <td>{fmtPct(h.wins / h.games, 0)}</td>
+                  <td className={h.wins / h.games >= 0.5 ? 'c-good' : 'c-bad'}>{fmtPct(h.wins / h.games, 0)}</td>
                   <td className={h.edge >= 0 ? 'c-good' : 'c-bad'}>{fmtSigned(pp(h.edge))}%</td>
                   <td className="muted">{fmtSigned(pp(h.experience))}%</td>
                 </tr>
@@ -243,14 +245,14 @@ function ProfileCard({ p, summary }: { p: Profile; summary?: MeSummary }) {
           )}
           {b.tiles.winrate && (
             <div className="pro__tile">
-              <b>{fmtPct(p.overall?.wr)}</b>
+              <b className={(p.overall?.wr ?? 0) >= 0.5 ? 'c-good' : 'c-bad'}>{fmtPct(p.overall?.wr)}</b>
               <span>побед</span>
             </div>
           )}
           {b.tiles.pos && main && (
             <div className="pro__tile">
               <b>
-                <PosTag pos={main.pos} />
+                <RoleIcon pos={main.pos} size={20} /> {POS_NAMES[main.pos]}
               </b>
               <span>
                 главная роль · {fmtPct(main.wr, 0)}
@@ -297,10 +299,11 @@ function ProfileLook({ open, onClose }: { open: boolean; onClose: () => void }) 
   const [err, setErr] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
   return (
-    <Sheet open={open} onClose={onClose} title="Оформление профиля">
+    <Sheet open={open} onClose={onClose} title={<><Ti icon={Paintbrush} />Оформление профиля</>}>
       <div className="plook">
         <section>
           <h3 className="section-title">
+            <Ti icon={Image} />
             Фон шапки
           </h3>
           <div className="plook__bgs">
@@ -351,6 +354,7 @@ function ProfileLook({ open, onClose }: { open: boolean; onClose: () => void }) 
         </section>
         <section>
           <h3 className="section-title">
+            <Ti icon={Droplet} />
             Акцент
           </h3>
           <div className="plook__accents">
@@ -369,6 +373,7 @@ function ProfileLook({ open, onClose }: { open: boolean; onClose: () => void }) 
         </section>
         <section>
           <h3 className="section-title">
+            <Ti icon={CircleUser} />
             Аватар
           </h3>
           <Segmented
@@ -384,12 +389,14 @@ function ProfileLook({ open, onClose }: { open: boolean; onClose: () => void }) 
         </section>
         <section>
           <h3 className="section-title">
+            <Ti icon={MessageSquareText} />
             Статус
           </h3>
           <input className="input" maxLength={60} value={b.status} onChange={(e) => update({ status: e.target.value })} placeholder="например: мид или фид · иду в Divine" />
         </section>
         <section>
           <h3 className="section-title">
+            <Ti icon={LayoutGrid} />
             Плитки в шапке
           </h3>
           <Toggle on={b.tiles.games} onChange={(games) => update({ tiles: { ...b.tiles, games } })} label="Игры в рейтинге" />
@@ -399,6 +406,7 @@ function ProfileLook({ open, onClose }: { open: boolean; onClose: () => void }) 
         </section>
         <section>
           <h3 className="section-title">
+            <Ti icon={Star} />
             Витрина героев <span className="muted">· до 5</span>
           </h3>
           <div className="plook__show">
@@ -450,6 +458,7 @@ function ExperienceChart({ A, k }: { A: number; k: number }) {
   );
 }
 
+const POS_NAMES = ['', 'Керри', 'Мид', 'Оффлейн', 'Роумер (4)', 'Саппорт (5)'];
 
 function Summary({ s }: { s: MeSummary }) {
   const heroes = useHeroes().data;
@@ -461,6 +470,7 @@ function Summary({ s }: { s: MeSummary }) {
       {s.form.length > 0 && (
         <section className="sum">
           <h3 className="section-title">
+            <Ti icon={Activity} />
             Форма за {s.form.length} игр <span className="muted">· {wins}–{s.form.length - wins}</span>
           </h3>
           <div className="form-strip">
@@ -481,19 +491,21 @@ function Summary({ s }: { s: MeSummary }) {
       {s.positions.length > 0 && (
         <section className="sum">
           <h3 className="section-title">
+            <Ti icon={Percent} />
             Винрейт по позициям
           </h3>
           <div className="pos-wr">
             {s.positions.map((x) => (
               <div key={x.pos} className="pos-wr__row">
                 <span className="pos-wr__name">
-                  <PosTag pos={x.pos} />
+                  <RoleIcon pos={x.pos} size={16} />
+                  {POS_NAMES[x.pos]}
                 </span>
                 <div className="pos-wr__bar">
                   <i style={{ width: `${(x.games / maxPos) * 100}%` }} />
                 </div>
                 <span className="muted">{x.games}</span>
-                <b>{fmtPct(x.wr, 0)}</b>
+                <b className={x.wr >= 0.5 ? 'c-good' : 'c-bad'}>{fmtPct(x.wr, 0)}</b>
               </div>
             ))}
           </div>
@@ -506,6 +518,7 @@ function Summary({ s }: { s: MeSummary }) {
       {s.month_heroes.length > 0 && (
         <section className="sum">
           <h3 className="section-title">
+            <Ti icon={CalendarDays} />
             Главные герои за месяц <span className="muted">· {s.month_games} игр</span>
           </h3>
           <div className="month">
@@ -514,7 +527,7 @@ function Summary({ s }: { s: MeSummary }) {
                 <HeroIcon id={h.hero} size="sm" />
                 <span>{heroes?.byId.get(h.hero)?.name}</span>
                 <span className="muted">{h.games}</span>
-                <b>{fmtPct(h.wr, 0)}</b>
+                <b className={h.wr >= 0.5 ? 'c-good' : 'c-bad'}>{fmtPct(h.wr, 0)}</b>
               </button>
             ))}
           </div>
@@ -526,12 +539,17 @@ function Summary({ s }: { s: MeSummary }) {
 
 const BANNER_KEY = 'banner';
 
-/** The hero's model standing in the banner over its blurred scene. */
+/** The hero's model standing in the banner over its blurred scene, with a glow in its colour. */
 function BannerModel({ heroKey, x }: { heroKey: string; x: number }) {
   const m = useHeroModel(heroKey);
   // dragging right lowers x (object-position semantics), so the model goes the other way
   const left = Math.min(90, Math.max(10, 100 - x));
-  return m.still ? <img className="banner__fig" src={m.still} alt="" draggable={false} style={{ left: `${left}%` }} /> : null;
+  return (
+    <>
+      <div className="banner__glow" style={{ '--glow': m.color ?? 'var(--accent)', '--x': `${left}%` } as CSSProperties} />
+      {m.still && <img className="banner__fig" src={m.still} alt="" draggable={false} style={{ left: `${left}%` }} />}
+    </>
+  );
 }
 
 /** Header banner: the user's own image/GIF (IndexedDB), a hero render or a built-in gradient, in
@@ -608,6 +626,7 @@ function Banner({ children }: { children: ReactNode }) {
         />
       )}
       {src && <div className="banner__dim" style={{ '--dim': banner.dim } as CSSProperties} />}
+      <div className="banner__accent" aria-hidden />
       {banner.kind === 'hero' && banner.key && <BannerModel heroKey={banner.key} x={pos.x} />}
       <div className="banner__content">{children}</div>
       {src && (

@@ -3,6 +3,7 @@
  * advice at the bottom), the win chance ring with the main reasons between them. Below: the best
  * picks for my position and, at the right, the lane and the build against this draft.
  */
+import { Ban, Crosshair, Hammer, ShieldBan, Sparkles, Users } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -10,8 +11,8 @@ import { useBans, useBuild, useEvaluate, useHeroes, useSettings, useSuggest } fr
 import type { DraftRequest, Suggestion, Term } from '../api/types';
 import { Panel } from '../components/Glass';
 import { HeroSearch, type HeroSearchHandle } from '../components/HeroSearch';
-import { PosTag } from '../components/DotaIcons';
-import { IconReset } from '../components/Icons';
+import { RoleIcon } from '../components/DotaIcons';
+import { IconReset, Ti } from '../components/Icons';
 import { LaneCard, LaneView } from '../components/LaneView';
 import { Sheet } from '../components/Sheet';
 import { AnimatedPercent, ErrorBox, fmtPct, fmtSigned, HeroIcon, ItemIcon, Loading, TermLine } from '../components/ui';
@@ -103,7 +104,8 @@ function TeamPanel({ team, pos, req }: { team: 'ally' | 'enemy'; pos: number; re
   return (
     <Panel className={`dr-team dr-team--${team}`} refracting>
       <div className="dr-team__head">
-        <span className="kicker">
+        <span className={`kicker ${team === 'ally' ? 'c-radiant' : 'c-dire'}`}>
+          <Ti icon={team === 'ally' ? Users : Crosshair} />
           {team === 'ally' ? 'Мы' : 'Враги'}
         </span>
         <button className="dr-side" onClick={cycleSide} title="Сторона: нажми, чтобы сменить (Radiant / Dire / не знаю)">
@@ -150,7 +152,8 @@ function TeamPanel({ team, pos, req }: { team: 'ally' | 'enemy'; pos: number; re
               <span className="dr-row__text">
                 <b>{h ? (heroes?.byId.get(h)?.name ?? '…') : 'Пусто'}</b>
                 <small title={POS_LABEL[p]} className="dr-row__pos">
-                  {p > 0 ? <PosTag pos={p} /> : 'позиция ?'}
+                  {p > 0 && <RoleIcon pos={p} size={12} />}
+                  pos {p}
                   {mine && ' · ты'}
                 </small>
               </span>
@@ -183,6 +186,7 @@ function BanRow() {
   return (
     <div className={`dr-bans ${isFocus ? 'is-focus' : ''}`} onClick={() => setFocus({ team: 'ban', index: 0 })} title="Клавиша B — вводить баны">
       <span className="dr-bans__label">
+        <Ti icon={Ban} />
         Баны <small className="muted">{bans.length}/{MAX_BANS}</small>
       </span>
       {bans.length === 0 && <span className="muted small">кликни и вводи героев</span>}
@@ -213,6 +217,7 @@ function BanAdvice({ req }: { req: DraftRequest }) {
   return (
     <div className="dr-bans dr-bans--advice">
       <span className="dr-bans__label">
+        <Ti icon={ShieldBan} />
         Кого банить
       </span>
       {bans.isPending && <Loading inline>Считаю…</Loading>}
@@ -314,7 +319,8 @@ function PicksPanel({ req, comfort, onComfort, suggest: s }: {
     <Panel className="dr-picks" refracting>
       <div className="panel__head">
         <h2>
-          Кого взять{req.pos ? <> · <PosTag pos={req.pos} className="h-pos" /></> : null}
+          <Ti icon={Sparkles} />
+          Кого взять на pos {req.pos} {req.pos ? <RoleIcon pos={req.pos} size={18} className="h-role" /> : null}
         </h2>
         <label className="check" title="Твой опыт на героях сдвигает оценку (вес — в настройках)">
           <input type="checkbox" checked={comfort} onChange={(e) => onComfort(e.target.checked)} />
@@ -356,9 +362,7 @@ function PickTable({ rows, onPick }: { rows: Suggestion[]; onPick: (hero: number
         <tr>
           <th className="picks__n">#</th>
           <th>Герой</th>
-          <th title="Шанс на победу, если взять этого героя, и насколько он выше, чем сейчас">
-            Победа <small className="muted">± к текущему</small>
-          </th>
+          <th title="Шанс на победу, если взять этого героя, и насколько он выше, чем сейчас">Победа</th>
           <th title="Винрейт героя в мете на твоём ранге">Мета</th>
           <th title="Какая доля игр героя — на этой позиции">На поз.</th>
           <th title="Как часто героя берут">Пик</th>
@@ -387,7 +391,7 @@ function PickTable({ rows, onPick }: { rows: Suggestion[]; onPick: (hero: number
               <td>
                 <b>{fmtPct(r.p_win)}</b> <small className={r.delta >= 0 ? 'c-good' : 'c-bad'}>{fmtSigned(r.delta * 100)}</small>
               </td>
-              <td>{fmtPct(r.meta_wr)}</td>
+              <td className={r.meta_wr >= 0.5 ? 'c-good' : 'c-bad'}>{fmtPct(r.meta_wr)}</td>
               <td>{fmtPct(r.pos_share, 0)}</td>
               <td className="muted">{fmtPct(r.pick_rate, 0)}</td>
               <td className="table__hero picks__why">
@@ -456,6 +460,7 @@ function VsPanel({ hero, pos, enemies, when }: { hero: number | null; pos: numbe
     <Panel className="dr-vs" refracting>
       <div className="lane-card__head">
         <span className="kicker">
+          <Ti icon={Hammer} />
           Билд против драфта
         </span>
         {when && <span className="muted small">{when}</span>}

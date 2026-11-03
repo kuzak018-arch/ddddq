@@ -380,6 +380,7 @@ export function BackgroundBuilder() {
         {st.screen === 'menu' && (
           <>
             <h3>
+              <Ti icon={House} />
               Главное меню
             </h3>
             <SourceFields src={st.menu} label="Картинка, GIF или видео" onPick={pick('menu')} onChange={(menu) => set({ menu })} />
@@ -394,6 +395,7 @@ export function BackgroundBuilder() {
         {st.screen === 'hero' && (
           <>
             <h3>
+              <Ti icon={Shield} />
               За героем
             </h3>
             <p className="hint">Страница героя («Герои» → герой): Дота рисует модель героя поверх этой картинки.</p>
@@ -414,6 +416,7 @@ export function BackgroundBuilder() {
         {st.screen === 'grid' && (
           <>
             <h3>
+              <Ti icon={LayoutGrid} />
               Под сеткой героев
             </h3>
             <p className="hint">Страница «Герои» с сеткой. В превью — сетка, открытая в редакторе: «{grid.name}».</p>

@@ -35,10 +35,5 @@ export function migrateUi(old: unknown, version: number): unknown {
     const bg = s.background;
     if (bg && bg.kind === 'preset' && bg.id === DEFAULT_PRESET_ID) s.background = { kind: 'preset', id: NEW_DEFAULT_PRESET_ID };
   }
-  // 6: liquid glass is the look again, now with one recipe and readable content cards: «Чёткий»
-  // (the v5 default) moves to it; «Матовое» and «Акрил» stay
-  if (version < 6) {
-    if (s.material === undefined || s.material === 'dota') s.material = 'glass';
-  }
   return s;
 }

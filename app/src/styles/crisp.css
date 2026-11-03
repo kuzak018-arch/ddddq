@@ -99,8 +99,9 @@ html[data-material='dota'] .table td {
 }
 html[data-material='dota'] .kicker,
 html[data-material='dota'] .section-title {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.07em;
   color: var(--text-3);
 }
 html[data-material='dota'] .section-title {
@@ -115,6 +116,11 @@ html[data-material='dota'] .section-title::after {
 }
 /* the generic line icons in front of every title made each block look generated: titles are text */
 html[data-material='dota'] .section-title > .ti,
+html[data-material='dota'] .panel__head h2 > .ti,
+html[data-material='dota'] .kicker > .ti,
+html[data-material='dota'] h2 > .ti {
+  display: none;
+}
 html[data-material='dota'] .hint {
   font-size: 11.5px;
   color: var(--text-3);
@@ -229,8 +235,10 @@ html[data-material='dota'] .table {
   border-collapse: collapse;
 }
 html[data-material='dota'] .table th {
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   color: var(--text-3);
   border-bottom: 1px solid var(--hairline);
 }
@@ -299,12 +307,10 @@ html[data-material='dota'] .posnav {
 html[data-material='dota'] .posnav.glass::after {
   background: var(--control-bg) !important;
 }
-html[data-material='dota'] .posnav__btn {
-  min-width: 34px;
-  height: 32px;
-  border-radius: var(--radius-sm);
-}
+html[data-material='dota'] .posnav__btn,
 html[data-material='dota'] .posnav__pill {
+  width: 34px;
+  height: 32px;
   border-radius: var(--radius-sm);
 }
 html[data-material='dota'] .posnav__pill {

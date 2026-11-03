@@ -1,9 +1,9 @@
-import { Activity, Ban, CalendarDays, Layers, Percent, Table2, TrendingUp, type LucideIcon } from 'lucide-react';
+import { Activity, Ban, CalendarDays, ChartColumnIncreasing, Layers, Percent, Table2, TrendingUp, type LucideIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import { useHeroes, useSettings, useTierList } from '../api/hooks';
 import type { TierRow } from '../api/types';
-import { AttrIcon, PosTag, RankMedal } from '../components/DotaIcons';
+import { AttrIcon, RankMedal, RoleIcon } from '../components/DotaIcons';
 import { Panel } from '../components/Glass';
 import { Ti } from '../components/Icons';
 import { ErrorBox, fmtPct, HeroIcon, Loading, Segmented, Sparkline } from '../components/ui';
@@ -32,6 +32,7 @@ export function MetaPage() {
     <Panel className="meta" refracting>
       <div className="panel__head panel__head--wrap">
         <h2>
+          <Ti icon={ChartColumnIncreasing} />
           Мета
         </h2>
         <Segmented
@@ -40,7 +41,12 @@ export function MetaPage() {
           options={[{ value: null, label: 'Все' }, ...[1, 2, 3, 4, 5].map((p) => ({
               value: p,
               title: `Позиция ${p}`,
-              label: <PosTag pos={p} />,
+              label: (
+                <>
+                  <RoleIcon pos={p} size={14} className="seg-role" />
+                  {p}
+                </>
+              ),
             }))]}
         />
         <Segmented

@@ -6,7 +6,7 @@
  * looks at the user's current match.
  */
 import { useQuery } from '@tanstack/react-query';
-import { Crown } from 'lucide-react';
+import { ChartLine, Crown, Hammer, ShoppingBag, Swords, Trophy } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import { api } from '../api/client';
@@ -14,7 +14,7 @@ import { ExternalLink } from '../components/ExternalLink';
 import { useHeroes } from '../api/hooks';
 import type { AbilityInfo } from '../api/types';
 import { AbilityIcon, TalentIcon } from '../components/Ability';
-import { PosTag, RankMedal } from '../components/DotaIcons';
+import { RankMedal, RoleIcon } from '../components/DotaIcons';
 import { Panel } from '../components/Glass';
 import { Ti } from '../components/Icons';
 import { HeroSearch } from '../components/HeroSearch';
@@ -42,6 +42,7 @@ interface TopResponse {
   talents: Record<string, string>;
 }
 
+const POS = ['', 'Керри', 'Мид', 'Оффлейн', 'Роумер', 'Саппорт'];
 const RANKS: Record<number, string> = { 8: 'Immortal', 7: 'Divine', 6: 'Ancient', 5: 'Legend' };
 const fmt = (n: number | null | undefined) => (n == null ? '—' : n >= 10000 ? `${(n / 1000).toFixed(1)}k` : String(n));
 const when = (t: number | null) => (t ? new Date(t * 1000).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) : '');
@@ -97,7 +98,7 @@ export function TopGamesPage() {
             small
             value={pos ?? 0}
             onChange={(v) => setPos(v || null)}
-            options={[{ value: 0, label: 'Все позиции' }, ...[1, 2, 3, 4, 5].map((p) => ({ value: p, label: <PosTag pos={p} />, title: `Позиция ${p}` }))]}
+            options={[{ value: 0, label: 'Все позиции' }, ...[1, 2, 3, 4, 5].map((p) => ({ value: p, label: <><RoleIcon pos={p} size={14} className="seg-role" />{p}</>, title: POS[p] }))]}
           />
           <Toggle on={winsOnly} onChange={setWinsOnly} label="Только победы" />
           <div className="top__against">
@@ -158,6 +159,7 @@ export function TopGamesPage() {
         <Panel className="top__list">
           <div className="panel__head">
             <h2>
+              <Ti icon={Trophy} />
               {d ? `${d.label} · патч ${d.patch}` : 'Матчи'}
             </h2>
             {d?.loading && <span className="pill">загружаю… запросов: {d.requests}</span>}
@@ -255,6 +257,7 @@ function MatchDetails({ m, d }: { m: TopMatch; d: TopResponse }) {
     <div className="top__details">
       <div className="top__block">
         <h3>
+          <Ti icon={ShoppingBag} />
           Покупки
         </h3>
         <div className="top__timeline">
@@ -276,6 +279,7 @@ function MatchDetails({ m, d }: { m: TopMatch; d: TopResponse }) {
       </div>
       <div className="top__block">
         <h3>
+          <Ti icon={Hammer} />
           Прокачка
         </h3>
         <div className="top__skills">
@@ -300,12 +304,14 @@ function MatchDetails({ m, d }: { m: TopMatch; d: TopResponse }) {
       </div>
       <div className="top__block">
         <h3>
+          <Ti icon={ChartLine} />
           {m.curve_kind === 'gold' ? 'Золото по минутам' : 'Нетворс по минутам'}
         </h3>
         {m.curve?.length ? <Curve values={m.curve} /> : <p className="hint">Stratz не отдал график для этого матча.</p>}
       </div>
       <div className="top__block">
         <h3>
+          <Ti icon={Swords} />
           Матч
         </h3>
         <div className="top__teams">

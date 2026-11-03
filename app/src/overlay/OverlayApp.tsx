@@ -10,7 +10,6 @@ import { useQuery } from '@tanstack/react-query';
 import { LogicalSize } from '@tauri-apps/api/dpi';
 import { isTauri } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { Move } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -19,14 +18,12 @@ import { useBans, useEvaluate, useHeroes, usePlan, useSettingsFromOtherWindow, u
 import type { GamePlan, TopVs } from '../api/types';
 import { Skills } from '../components/BuildView';
 import { HeroSearch, type HeroSearchHandle } from '../components/HeroSearch';
-import { byMinute, ItemTimeline } from '../components/ItemTimeline';
 import { NeutralItems } from '../components/NeutralItems';
 import { EnemiesMode, WinStrip } from './InGame';
 import { LiveHints, useBuildPlan, useDraftRequest, useMe } from './live';
 import { WidgetsController } from './Widgets';
 import { SteamGuideCompact } from '../components/SteamGuides';
-import { IconClose, Ti } from '../components/Icons';
-import { POS_ROLE } from '../components/DotaIcons';
+import { IconClose } from '../components/Icons';
 import { LaneCard, LaneView } from '../components/LaneView';
 import { fmtPct, fmtSigned, HeroIcon, HowTo, ItemIcon, plural } from '../components/ui';
 import { onOverlayStatus, overlayStatus, setClickThrough, setOverlayEffect, showOverlay } from '../lib/overlay';
@@ -47,7 +44,6 @@ export function OverlayApp() {
   const [collapsed, setCollapsed] = useState(false);
   const [mode, setMode] = useState<Mode | null>(null); // null: follow the setting (auto = build in a match)
   const ov = useUi((s) => s.overlay);
-  const setOv = (patch: Partial<typeof ov>) => useUi.getState().set({ overlay: { ...useUi.getState().overlay, ...patch } });
   const theme = useResolvedTheme(useUi((s) => s.theme));
   const phase = useDraft((s) => s.phase);
   const perf = ov.autoPerf && phase === 'game';
@@ -141,20 +137,6 @@ export function OverlayApp() {
         >
           <CursorIcon />
         </button>
-        {Object.values(ov.widgets ?? {}).some(Boolean) && (
-          <button
-            className={`ov-round ${ov.arrange ? 'is-on' : ''}`}
-            title={ov.arrange ? 'Готово: виджеты на месте' : 'Расставить виджеты: показать их и передвинуть мышью'}
-            aria-pressed={!!ov.arrange}
-            onClick={() => {
-              // arranging needs the mouse: the overlay stops letting clicks through
-              if (!ov.arrange) void setClickThrough(false);
-              setOv({ arrange: !ov.arrange });
-            }}
-          >
-            <Ti icon={Move} />
-          </button>
-        )}
         <button className="ov-round" title="Свернуть в таблетку" onClick={() => toggleCollapsed(true)}>
           <span className="ov-round__min" />
         </button>
@@ -326,7 +308,7 @@ function DraftMode({ search }: { search: React.RefObject<HeroSearchHandle | null
         </div>
       )}
       <div className="ov-picks__head">
-        <span className="kicker">Лучшие пики{req.pos ? ` · ${req.pos} ${POS_ROLE[req.pos]}` : ''}</span>
+        <span className="kicker">Лучшие пики · pos {req.pos}</span>
         <span className="ov-pos">
           {[1, 2, 3, 4, 5].map((v) => (
             <button key={v} className={v === req.pos ? 'is-on' : ''} onClick={() => d.setPos(v)} title={`Моя позиция ${v}`}>
@@ -450,7 +432,11 @@ function TopVsBuild({ vs, title }: { vs: TopVs; title: React.ReactNode }) {
         {games} {plural(games, 'игра', 'игры', 'игр')}, {vs.wins ?? 0} {plural(vs.wins ?? 0, 'победа', 'победы', 'побед')}
         {vs.full ? ` · ${vs.full} с тем же драфтом` : ''} · {who}
       </p>
-      <ItemTimeline compact size={32} steps={byMinute(items.map((it) => ({ key: it.key, name: it.name, minute: it.minute ?? null, share: it.share, title: 'у топов в этих играх' })))} />
+      <div className="ov__items">
+        {items.map((it) => (
+          <ItemIcon key={it.key} k={it.key} title={`${it.name} ~${Math.round(it.minute ?? 0)} мин · ${Math.round(it.share * 100)}% игр`} size={36} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -513,11 +499,12 @@ function BuildMode() {
                 <span className="kicker">
                   {found ? 'Обычный билд героя' : b.approximate ? 'Популярные предметы (приблизительно)' : `${b.title} · ${b.games} игр · ${Math.round((b.wr ?? 0) * 100)}%`}
                 </span>
-                <ItemTimeline
-                  compact
-                  size={found ? 26 : 32}
-                  steps={byMinute([...(b.boots ? [b.boots] : []), ...b.core].map((it) => ({ key: it.key, name: it.name, minute: at(it.key, it.minute) || null, share: it.share })))}
-                />
+                <div className="ov__items">
+                  {b.boots && <ItemIcon k={b.boots.key} title={`${b.boots.name} ~${Math.round(at(b.boots.key, b.boots.minute))} мин`} size={found ? 26 : 34} />}
+                  {b.core.map((it) => (
+                    <ItemIcon key={it.key} k={it.key} title={`${it.name} ~${Math.round(at(it.key, it.minute))} мин`} size={found ? 26 : 34} />
+                  ))}
+                </div>
                 {(b.skills.length > 0 || (b.skill_order?.length ?? 0) > 0) && (
                   <>
                     <span className="kicker">Прокачка</span>
