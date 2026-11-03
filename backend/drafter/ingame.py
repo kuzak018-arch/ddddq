@@ -228,6 +228,80 @@ def objectives(live: dict | None) -> dict | None:
     return {"roshan": rosh, "tormentor": torm, "night": night}
 
 
+BOOTS = {"boots", "power_treads", "phase_boots", "arcane_boots", "tranquil_boots", "travel_boots", "travel_boots_2",
+         "guardian_greaves", "boots_of_bearing"}
+NOT_A_CHOICE = BOOTS | {"aghanims_shard", "aghanims_shard_roshan", "ultimate_scepter_roshan", "cheese", "refresher_shard",
+                        "aegis", "ward_observer", "ward_sentry", "ward_dispenser", "dust", "smoke_of_deceit", "tpscroll"}
+OFFPLAN_MIN_COST = 1200
+REPLACES_SHARE = 0.6     # an item off the build replaces the next one when it costs at least this share of it
+
+
+def _parts(key: str, items: dict, depth: int = 4) -> set[str]:
+    out: set[str] = set()
+    for c in (items.get(key) or {}).get("components") or []:
+        out.add(c)
+        if depth:
+            out |= _parts(c, items, depth - 1)
+    return out
+
+
+def next_target(targets: list[str], owned: list[str], items: dict, skipped: set[str] | None = None) -> tuple[str | None, list[dict]]:
+    """The build's next item given what the player really built. An item of the build is passed
+    when a later one of the build is already owned, when the player skipped it by hand, or when a
+    finished item off the build took its place (Nullifier instead of Basher, Aghanim's Scepter instead
+    of Helm of the Dominator: off the build, not a part of it nor of any other item, at least
+    REPLACES_SHARE of its cost).
+    Returns (the next item, what was passed and why)."""
+    skipped = skipped or set()
+    have = set(owned)
+    passed: list[dict] = []
+    plan = []
+    for t in targets:
+        if t in skipped and t not in have:
+            passed.append({"key": t, "why": "skipped"})
+        else:
+            plan.append(t)
+    last = max((i for i, t in enumerate(plan) if t in have), default=-1)
+    rest = []
+    for i, t in enumerate(plan):
+        if t in have:
+            continue
+        if i < last:
+            passed.append({"key": t, "why": "later"})
+        else:
+            rest.append(t)
+    in_build = set(targets) | {p for t in targets for p in _parts(t, items)}
+    # only finished items stand for a choice: an Ultimate Orb on its way to a Skadi is not one
+    parts_of_anything = {c for it in items.values() for c in (it.get("components") or [])}
+    cost = lambda k: int((items.get(k) or {}).get("cost") or 0)  # noqa: E731
+    off = sorted((k for k in have if k not in in_build and k not in NOT_A_CHOICE and k not in parts_of_anything
+                  and not (items.get(k) or {}).get("tier")
+                  and cost(k) >= OFFPLAN_MIN_COST and "consumable" not in str((items.get(k) or {}).get("qual") or "")),
+                 key=lambda k: -cost(k))
+    while rest and off:
+        t = rest[0]
+        by = next((k for k in off if cost(k) >= REPLACES_SHARE * cost(t)), None)
+        if not by:
+            break
+        off.remove(by)
+        passed.append({"key": t, "why": "replaced", "by": by})
+        rest.pop(0)
+    return (rest[0] if rest else None), passed
+
+
+def mark_skip(key: str, live: dict | None, undo: bool = False) -> list[str]:
+    """The player skips the shown next item by hand (or takes the skip back), for this match."""
+    with _marks_lock:
+        match = (live or {}).get("match_id")
+        if _marks.get("match") != match:
+            _marks.clear()
+            _marks["match"] = match
+        sk = set(_marks.get("skip") or [])
+        sk.discard(key) if undo else sk.add(key)
+        _marks["skip"] = sorted(sk)
+        return _marks["skip"]
+
+
 def hints(live: dict | None, targets: list[str], skills: list[str] | None = None) -> dict:
     """Everything the overlay shows in a match; `targets` is the build's item order, `skills` its
     skill order by level."""
@@ -237,16 +311,18 @@ def hints(live: dict | None, targets: list[str], skills: list[str] | None = None
     items = constants._load("items")
     owned = live.get("items") or []
     nxt = None
+    passed: list[dict] = []
     if live.get("has_items"):
-        for t in targets:
-            if t not in owned:
-                nxt = item_progress(t, owned, live.get("gold"), items)
-                if nxt:
-                    break
+        skipped = set(_marked(live).get("skip") or [])
+        known = [t for t in targets if t in items]
+        key, passed = next_target(known, owned, items, skipped)
+        nxt = item_progress(key, owned, live.get("gold"), items) if key else None
+        names = lambda k: (items.get(k) or {}).get("dname") or k  # noqa: E731
+        passed = [{**p, "name": names(p["key"]), **({"by_name": names(p["by"])} if p.get("by") else {})} for p in passed]
     bb = None
     if live.get("buyback_cost"):
         cost, gold = int(live["buyback_cost"]), int(live.get("gold") or 0)
         bb = {"cost": cost, "enough": gold >= cost, "missing": max(0, cost - gold), "cooldown": int(live.get("buyback_cooldown") or 0)}
-    return {"live": live, "timers": timers(live.get("clock"), live.get("daytime")), "next": nxt, "buyback": bb,
+    return {"live": live, "timers": timers(live.get("clock"), live.get("daytime")), "next": nxt, "passed": passed, "buyback": bb,
             "skill": next_skill(live, skills or []), "neutral_tier": neutral_tier(live.get("clock")),
             "objectives": objectives(live)}

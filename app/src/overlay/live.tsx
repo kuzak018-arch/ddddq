@@ -1,6 +1,6 @@
 /** What the overlay and its widgets share in a match: the draft request, my hero, the build plan
  * with top players' timings, and the live GSI hints (next item, timers, buyback, pace). */
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo } from 'react';
 
 import { api } from '../api/client';
@@ -8,7 +8,7 @@ import { useBuild, useSettings, useTopTimings, useTopVs } from '../api/hooks';
 import type { AbilityInfo, DraftRequest } from '../api/types';
 import { ItemIcon, Mins } from '../components/ui';
 import { picked, useDraft } from '../state/draft';
-import { mmss, NeutralTierLine, NightNote, ObjectivesRow, SkillNow, type NeutralTierNow, type Objectives, type SkillNext } from './InGame';
+import { mmss, NeutralTierLine, NightNote, ObjectivesRow, SkillAnnounce, SkillNow, useElapsed, type NeutralTierNow, type Objectives, type SkillNext } from './InGame';
 
 export function useDraftRequest(): DraftRequest {
   const d = useDraft();
@@ -84,6 +84,7 @@ export interface GameLive {
     gold: number | null;
     gpm: number | null;
     daytime: boolean | null;
+    paused?: boolean;
     has_items: boolean;
     has_abilities?: boolean;
     neutral?: string | null;
@@ -95,6 +96,7 @@ export interface GameLive {
   objectives?: Objectives | null;
   timers: { key: string; name: string; in: number }[];
   next: { key: string; name: string; cost: number; left: number; missing: number; ready: boolean; have: string[] } | null;
+  passed?: { key: string; name: string; why: 'skipped' | 'later' | 'replaced'; by?: string; by_name?: string }[];
   buyback: { cost: number; enough: boolean; missing: number; cooldown: number } | null;
 }
 
@@ -130,7 +132,7 @@ export function useGameLive(plan: PlanItem[], order: { key: string }[], pos: num
   return useQuery({
     queryKey: ['game-live', targets, skills, pos],
     queryFn: () => api<GameLive>(`/game/live?targets=${encodeURIComponent(targets)}&skills=${encodeURIComponent(skills)}&pos=${pos}`),
-    refetchInterval: 1000,
+    refetchInterval: 500,
   });
 }
 
@@ -151,11 +153,20 @@ export function NextItem({ g, plan, size = 36 }: { g: GameLive; plan: PlanItem[]
   const pct = Math.round((100 * (n.cost - n.left + Math.min(g.live.gold ?? 0, n.left))) / Math.max(1, n.cost));
   // when the item is affordable at the current gold per minute (Dota's GPM is the match average)
   const eta = !n.ready && g.live.gpm ? clock + (n.missing / g.live.gpm) * 60 : null;
+  const replaced = (g.passed ?? []).filter((p) => p.why === 'replaced').slice(-1)[0];
   return (
     <div className={`ov__next ${n.ready ? 'is-ready' : ''}`}>
       <ItemIcon k={n.key} title={n.name} size={size} />
       <div>
-        <b>{n.name}</b>
+        <span className="ov__next-head">
+          <b>{n.name}</b>
+          <SkipButton itemKey={n.key} />
+        </span>
+        {replaced && (
+          <span className="small muted">
+            {replaced.name} пропущен — собран {replaced.by_name ?? replaced.by}
+          </span>
+        )}
         <span className="small">
           {n.ready ? 'хватает — можно покупать' : `не хватает ${n.missing.toLocaleString('ru')}`}
           {n.have.length > 0 && ' · часть уже есть'}
@@ -185,14 +196,33 @@ export function NextItem({ g, plan, size = 36 }: { g: GameLive; plan: PlanItem[]
   );
 }
 
-export function TimersRow({ g, max = 4 }: { g: GameLive; max?: number }) {
+/** «не собираю»: the hint moves on to the build's next item (for this match; Dota can't tell
+ * which items the player has given up on). */
+function SkipButton({ itemKey }: { itemKey: string }) {
+  const qc = useQueryClient();
+  const skip = useMutation({
+    mutationFn: () => api('/game/skip', { body: { key: itemKey } }),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['game-live'] }),
+  });
+  return (
+    <button className="ov-chip ov-chip--x" title="Не собираю этот предмет — показать следующий" onClick={() => skip.mutate()} disabled={skip.isPending}>
+      не собираю
+    </button>
+  );
+}
+
+/** `elapsed`: seconds since the hints were fetched, so the timers count down between polls. */
+export function TimersRow({ g, max = 4, elapsed = 0 }: { g: GameLive; max?: number; elapsed?: number }) {
   return (
     <div className="ov__timers">
-      {g.timers.slice(0, max).map((t) => (
-        <span key={t.key} className={`ov__timer ${t.in <= 15 ? 'is-soon' : ''}`}>
-          {t.name} <b>{t.key === 'night' ? `через ${mmss(t.in)}` : mmss(t.in)}</b>
-        </span>
-      ))}
+      {g.timers.slice(0, max).map((t) => {
+        const left = Math.max(0, Math.round(t.in - elapsed));
+        return (
+          <span key={t.key} className={`ov__timer ${left <= 15 ? 'is-soon' : ''}`}>
+            {t.name} <b>{t.key === 'night' ? `через ${mmss(left)}` : mmss(left)}</b>
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -222,21 +252,23 @@ export function LiveHints({ plan, pos, order, ab, hero, enemies }: {
   enemies: number[];
 }) {
   const q = useGameLive(plan, order, pos);
+  const elapsed = useElapsed(q.dataUpdatedAt);
   const g = q.data;
   if (!g?.live) return <p className="hint">Подсказки появятся, как только Дота пришлёт данные матча.</p>;
-  const clock = g.live.clock ?? 0;
+  const clock = Math.floor((g.live.clock ?? 0) + (g.live.paused ? 0 : elapsed));
   return (
     <div className="ov__live">
       <div className="ov__live-head">
         <span className="kicker">Сейчас · {mmss(clock)}</span>
         {g.live.gold != null && <span className="ov__gold">{g.live.gold.toLocaleString('ru')} золота</span>}
       </div>
-      {g.skill && <SkillNow s={g.skill} order={order} ab={ab} />}
+      <SkillAnnounce s={g.skill} order={order} ab={ab} />
+      {g.skill && !g.skill.now && <SkillNow s={g.skill} order={order} ab={ab} />}
       {g.live.has_abilities === false && order.length > 0 && (
         <p className="hint">Дота пока не присылает способности: перезапусти её один раз (конфиг GSI обновлён).</p>
       )}
       <NextItem g={g} plan={plan} />
-      <TimersRow g={g} />
+      <TimersRow g={g} elapsed={g.live.paused ? 0 : elapsed} />
       <Buyback g={g} />
       <NightLine g={g} hero={hero} enemies={enemies} />
       {g.neutral_tier && <NeutralTierLine t={g.neutral_tier} hero={hero} pos={pos} held={g.live.neutral ?? null} />}

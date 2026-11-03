@@ -15,6 +15,10 @@ Rules that keep it from getting in the way:
   - my own hero (GSI) that no template recognises (a persona, a redrawn portrait) is placed by
     elimination once the four other allies are read, and that portrait is learned;
   - Radiant/Dire are mapped to my team / enemies only when my side is known (GSI or chosen);
+  - a hero the reader put in that the screen stops showing (not even among the slot's three best
+    matches for DOUBT_FRAMES frames in a row: a wrong read, a hero changed) is taken back out;
+  - the reader's own pick moves to another slot of its team only when its own slot no longer shows
+    it (a look-alike portrait elsewhere must not pull a right hero out of its slot);
   - nothing is captured outside hero selection.
 """
 
@@ -38,6 +42,7 @@ BARS_THRESHOLD = 0.55
 BARS_MARGIN = 0.08
 CORRECT_EXTRA = 2   # frames more than a first fill that a different hero must be read to replace the reader's own pick
 ME_FRAMES = 3       # frames in a row my hero's slot must be the only unread one before it is placed by elimination
+DOUBT_FRAMES = 8    # frames in a row (~5 s) a slot must not show the reader's own pick before the pick is taken back
 
 
 def unique(res: dict) -> dict:
@@ -77,6 +82,7 @@ class Runner:
         self.locked: set[tuple[str, int]] = set()      # slots the user edited by hand
         self.pending: dict[tuple[str, int], tuple[int, int]] = {}  # slot -> (hero, frames seen)
         self.me_seen = 0        # frames in a row my hero's screen slot was found by elimination
+        self.doubt: dict[tuple[str, int], int] = {}   # slot -> frames in a row it hasn't shown the reader's pick
         self.me_learned = False
 
     def reset_learning(self) -> None:
@@ -167,6 +173,7 @@ class Runner:
             res = self._read(frame)
             if self.autofit.offer(frame, res["source"]) and self.autofit.last_info.get("saved"):
                 res = self._read(frame)             # read again with the rects just found
+        raw = res
         res = unique(res)
         stable = STABLE_FRAMES + (1 if self.cautious else 0)
         self.last_read, self.last_result = time.time(), reader.as_json(res)
@@ -185,6 +192,13 @@ class Runner:
                 key = (group, i)
                 if key in self.applied and board[i] != self.applied[key]:
                     self.locked.add(key)          # the user replaced or cleared what we put
+                if key in self.applied and board[i] == self.applied[key] and key not in self.locked:
+                    if self._doubted(key, raw[group][i], self.applied[key]):
+                        board[i] = None           # the screen hasn't shown it for a while: a wrong read
+                        self.applied.pop(key, None)
+                        self.pending.pop(key, None)
+                        changed.add(team_key)
+                        continue
                 if key in self.locked or not r.hero:
                     continue
                 hero, seen = self.pending.get(key, (None, 0))
@@ -192,7 +206,7 @@ class Runner:
                 self.pending[key] = (r.hero, seen)
                 if board[i] == r.hero or seen < (stable if board[i] is None else stable + CORRECT_EXTRA):
                     continue
-                if self._place(boards, bans, team_key, group, i, r.hero, me):
+                if self._place(boards, bans, team_key, group, i, r.hero, me, raw):
                     changed.add(team_key)
         if self._place_me(res, frame, boards, mine, me):
             changed.add("allies")
@@ -213,7 +227,19 @@ class Runner:
             self.patch(**changes)
         return changes or None
 
-    def _place(self, boards: dict, bans: list, team_key: str, group: str, i: int, hero: int, me: int | None) -> bool:
+    def _doubted(self, key: tuple[str, int], r, hero: int) -> bool:
+        """Count the frames in a row this slot hasn't shown `hero` (not even as a near match)."""
+        if r.hero == hero or any(h == hero for h, _ in (r.candidates or [])[:3]):
+            self.doubt.pop(key, None)
+            return False
+        self.doubt[key] = self.doubt.get(key, 0) + 1
+        if self.doubt[key] >= DOUBT_FRAMES:
+            self.doubt.pop(key, None)
+            return True
+        return False
+
+    def _place(self, boards: dict, bans: list, team_key: str, group: str, i: int, hero: int, me: int | None,
+               raw: dict | None = None) -> bool:
         """Put `hero` into screen slot i of this team's board unless that removes something the
         reader didn't put there. The same hero in another slot of this team moves here (the board
         follows the screen's order); in the other team or the bans it stays: that conflict is sorted
@@ -225,6 +251,8 @@ class Runner:
         j = board.index(hero) if hero in board else None
         if j is not None and (group, j) in self.locked:
             return False
+        if j is not None and j != i and raw is not None and j < len(raw.get(group, [])) and raw[group][j].hero == hero:
+            return False   # its own slot still shows it: the other read is a look-alike
         occupant = board[i]
         if occupant is not None and self.applied.get((group, i)) != occupant:
             # not the reader's own pick: only my hero may make room (GSI puts it into the first free

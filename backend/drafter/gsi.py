@@ -177,12 +177,18 @@ class Tracker:
         self.live = ingame.live_from_payload(payload) if phase == "game" else None
 
         changes: dict = {}
-        match_id = m.get("matchid")
+        match_id = str(m.get("matchid") or "")
+        if match_id in ("", "0"):
+            match_id = None          # Dota sends "0" before the match has its id
         if match_id and match_id != self.match_id and phase != "idle":
-            # a new match: start from an empty draft (my position and comfort setting stay)
+            # a new match: start from an empty draft (my position and comfort setting stay). Not when
+            # the id only shows up now in a draft already going on (the app started in hero
+            # selection, or Dota sent "0" first): that wiped the heroes already read from the screen
+            first_id_mid_draft = self.match_id is None and current.get("phase") == "draft"
             self.match_id = match_id
-            changes.update(allies=[None] * 5, enemies=[None] * 5, bans=[], my_hero=None)
-            current = {**current, **changes}
+            if not first_id_mid_draft:
+                changes.update(allies=[None] * 5, enemies=[None] * 5, bans=[], my_hero=None)
+                current = {**current, **changes}
         if phase != current.get("phase"):
             changes["phase"] = phase
         if side and side != current.get("side"):

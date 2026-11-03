@@ -119,6 +119,9 @@ class AfterMatch:
         e = record(analysis, self.account_id(), hero)
         self.publish("ruin", match_id=analysis["id"], entry=e, parsed=bool(analysis.get("parsed")),
                      verdict=analysis.get("verdict"))
+        if not analysis.get("parsed"):   # the first announcement: the match is on OpenDota, so is the history's
+            from .data import me
+            me.refresh_in_background(max_age=0, on_done=lambda d: self.publish("me", fetched=d.get("fetched")))
 
 
 def backfill(log, account_id: int | None = None) -> None:

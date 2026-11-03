@@ -1,6 +1,8 @@
 /** In-match pieces of the overlay: the skill to take now, the neutral tier, Roshan and the
  * Tormentor (with kill buttons), the night note, the draft's win chance strip and «Враги». */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { AnimatePresence, motion } from 'motion/react';
+import { useEffect, useRef, useState } from 'react';
 
 import { api } from '../api/client';
 import { useEvaluate, useHeroes, usePlan } from '../api/hooks';
@@ -53,6 +55,65 @@ export function SkillNow({ s, order, ab }: { s: SkillNext; order: { level: numbe
       </span>
     </div>
   );
+}
+
+/** «Качай: …» that slides in when a point is free and, once the skill is taken, says so for a
+ * moment and slides away (it used to pop in and vanish at once). */
+export function SkillAnnounce({ s, order, ab }: { s: SkillNext | null | undefined; order: { level: number; key: string; name: string }[]; ab: Record<string, AbilityInfo> }) {
+  const now = s?.now ? s : null;
+  const last = useRef<SkillNext | null>(null);
+  const [done, setDone] = useState<SkillNext | null>(null);
+  useEffect(() => {
+    if (now) {
+      last.current = now;
+      setDone(null);
+      return;
+    }
+    if (last.current) {
+      setDone(last.current);
+      last.current = null;
+      const t = setTimeout(() => setDone(null), 1300);
+      return () => clearTimeout(t);
+    }
+  }, [now?.key, now?.at, !!now]);  // eslint-disable-line react-hooks/exhaustive-deps
+  const show = now ?? done;
+  const name = (k: SkillNext) => (k.key === 'talent' ? 'талант' : (ab[k.key]?.name ?? order[k.at - 1]?.name ?? k.key));
+  return (
+    <AnimatePresence initial={false}>
+      {show && (
+        <motion.div
+          key={`${show.key}-${show.at}`}
+          className={`ov__skillnow ${now ? 'is-now' : 'is-done'}`}
+          initial={{ opacity: 0, y: 14, scale: 0.94 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -10, scale: 0.97, transition: { duration: 0.25 } }}
+          transition={{ type: 'spring', stiffness: 420, damping: 28 }}
+        >
+          {show.key === 'talent' ? <TalentIcon size={28} /> : <AbilityIcon info={ab[show.key]} name={name(show)} size={28} />}
+          <span>
+            {now ? (
+              <>
+                <b>Качай: {name(show)}</b>
+                {now.points > 1 && <span className="muted small"> · свободных очков {now.points}</span>}
+              </>
+            ) : (
+              <b className="c-good">✓ {name(show)}</b>
+            )}
+          </span>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/** Seconds since `updatedAt` (ms), ticking 4 times a second: the clock and timers move between polls. */
+export function useElapsed(updatedAt: number): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(t);
+  }, []);
+  return Math.max(0, Math.min(2, (now - updatedAt) / 1000));
 }
 
 /** The neutral tier: just opened (with the hero's popular items) or when the next one opens. */

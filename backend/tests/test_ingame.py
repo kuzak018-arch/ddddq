@@ -140,3 +140,56 @@ def test_no_skill_point_levels():
     s = ingame.next_skill(_live(level=18, abilities=lv, talents=2), order)
     assert s["key"] == "am_d" and not s["now"]
     assert ingame.next_skill(_live(level=18, abilities=lv, talents=1), order) == {"key": "talent", "at": 17, "points": 1, "now": True}
+
+
+ITEMS2 = {
+    "power_treads": {"cost": 1400, "components": ["boots", "gloves", "belt_of_strength"]},
+    "bfury": {"cost": 4100, "components": ["quelling_blade", "broadsword", "claymore", "ring_of_health"]},
+    "manta": {"cost": 4650, "components": ["yasha", "ultimate_orb"]}, "yasha": {"cost": 2050},
+    "basher": {"cost": 2700, "components": ["javelin", "belt_of_strength"]},
+    "butterfly": {"cost": 5450}, "nullifier": {"cost": 4375, "components": ["helm_of_iron_will", "sacred_relic"]},
+    "helm_of_the_dominator": {"cost": 2125}, "ultimate_scepter": {"cost": 4200},
+    "blink": {"cost": 2250}, "magic_wand": {"cost": 450}, "aghanims_shard": {"cost": 1400},
+    "ogre_axe": {"cost": 1000}, "mithril_hammer": {"cost": 1600}, "pogo_stick": {"cost": 0, "tier": 2},
+    "ultimate_orb": {"cost": 2800}, "skadi": {"cost": 5300, "components": ["ultimate_orb", "ultimate_orb"]},
+}
+AM = ["power_treads", "bfury", "manta", "basher", "butterfly"]
+
+
+@pytest.mark.parametrize("owned,expect,why", [
+    (["power_treads", "bfury", "manta"], "basher", None),
+    (["power_treads", "bfury", "manta", "nullifier"], "butterfly", ("basher", "replaced", "nullifier")),
+    (["power_treads", "bfury", "butterfly"], None, ("manta", "later", None)),      # manta and basher passed, nothing left
+    (["power_treads", "yasha"], "bfury", None),                 # a part of a build item is progress, not a choice
+    (["power_treads", "magic_wand", "aghanims_shard", "pogo_stick"], "bfury", None),   # cheap, shard, neutral: no choice
+    (["power_treads", "blink"], "bfury", None),                 # Blink is too cheap to stand for Battle Fury
+    (["power_treads", "bfury", "manta", "ultimate_orb"], "basher", None),   # on its way to a Skadi: not a choice yet
+])
+def test_next_target_follows_what_was_built(owned, expect, why):
+    key, passed = ingame.next_target(AM, owned, ITEMS2)
+    assert key == expect
+    if why:
+        assert {"key": why[0], "why": why[1], **({"by": why[2]} if why[2] else {})} in passed
+    else:
+        assert passed == []
+
+
+def test_aghanim_instead_of_dominator_and_manual_skip():
+    beast = ["boots", "helm_of_the_dominator", "blink", "butterfly"]
+    key, passed = ingame.next_target(beast, ["boots", "ultimate_scepter"], ITEMS2)
+    assert key == "blink" and passed == [{"key": "helm_of_the_dominator", "why": "replaced", "by": "ultimate_scepter"}]
+    key, passed = ingame.next_target(AM, ["power_treads", "bfury", "manta"], ITEMS2, skipped={"basher"})
+    assert key == "butterfly" and passed == [{"key": "basher", "why": "skipped"}]
+
+
+def test_skip_marks_live_in_the_match_and_hints_use_them(monkeypatch):
+    monkeypatch.setattr(ingame.constants, "_load", lambda name: ITEMS2)
+    ingame._marks.clear()
+    ingame._marks["match"] = None
+    live = ingame.live_from_payload(payload(items=("power_treads", "bfury", "manta")))
+    assert ingame.hints(live, AM)["next"]["key"] == "basher"
+    assert ingame.mark_skip("basher", live) == ["basher"]
+    h = ingame.hints(live, AM)
+    assert h["next"]["key"] == "butterfly" and h["passed"][0]["why"] == "skipped"
+    ingame.mark_skip("basher", live, undo=True)
+    assert ingame.hints(live, AM)["next"]["key"] == "basher"

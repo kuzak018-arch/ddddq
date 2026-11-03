@@ -6991,3 +6991,11 @@ a.btn {
   flex-shrink: 0;
   padding: 12px 16px 4px;
 }
+/* Dota's own glyphs (talent tree, innate mark) on the badge background */
+.ability-icon--glyph {
+  display: inline-grid;
+  place-items: center;
+}
+.ability-icon--glyph img {
+  object-fit: contain;
+}
