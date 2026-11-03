@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import type { CSSProperties } from 'react';
 
-import { api } from '../api/client';
+import { api, asset } from '../api/client';
 import type { DraftRequest } from '../api/types';
 import { useEvaluate } from '../api/hooks';
 import { NeutralTip, useNeutrals } from '../components/NeutralItems';
@@ -33,17 +33,18 @@ import { HeroIcon, ItemIcon, Mins } from '../components/ui';
 import { mmss, useThreats, type NeutralTierNow, type Objectives } from './InGame';
 import type { GameLive, PlanItem } from './live';
 
-const LOOK: Record<string, { icon: LucideIcon; color: string }> = {
-  power: { icon: Zap, color: '#c77dff' },
-  water: { icon: Droplet, color: '#4fb3ff' },
-  bounty: { icon: Coins, color: '#f2c14e' },
-  wisdom: { icon: BookOpen, color: '#7ee08a' },
-  lotus: { icon: Flower2, color: '#ff8fc8' },
+const LOOK: Record<string, { icon: LucideIcon; color: string; label: string; item?: string }> = {
+  power: { icon: Zap, color: '#c77dff', label: 'Сила' },
+  water: { icon: Droplet, color: '#4fb3ff', label: 'Вода' },
+  bounty: { icon: Coins, color: '#f2c14e', label: 'Богатство' },
+  wisdom: { icon: BookOpen, color: '#7ee08a', label: 'Мудрость' },
+  lotus: { icon: Flower2, color: '#ff8fc8', label: 'Лотос', item: 'famango' },
 };
 
 /** A round icon with a ring that closes as the moment comes; `left` seconds of `period`. */
-export function Ring({ icon: Icon, color, left, period, label, size = 30, pulse }: {
+export function Ring({ icon: Icon, item, color, left, period, label, size = 30, pulse }: {
   icon: LucideIcon;
+  item?: string;   // a game item's picture instead of the vector icon (Aegis for Roshan, Healing Lotus…)
   color: string;
   left: number | null;
   period: number | null;
@@ -68,7 +69,11 @@ export function Ring({ icon: Icon, color, left, period, label, size = 30, pulse 
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
       </svg>
-      <Icon size={size * 0.46} className="hud-ring__icon" />
+      {item ? (
+        <img className="hud-ring__img" src={asset(`/icons/items/${item}.png`)} alt="" style={{ width: size * 0.62, height: size * 0.62 }} draggable={false} />
+      ) : (
+        <Icon size={size * 0.46} className="hud-ring__icon" />
+      )}
     </span>
   );
 }
@@ -88,11 +93,14 @@ export function TimersHud({ g, elapsed = 0, max = 5 }: { g: GameLive; elapsed?: 
       {g.timers.slice(0, max).map((t) => {
         const left = Math.max(0, Math.round(t.in - elapsed));
         const night = t.key === 'night';
-        const look = night ? { icon: t.name === 'Ночь' ? Moon : Sun, color: t.name === 'Ночь' ? '#9db4ff' : '#ffcf5a' } : (LOOK[t.key] ?? { icon: Clock, color: '#bbb' });
+        const look: { icon: LucideIcon; color: string; label: string; item?: string } = night
+          ? { icon: t.name === 'Ночь' ? Moon : Sun, color: t.name === 'Ночь' ? '#9db4ff' : '#ffcf5a', label: t.name }
+          : (LOOK[t.key] ?? { icon: Clock, color: '#bbb', label: t.name });
         return (
-          <Chip key={t.key} className="hud-chip--col" title={night ? `${t.name} через ${mmss(left)}` : `${t.name} через ${mmss(left)}`}>
-            <Ring icon={look.icon} color={look.color} left={left} period={t.period ?? null} label={t.name} pulse={left <= 15} />
+          <Chip key={t.key} className="hud-chip--col" title={`${t.name} через ${mmss(left)}`}>
+            <Ring icon={look.icon} item={look.item} color={look.color} left={left} period={t.period ?? null} label={t.name} pulse={left <= 15} />
             <b className={left <= 15 ? 'is-soon' : ''}>{mmss(left)}</b>
+            <small>{look.label}</small>
           </Chip>
         );
       })}
@@ -117,8 +125,11 @@ export function ObjectivesHud({ o }: { o: Objectives }) {
   return (
     <div className="hud-obj">
       <Chip className={`hud-chip--obj is-${r.state}`} title={rTitle}>
-        <Ring icon={Skull} color={color(r.state)} left={r.in ?? null} period={rPeriod} label={rTitle} />
-        <b>{r.state === 'alive' ? (r.pit === 'top' ? '▲' : r.pit === 'bottom' ? '▼' : '✓') : r.in != null ? mmss(r.in) : '?'}</b>
+        <Ring icon={Skull} item="aegis" color={color(r.state)} left={r.in ?? null} period={rPeriod} label={rTitle} />
+        <span className="hud-obj__text">
+          <b>{r.state === 'alive' ? (r.pit === 'top' ? 'жив ▲' : r.pit === 'bottom' ? 'жив ▼' : 'жив') : r.in != null ? mmss(r.in) : '?'}</b>
+          <small>Рошан{r.state === 'maybe' ? ' · может' : ''}</small>
+        </span>
         {r.aegis != null && (
           <span className="hud-aegis" title={`Аегис ещё ${mmss(r.aegis)}`}>
             <Shield size={12} /> {mmss(r.aegis)}
@@ -136,8 +147,11 @@ export function ObjectivesHud({ o }: { o: Objectives }) {
           ))}
       </Chip>
       <Chip className={`hud-chip--obj is-${t.state}`} title={`Терзатель ${t.state === 'alive' ? 'жив' : `через ${mmss(t.in ?? 0)}`} · сторона ${side}`}>
-        <Ring icon={Hexagon} color={color(t.state)} left={t.in} period={t.state === 'dead' ? 10 * 60 : null} label="Терзатель" />
-        <b>{t.state === 'alive' ? side : mmss(t.in ?? 0)}</b>
+        <Ring icon={Hexagon} item="aghanims_shard" color={color(t.state)} left={t.in} period={t.state === 'dead' ? 10 * 60 : null} label="Терзатель" />
+        <span className="hud-obj__text">
+          <b>{t.state === 'alive' ? `жив · ${side}` : mmss(t.in ?? 0)}</b>
+          <small>Терзатель</small>
+        </span>
         {t.source === 'mark' ? (
           <button className="hud-btn" title="Отменить отметку" onClick={() => mark.mutate({ kind: 'tormentor', undo: true })}>
             <X size={12} />
@@ -165,10 +179,11 @@ export function NeutralHud({ t, hero, pos, held }: { t: NeutralTierNow; hero: nu
     <div className={`hud-neutral ${fresh ? 'is-fresh' : ''}`}>
       <Chip className="hud-chip--col" title={fresh ? `Открылся тир ${t.tier}` : t.next ? `Тир ${t.next} через ${mmss(t.in ?? 0)}` : 'Открыты все тиры'}>
         <span className="hud-gem">
-          <Ring icon={Gem} color="#59d7c8" left={fresh ? 0 : t.in} period={t.next ? periods[t.next] ?? 600 : null} label="Нейтралки" />
+          <Ring icon={Gem} item="madstone_bundle" color="#59d7c8" left={fresh ? 0 : t.in} period={t.next ? periods[t.next] ?? 600 : null} label="Нейтралки" />
           <i>{fresh ? t.tier : (t.next ?? t.tier ?? '')}</i>
         </span>
-        <b>{fresh ? 'новый' : t.in != null ? mmss(t.in) : '—'}</b>
+        <b>{fresh ? 'открыт' : t.in != null ? mmss(t.in) : '—'}</b>
+        <small>Тир {fresh ? t.tier : (t.next ?? t.tier ?? '')}</small>
       </Chip>
       {pop.map((it) => (
         <Tip key={it.key} content={<NeutralTip it={it} tierGames={row?.games} />}>
@@ -211,18 +226,28 @@ export function GoldHud({ g, plan }: { g: GameLive; plan: PlanItem[] }) {
         </i>
       </span>
       <div className="hud-gold__nums">
-        <Chip className={n.ready ? 'c-good' : ''} title={n.ready ? 'Хватает — можно покупать' : `Не хватает ${n.missing.toLocaleString('ru')} золота`}>
-          <Coins size={13} /> {n.ready ? '✓' : `−${n.missing.toLocaleString('ru')}`}
-        </Chip>
-        {eta != null && (
-          <Chip className={late ? 'c-bad' : ''} title="Когда купишь при своём темпе">
-            <Mins m={eta / 60} />
+        <b className="hud-gold__name">{n.name}</b>
+        <span className="hud-stat">
+          <Chip className={n.ready ? 'c-good' : ''} title={n.ready ? 'Хватает — можно покупать' : `Не хватает ${n.missing.toLocaleString('ru')} золота`}>
+            <Coins size={13} /> {n.ready ? 'хватает' : `−${n.missing.toLocaleString('ru')}`}
           </Chip>
+          <small>золото</small>
+        </span>
+        {eta != null && (
+          <span className="hud-stat">
+            <Chip className={late ? 'c-bad' : ''} title="Когда купишь при своём темпе">
+              <Mins m={eta / 60} />
+            </Chip>
+            <small>ты купишь</small>
+          </span>
         )}
         {top != null && (
-          <Chip className="muted" title={planned?.top ? 'У топов в выигранных играх' : 'Обычно на твоём ранге'}>
-            <Trophy size={12} /> {Math.floor(top)}:{String(Math.round((top % 1) * 60)).padStart(2, '0')}
-          </Chip>
+          <span className="hud-stat">
+            <Chip className="muted" title={planned?.top ? 'У топов в выигранных играх' : 'Обычно на твоём ранге'}>
+              <Trophy size={12} /> {Math.floor(top)}:{String(Math.round((top % 1) * 60)).padStart(2, '0')}
+            </Chip>
+            <small>{planned?.top ? 'у топов' : 'обычно'}</small>
+          </span>
         )}
       </div>
       <button className="hud-btn hud-btn--corner" title="Не собираю — показать следующий предмет" onClick={() => skip.mutate(n.key)}>
@@ -243,7 +268,7 @@ export function BuybackHud({ g }: { g: GameLive }) {
   const cls = b.cooldown ? 'muted' : b.enough ? 'c-good' : 'c-bad';
   return (
     <Chip className={cls} title={b.cooldown ? `Выкуп на перезарядке ${mmss(b.cooldown)}` : b.enough ? 'На выкуп хватает' : `На выкуп не хватает ${b.missing.toLocaleString('ru')}`}>
-      <RotateCcw size={13} /> {b.cooldown ? mmss(b.cooldown) : b.cost.toLocaleString('ru')}
+      <RotateCcw size={13} /> выкуп {b.cooldown ? mmss(b.cooldown) : b.cost.toLocaleString('ru')}
     </Chip>
   );
 }
@@ -255,8 +280,8 @@ export function PaceHud({ g }: { g: GameLive }) {
   const Icon = pct >= 0 ? TrendingUp : TrendingDown;
   return (
     <Chip className={nw.verdict === 'bad' ? 'c-bad' : nw.verdict === 'good' ? 'c-good' : 'muted'} title={`Нетворс ${nw.now.toLocaleString('ru')} к ${nw.minute}-й минуте, у топов ${nw.top.toLocaleString('ru')}`}>
-      <Icon size={13} /> {pct > 0 ? '+' : ''}
-      {pct}%
+      <Icon size={13} /> нетворс {pct > 0 ? '+' : ''}
+      {pct}% к топам
     </Chip>
   );
 }
@@ -272,6 +297,7 @@ export function NightHud({ g, me, enemies, elapsed = 0 }: { g: GameLive; me: num
   return (
     <span className={`hud-night ${isNight ? 'is-night' : ''}`} title={isNight ? 'Сейчас ночь — эти герои сильнее' : 'Ночью эти герои сильнее'}>
       <Moon size={14} />
+      <small>{isNight ? 'ночь, сильнее:' : 'ночью сильнее:'}</small>
       {!isNight && left != null && t?.name === 'Ночь' && <b>{mmss(left)}</b>}
       {who.map((h) => (
         <span key={h.hero} className={h.hero === me ? 'is-me' : 'is-enemy'}>
@@ -290,6 +316,7 @@ export function WinBar({ req }: { req: DraftRequest }) {
   const p = Math.round(ev.p_win * 100);
   return (
     <span className="hud-win" title={`Шанс победы по драфту ${p}%`}>
+      <small>драфт</small>
       <span className="hud-win__bar">
         <i style={{ width: `${p}%` }} />
       </span>

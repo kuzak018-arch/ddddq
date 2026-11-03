@@ -37,7 +37,7 @@ CANDIDATES = 20
 SHOWN = 3
 CACHE_TTL = 24 * 3600
 ERROR_TTL = 15 * 60
-CACHE_VERSION = 3
+CACHE_VERSION = 4
 DIR = config.DATA / "steam_guides"
 
 CATEGORY_RU = {
@@ -132,16 +132,46 @@ def _as_list(v) -> list:
     return v if isinstance(v, list) else [v]
 
 
-def guide_from_kv(kv: dict) -> dict | None:
-    """{hero key, title, items: [{name, items: [item keys]}], abilities: [ability keys]} or None."""
-    hero = _find(kv, lambda k, v: k.lower() == "hero" and isinstance(v, str) and v.startswith("npc_dota_hero_"))
-    if not hero:
+def _walk(d, path=()):
+    """Every (path of keys, key, value) in the tree, values of lists included."""
+    if isinstance(d, dict):
+        for k, v in d.items():
+            for x in _as_list(v):
+                yield path, str(k), x
+                if isinstance(x, (dict, list)):
+                    yield from _walk(x, path + (str(k),))
+    elif isinstance(d, list):
+        for x in d:
+            if isinstance(x, (dict, list)):
+                yield from _walk(x, path)
+
+
+def _hero_of(kv, known: dict[str, str] | None) -> str | None:
+    """The hero key a guide is for: a "hero" field, or any value naming an npc_dota_hero_…,
+    or a "hero" field holding a key / an English name / an id the app knows."""
+    for _, k, v in _walk(kv):
+        if isinstance(v, str) and v.startswith("npc_dota_hero_"):
+            return v.removeprefix("npc_dota_hero_")
+    if known:
+        for _, k, v in _walk(kv):
+            if k.lower() in ("hero", "heroname", "hero_name", "heroid", "hero_id") and isinstance(v, (str, int)):
+                hit = known.get(str(v).strip().lower())
+                if hit:
+                    return hit
+    return None
+
+
+def guide_from_kv(kv: dict, hero_hint: str | None = None, known: dict[str, str] | None = None) -> dict | None:
+    """{hero key, title, items: [{name, items: [item keys]}], abilities: [ability keys]} or None.
+    `hero_hint`: the hero the guide's own title names, when the file itself doesn't say;
+    `known`: hero keys, English names and ids (lower case) -> hero key."""
+    hero_key = _hero_of(kv, known) or hero_hint
+    if not hero_key:
         return None
-    hero_key = hero[1].removeprefix("npc_dota_hero_")
     title = _find(kv, lambda k, v: k.lower() == "title" and isinstance(v, str))
+    items = []
     blocks = _find(kv, lambda k, v: k.lower() == "items" and isinstance(v, dict)
                    and any(isinstance(x, dict) for x in v.values()))
-    items = []
     for name, cat in (blocks[1].items() if blocks else []):
         if not isinstance(cat, dict):
             continue
@@ -149,6 +179,15 @@ def guide_from_kv(kv: dict) -> dict | None:
                 if isinstance(x, str) and x.startswith("item_")]
         if keys:
             items.append({"name": _category(name), "items": keys})
+    if not items:
+        # any other layout: the item_… values, grouped by the block they are in
+        groups: dict[tuple, list[str]] = {}
+        for path, k, v in _walk(kv):
+            if isinstance(v, str) and v.startswith("item_") and not v.startswith("item_recipe"):
+                groups.setdefault(path, []).append(v.removeprefix("item_"))
+        for path, keys in groups.items():
+            name = next((p for p in reversed(path) if not p.isdigit() and p.lower() not in ("item", "items")), "")
+            items.append({"name": _category(name) if name else CATEGORY_RU["other"], "items": keys})
     # ability order: a block keyed "1", "2", … whose values are this hero's abilities or talents
     order = _find(kv, lambda k, v: isinstance(v, dict) and "1" in v and isinstance(v["1"], str)
                   and (v["1"].startswith(hero_key) or v["1"].startswith("special_bonus")))
@@ -344,6 +383,10 @@ def search(hero_id: int, key: str, http: httpx.Client | None = None) -> list[dic
             if len(files) >= CANDIDATES:
                 break
         diag["queried"] = len(files)
+        known = {}
+        for hid, h in constants.hero_by_id().items():
+            for k in (h["key"], h["name"], hid):
+                known[str(k).lower()] = h["key"]
         for f in files[:CANDIDATES * 2]:
             url = _file_url(http, key, f)
             if not url:
@@ -359,7 +402,8 @@ def search(hero_id: int, key: str, http: httpx.Client | None = None) -> list[dic
             kind, tree = decode_file(r.content)
             diag.setdefault("kinds", {})[kind] = diag.get("kinds", {}).get(kind, 0) + 1
             _keep_sample(fid_of(f), kind, r.content)
-            g = guide_from_kv(tree) if tree else None
+            hint = hero["key"] if hero["name"].lower() in str(f.get("title") or "").lower() else None
+            g = guide_from_kv(tree, hint, known) if tree else None
             if not g:
                 continue
             diag["guides"] += 1

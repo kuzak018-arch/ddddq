@@ -1107,3 +1107,37 @@ html.perf .hud-neutral.is-fresh .hud-ring,
 html.perf .hud-gold.is-ready .hud-fill {
   animation: none;
 }
+/* little captions under and next to the HUD icons */
+.hud-chip small,
+.hud-stat small,
+.hud-obj__text small,
+.hud-night small,
+.hud-win small {
+  font-size: 9.5px;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--text-3, rgba(255, 255, 255, 0.6));
+  text-transform: lowercase;
+}
+.hud-chip--col small {
+  margin-top: 1px;
+}
+.hud-obj__text,
+.hud-stat {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+}
+.hud-ring__img {
+  position: relative;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.hud-gold__name {
+  flex-basis: 100%;
+  font-size: 12px;
+}
+.hud-gold__nums {
+  align-items: flex-end;
+}

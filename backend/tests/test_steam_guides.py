@@ -172,3 +172,14 @@ def test_decode_binary_json_and_zip():
     kind, t = G.decode_file(buf.getvalue())
     assert kind == "zip/text" and G.guide_from_kv(t)["hero"] == "antimage"
     assert G.decode_file(b"\x89PNG\r\n\x1a\nxxxx")[0] == "image"
+
+
+def test_lenient_layouts():
+    known = {"antimage": "antimage", "anti-mage": "antimage", "1": "antimage"}
+    # the hero by id, items in some other blocks
+    kv = {"guide": {"hero": "1", "start": {"0": "item_tango", "1": "item_branches"}, "core": ["item_bfury", "item_manta"]}}
+    g = G.guide_from_kv(kv, None, known)
+    assert g["hero"] == "antimage" and ["tango", "branches"] in [c["items"] for c in g["items"]] and ["bfury", "manta"] in [c["items"] for c in g["items"]]
+    # nothing about the hero in the file: the title of the Workshop item names it
+    assert G.guide_from_kv({"x": {"a": "item_blink"}}, "antimage")["items"][0]["items"] == ["blink"]
+    assert G.guide_from_kv({"x": {"a": "item_blink"}}) is None
