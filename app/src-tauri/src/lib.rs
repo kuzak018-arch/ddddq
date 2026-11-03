@@ -98,6 +98,12 @@ pub fn run() {
                 }
             }
             // Alt+F4 on the overlay would destroy it until the next start: it is only hidden
+            if overlay::WIDGETS.contains(&window.label()) {
+                if let WindowEvent::CloseRequested { api, .. } = event {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+            }
             if window.label() == overlay::LABEL {
                 if let WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
@@ -114,6 +120,8 @@ pub fn run() {
             overlay::overlay_status,
             overlay::overlay_set_effect,
             overlay::overlay_set_hotkeys,
+            overlay::widget_show,
+            overlay::widgets_interactive_now,
             tray::set_close_to_tray,
             appicon::app_icon_state,
             appicon::set_app_icon,

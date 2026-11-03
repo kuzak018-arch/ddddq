@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict
+from dataclasses import asdict, replace
 
 import numpy as np
 
@@ -40,7 +40,27 @@ def read(frame: np.ndarray, cal: calibration.Calibration | None = None, exclude:
             aspect = crop.shape[1] / crop.shape[0]
             res.append(matcher.bank(aspect, exclude).match(crop, cal.threshold, cal.margin, ban=group == "bans"))
         result[group] = res
+    _drop_repeated(result)
     return result
+
+
+def _drop_repeated(result: dict) -> None:
+    """One hero «found» in REPEATED_SLOTS or more pick slots of the frame is a template that looks
+    like anything (a placeholder saved under a hero): those slots stay empty, and the hero's
+    learned portraits, when it has any, are moved to quarantine so the next frames are read by art."""
+    picks = [r for g in ("radiant", "dire") for r in result.get(g, [])]
+    counts: dict[int, int] = {}
+    for r in picks:
+        if r.hero:
+            counts[r.hero] = counts.get(r.hero, 0) + 1
+    for hero, n in counts.items():
+        if n < matcher.REPEATED_SLOTS:
+            continue
+        for g in ("radiant", "dire"):   # copies: the bank keeps its results for the next frames
+            result[g] = [replace(r, hero=None) if r.hero == hero else r for r in result.get(g, [])]
+        moved = matcher.quarantine(hero)
+        result["warnings"].append(f"один герой нашёлся в {n} слотах — слоты оставлены пустыми"
+                                  + (f", его запомненные портреты ({moved}) убраны в карантин" if moved else ""))
 
 
 def as_json(result: dict) -> dict:

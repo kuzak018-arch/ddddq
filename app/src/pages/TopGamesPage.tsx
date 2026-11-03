@@ -352,14 +352,14 @@ function Curve({ values }: { values: number[] }) {
       <polyline points={pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ')} fill="none" stroke="currentColor" strokeWidth="2" />
       {[0, 10, 20, 30, 40, 50, 60].filter((t) => t < values.length).map((t) => (
         <text key={t} x={(t / Math.max(1, values.length - 1)) * W} y={H + 14} fontSize="11" fill="currentColor" opacity="0.6" textAnchor="middle">
-          {t}′
+          {t}
         </text>
       ))}
       {hover != null && values[hover] != null && (
         <>
           <line x1={pts[hover][0]} x2={pts[hover][0]} y1={0} y2={H} stroke="currentColor" opacity="0.3" />
           <text x={Math.min(W - 60, pts[hover][0] + 6)} y={14} fontSize="12" fill="currentColor">
-            {hover}′: {values[hover].toLocaleString('ru-RU')}
+            {hover} мин: {values[hover].toLocaleString('ru-RU')}
           </text>
         </>
       )}

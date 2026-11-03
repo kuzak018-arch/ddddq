@@ -143,6 +143,20 @@ export function useBuild(hero: number | null, pos: number, enemies: number[], fa
 
 /** Top players' build against this enemy draft, from the cached «Игры топов» matches of the hero
  * (loads them in the background; polls while it does). Needs 3+ known enemies. */
+/** When top players finish each item on the hero (won games of this patch, a good game's pace). */
+export function useTopTimings(hero: number | null, pos: number | null) {
+  return useQuery({
+    queryKey: ['top-timings', hero, pos],
+    enabled: !!hero,
+    staleTime: 10 * 60_000,
+    retry: false,
+    queryFn: () =>
+      api<{ games: number; wins_only: boolean; loading: boolean; items: Record<string, { minute: number; n: number }> }>(
+        `/top-games/${hero}/timings${pos ? `?pos=${pos}` : ''}`,
+      ),
+  });
+}
+
 export function useTopVs(hero: number | null, pos: number, enemies: number[]) {
   return useQuery({
     queryKey: ['top-vs', hero, pos, enemies],

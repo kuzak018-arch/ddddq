@@ -155,3 +155,32 @@ def test_a_load_that_found_nothing_is_not_restarted_on_every_poll(tmp_path, monk
     T.get(HERO, "divine")
     T.get(HERO, "divine")
     assert len(started) == 1  # it found nothing: wait for the list to go stale
+
+
+def test_timings_from_won_top_games(monkeypatch):
+    from drafter.builds import sequences
+
+    def game(m, win, _, pos=1):
+        return {"m": m, "w": win, "pos": pos, "t": 2_000_000_000}
+
+    recs = [game(i, True, 0) for i in range(6)] + [game(10 + i, False, 0) for i in range(4)] + [game(99, True, 0, pos=2)]
+    bf = {i: 11 * 60 + 30 * i for i in range(6)}            # won: 11:00 … 13:30
+    bf.update({10 + i: 18 * 60 for i in range(4)})          # lost: late
+    bf[99] = 9 * 60
+
+    def parse(rec):
+        return sequences.Game(win=rec["w"], starting=(), early={"magic_wand": 300}, boots=("power_treads", 400),
+                              upgrade=None, core=[("bfury", bf[rec["m"]])])
+
+    monkeypatch.setattr(T, "_pool", lambda hero, load: ({r["m"]: (r, "immortal") for r in recs}, False, None))
+    monkeypatch.setattr(sequences, "parse", parse)
+    out = T.timings(1, 1, load=False)
+    assert out["games"] == 6 and out["wins_only"]                     # the lost games and pos 2 left out
+    assert out["items"]["bfury"] == {"minute": 12.0, "n": 6}          # 35% of 11:00…13:30 -> 12:00
+    assert out["items"]["power_treads"]["minute"] == round(400 / 60, 1)
+    # too few wins: every game counts
+    for r in recs[:3]:
+        r["w"] = False
+    few = T.timings(1, 1, load=False)
+    assert not few["wins_only"] and few["games"] == 10
+    assert T.timings(1, 3, load=False) == {"games": 0, "wins_only": False, "loading": False, "items": {}}

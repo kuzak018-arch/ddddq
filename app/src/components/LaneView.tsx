@@ -399,7 +399,7 @@ function Chart({ curves, windows, metric, me, them }: { curves: LanePoint[]; win
         .filter((m) => m % 3 === 0)
         .map((m) => (
           <text key={m} x={x(m)} y={H - 4} textAnchor="middle">
-            {m}′
+            {m}
           </text>
         ))}
     </svg>
