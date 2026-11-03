@@ -37,7 +37,7 @@ CANDIDATES = 20
 SHOWN = 3
 CACHE_TTL = 24 * 3600
 ERROR_TTL = 15 * 60
-CACHE_VERSION = 2
+CACHE_VERSION = 3
 DIR = config.DATA / "steam_guides"
 
 CATEGORY_RU = {
@@ -161,6 +161,106 @@ def guide_from_kv(kv: dict) -> dict | None:
     return {"hero": hero_key, "title": title[1].strip() if title else None, "items": items, "abilities": abilities}
 
 
+def parse_binary_kv(data: bytes) -> dict:
+    """Valve's binary KeyValues: a type byte, a 0-terminated name, then the value
+    (0 = a block till 8, 1 = string, 2 = int32, 3 = float32, 4 = pointer, 5 = wide string, 6 = colour, 7 = uint64)."""
+    import struct
+    pos = 0
+
+    def cstr() -> str:
+        nonlocal pos
+        end = data.index(b"\x00", pos)
+        out = data[pos:end].decode("utf-8", "replace")
+        pos = end + 1
+        return out
+
+    def block() -> dict:
+        nonlocal pos
+        out: dict = {}
+        while pos < len(data):
+            t = data[pos]
+            pos += 1
+            if t in (8, 11):
+                return out
+            key = cstr()
+            if t == 0:
+                v = block()
+            elif t == 1:
+                v = cstr()
+            elif t in (2, 4, 6):
+                v = str(struct.unpack_from("<i", data, pos)[0])
+                pos += 4
+            elif t == 3:
+                v = str(struct.unpack_from("<f", data, pos)[0])
+                pos += 4
+            elif t == 7:
+                v = str(struct.unpack_from("<Q", data, pos)[0])
+                pos += 8
+            else:
+                raise ValueError(f"тип {t}")
+            if key in out:
+                out[key] = out[key] + [v] if isinstance(out[key], list) else [out[key], v]
+            else:
+                out[key] = v
+        return out
+
+    return block()
+
+
+def decode_file(content: bytes) -> tuple[str, dict | None]:
+    """(kind, tree) of a downloaded Workshop file: text KeyValues, binary KeyValues, JSON, or a zip
+    with one of those inside; other kinds (an image) give no tree."""
+    import io
+    import zipfile
+    if content[:2] == b"PK":
+        try:
+            with zipfile.ZipFile(io.BytesIO(content)) as z:
+                for name in z.namelist():
+                    if name.lower().endswith((".txt", ".vdf", ".json", ".kv", ".bin")) and z.getinfo(name).file_size < 512_000:
+                        kind, tree = decode_file(z.read(name))
+                        if tree:
+                            return f"zip/{kind}", tree
+        except zipfile.BadZipFile:
+            pass
+        return "zip", None
+    if content[:3] in (b"\x89PN", b"\xff\xd8\xff") or content[:4] in (b"GIF8", b"RIFF"):
+        return "image", None
+    head = content.lstrip(b"\xef\xbb\xbf \t\r\n")[:1]
+    if head in (b"{", b"["):
+        try:
+            tree = json.loads(content.decode("utf-8"))
+            return "json", tree if isinstance(tree, dict) else {"root": tree}
+        except ValueError:
+            pass
+    if content[:1] == b"\x00" or b"\x00" in content[:64]:
+        try:
+            return "binary", parse_binary_kv(content)
+        except (ValueError, IndexError):
+            return "binary?", None
+    text = content.decode("utf-8", "replace")
+    tree = parse_kv(text)
+    return ("text" if tree else "text?"), tree
+
+
+SAMPLES = 4
+
+
+def fid_of(f: dict) -> str:
+    return str(f.get("publishedfileid") or "x")
+
+
+def _keep_sample(fid: str, kind: str, content: bytes) -> None:
+    """The first downloaded files are kept as they are (data/steam_guides/samples), so a format the
+    reader doesn't know can be looked at."""
+    d = DIR / "samples"
+    try:
+        d.mkdir(parents=True, exist_ok=True)
+        if len(list(d.iterdir())) < SAMPLES:
+            (d / f"{fid}.{kind.replace('/', '-').replace('?', '')}").write_bytes(content[:256_000])
+    except OSError:
+        pass
+
+
 # ---------- Steam ----------------------------------------------------------------------------
 
 def _get(http: httpx.Client, path: str, params: dict) -> dict:
@@ -256,7 +356,10 @@ def search(hero_id: int, key: str, http: httpx.Client | None = None) -> list[dic
             if not r.is_success or len(r.content) > 512_000:
                 continue
             diag["downloaded"] += 1
-            g = guide_from_kv(parse_kv(r.content.decode("utf-8", "replace")))
+            kind, tree = decode_file(r.content)
+            diag.setdefault("kinds", {})[kind] = diag.get("kinds", {}).get(kind, 0) + 1
+            _keep_sample(fid_of(f), kind, r.content)
+            g = guide_from_kv(tree) if tree else None
             if not g:
                 continue
             diag["guides"] += 1

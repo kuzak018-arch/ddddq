@@ -31,7 +31,7 @@ interface GuidesResponse {
   fetched: number | null;
   patch_ts: number;
   item_names?: Record<string, string>;
-  diag?: { queried: number; with_file: number; downloaded: number; guides: number; this_hero: number } | null;
+  diag?: { queried: number; with_file: number; downloaded: number; guides: number; this_hero: number; kinds?: Record<string, number> } | null;
 }
 
 export function useSteamGuides(hero: number | null, refresh = 0) {
@@ -115,7 +115,8 @@ export function SteamGuides({ hero }: { hero: number }) {
             <>
               {' '}
               <span title="Что нашёл Steam на каждом шаге: если пришлёшь эту строку, будет видно, где теряются руководства">
-                (Steam: найдено {d.diag.queried}, с файлом {d.diag.with_file}, скачано {d.diag.downloaded}, руководств {d.diag.guides}, на героя {d.diag.this_hero})
+                (Steam: найдено {d.diag.queried}, с файлом {d.diag.with_file}, скачано {d.diag.downloaded}, руководств {d.diag.guides}, на героя {d.diag.this_hero}
+                {d.diag.kinds ? `; файлы: ${Object.entries(d.diag.kinds).map(([k, n]) => `${k} ${n}`).join(', ')}` : ''})
               </span>
             </>
           )}
