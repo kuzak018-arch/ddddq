@@ -53,7 +53,7 @@ def cfg_text(port: int = PORT) -> str:
     return kv.dumps({"Dota Drafter": {
         "uri": f"http://127.0.0.1:{port}/",
         "timeout": "5.0", "buffer": "0.1", "throttle": "0.25", "heartbeat": "10.0",
-        "data": {"provider": "1", "map": "1", "player": "1", "hero": "1", "items": "1", "draft": "1"},
+        "data": {"provider": "1", "map": "1", "player": "1", "hero": "1", "abilities": "1", "items": "1", "draft": "1"},
         "auth": {"token": _token()},
     }})
 
@@ -85,8 +85,9 @@ def installed() -> dict:
     ok = p.exists() and f"127.0.0.1:{PORT}" in p.read_text(encoding="utf-8", errors="replace") \
         and _token() in p.read_text(encoding="utf-8", errors="replace")
     others = sorted(x.name for x in folder.glob("*.cfg") if x.name != CFG_NAME) if folder.is_dir() else []
-    # an older cfg of ours without the items block: the in-game hints need it
-    outdated = ok and '"items"' not in p.read_text(encoding="utf-8", errors="replace")
+    # an older cfg of ours without the items or abilities block: the in-game hints need them
+    text = p.read_text(encoding="utf-8", errors="replace") if ok else ""
+    outdated = ok and ('"items"' not in text or '"abilities"' not in text)
     return {"dota_found": True, "installed": ok, "outdated": outdated, "path": str(p), "other_cfgs": others}
 
 

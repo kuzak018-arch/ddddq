@@ -596,3 +596,158 @@ html.is-overlay body {
 .ov__skills .skill-strip small {
   font-size: 9px;
 }
+
+/* five tabs in a 400 px window: a bit tighter */
+.ov-switch__btn {
+  font-size: 12.5px;
+  min-width: 0;
+}
+.c-gold {
+  color: var(--gold, #e3b341);
+}
+
+/* the skill to take now */
+.ov__skillnow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px 4px 4px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+}
+.ov__skillnow.is-now {
+  background: rgba(227, 179, 65, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(227, 179, 65, 0.55);
+  animation: ov-pulse 1.6s ease-in-out infinite;
+}
+.ov__skillnow.is-now b {
+  color: var(--gold, #e3b341);
+}
+@keyframes ov-pulse {
+  50% {
+    box-shadow: inset 0 0 0 1px rgba(227, 179, 65, 0.15);
+  }
+}
+html.perf .ov__skillnow.is-now {
+  animation: none;
+}
+
+/* neutral tier line */
+.ov__ntier {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ov__ntier-items,
+.ov__ntier-held {
+  display: inline-flex;
+  gap: 3px;
+}
+.ov__ntier-held {
+  margin-left: auto;
+}
+
+/* Roshan and the Tormentor */
+.ov__obj {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.ov__obj-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.ov__obj-row.is-up b {
+  color: var(--good);
+}
+.ov-chip {
+  height: 22px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ov-chip:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* the win chance over every tab but the draft */
+.ov__winstrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin-bottom: 8px;
+  padding: 5px 10px;
+  border-radius: 10px;
+  font-size: 12.5px;
+  background: rgba(255, 255, 255, 0.05);
+}
+.ov__winstrip.is-good b {
+  color: var(--good);
+}
+.ov__winstrip.is-bad b {
+  color: var(--bad);
+}
+
+/* «Враги» */
+.ov__enemies {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ov__enemy-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.ov__threats {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.ov__threats li {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+.ov__threats li > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ov__threats li.is-ult b {
+  color: var(--gold, #e3b341);
+}
+.ov__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.ov-badge {
+  padding: 1px 6px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.09);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-2, var(--text));
+}
+.ov-badge.is-bad {
+  background: rgba(255, 90, 90, 0.18);
+  color: var(--bad);
+}
+.ov-badge.is-good {
+  background: rgba(90, 200, 120, 0.16);
+  color: var(--good);
+}

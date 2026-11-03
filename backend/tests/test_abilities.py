@@ -87,3 +87,26 @@ def test_details_from_a_synthetic_feed(monkeypatch):
     assert ult["ultimate"] and not ult["innate"] and ult["icon"] is None
     assert d["talents"][0]["level"] == 25 and d["talents"][-1] == {
         "level": 10, "left": "+200 к здоровью", "right": "+150 к радиусу Удара"}
+
+
+def test_threats_from_a_synthetic_feed(monkeypatch):
+    feed = {"abilities": [
+        {"name": "x_stun", "name_loc": "Удар", "type": 0, "behavior": 8, "target_team": 2, "immunity": 4, "dispellable": 2,
+         "desc_loc": "Оглушает врага на %stun% сек.", "cooldowns": [12, 10],
+         "special_values": [{"name": "stun", "values_float": [1.5, 2]}]},
+        {"name": "x_buff", "name_loc": "Щит", "type": 0, "behavior": 4, "target_team": 0, "dispellable": 3,
+         "desc_loc": "Даёт щит.", "cooldowns": [20]},
+        {"name": "x_passive", "name_loc": "Ночной охотник", "type": 0, "behavior": 2, "desc_loc": "Ночью быстрее."},
+        {"name": "x_ult", "name_loc": "Дыра", "type": 1, "behavior": 4, "target_team": 0, "immunity": 3,
+         "desc_loc": "Враги не могут двигаться и применять способности.", "cooldowns": [180, 160]},
+    ]}
+    monkeypatch.setattr(constants, "valve_hero", lambda h: feed)
+    monkeypatch.setattr(abilities, "hero_abilities", lambda h, download=True: {})
+    t = abilities.threats(7, download=False)
+    assert t["night"] is True                                  # from the passive's text
+    assert [a["key"] for a in t["abilities"]] == ["x_ult", "x_stun", "x_buff"]  # ultimate first, passive left out
+    ult, stun, buff = t["abilities"]
+    assert ult["pierces"] and ult["tags"] == ["безмолвие", "обездвиживание"] and ult["cooldown"] == "180 / 160"
+    assert not stun["pierces"] and stun["dispel"] == "развеивается" and stun["tags"] == ["оглушение"]
+    assert stun["desc"] == "Оглушает врага на 1,5 / 2 сек."
+    assert buff["dispel"] is None and buff["tags"] == []       # a self-buff: dispel says nothing here

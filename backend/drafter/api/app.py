@@ -270,6 +270,16 @@ def items():
     return out
 
 
+@app.get("/heroes/threats")
+def hero_threats(ids: str = Query(..., max_length=100)):
+    """What to watch out for on each of these heroes (the overlay's «Враги»): abilities with
+    cooldown, BKB, dispel and effects."""
+    from ..data import abilities as ab
+    known = constants.hero_by_id()
+    heroes = [int(x) for x in ids.split(",") if x.strip().isdigit() and int(x) in known][:10]
+    return {"heroes": [t for t in (ab.threats(h) for h in heroes) if t]}
+
+
 @app.get("/heroes/{hero_id}")
 def hero_page(hero_id: int, rank_tier: int | None = None):
     h = _hero_or_404(hero_id)
@@ -1023,17 +1033,39 @@ def gsi_status():
     return {"port": gsi.PORT, **gsi.installed(), **tracker.status()}
 
 
-@app.get("/game/live")
-def game_live(targets: str = "", pos: int | None = Query(None, ge=1, le=5)):
-    """In-game hints for the overlay (ingame.py): timers, the next item of the build, buyback.
-    `targets` is the build's item order, comma-separated. null live: no match or GSI silent."""
+def _live() -> dict | None:
     live = tracker.live
     if live and time.time() - live["ts"] > 15:
         live = None  # Dota closed or the match ended without a final message
+    return live
+
+
+@app.get("/game/live")
+def game_live(targets: str = "", skills: str = "", pos: int | None = Query(None, ge=1, le=5)):
+    """In-game hints for the overlay (ingame.py): timers, the next item and skill of the build,
+    buyback, neutral tiers, Roshan and the Tormentor. `targets` is the build's item order and
+    `skills` its skill order by level, comma-separated. null live: no match or GSI silent."""
+    live = _live()
     keys = [k for k in targets.split(",") if re.fullmatch(r"[a-z0-9_]{1,60}", k)][:30]
-    out = ingame.hints(live, keys)
+    order = [k for k in skills.split(",") if re.fullmatch(r"[a-z0-9_]{1,80}", k)][:30]
+    out = ingame.hints(live, keys, order)
     out["pace"] = pace.pace(live, (live or {}).get("hero_id"), pos)
     return out
+
+
+class MarkIn(BaseModel):
+    kind: str = Field(..., pattern="^(roshan|tormentor)$")
+    undo: bool = False
+
+
+@app.post("/game/mark")
+def game_mark(body: MarkIn):
+    """The user marks a Roshan / Tormentor kill (the overlay's button): timers count from now."""
+    live = _live()
+    if not live and not body.undo:
+        raise HTTPException(409, "нет данных матча от Доты")
+    ingame.mark(body.kind, live, body.undo)
+    return ingame.objectives(live)
 
 
 @app.post("/gsi/install")

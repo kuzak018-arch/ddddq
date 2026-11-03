@@ -15,10 +15,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { api, waitForBackend } from '../api/client';
 import { useBans, useBuild, useEvaluate, useHeroes, usePlan, useSettings, useSettingsFromOtherWindow, useSuggest, useTopVs } from '../api/hooks';
-import type { DraftRequest, GamePlan, TopVs } from '../api/types';
+import type { AbilityInfo, DraftRequest, GamePlan, TopVs } from '../api/types';
 import { Skills } from '../components/BuildView';
 import { HeroSearch, type HeroSearchHandle } from '../components/HeroSearch';
 import { NeutralItems } from '../components/NeutralItems';
+import { EnemiesMode, NightNote, NeutralTierLine, ObjectivesRow, SkillNow, WinStrip, type NeutralTierNow, type Objectives, type SkillNext } from './InGame';
 import { SteamGuideCompact } from '../components/SteamGuides';
 import { IconClose } from '../components/Icons';
 import { LaneCard, LaneView } from '../components/LaneView';
@@ -29,7 +30,7 @@ import { picked, useDraft } from '../state/draft';
 import { startSync } from '../state/sync';
 import { useUi } from '../state/ui';
 
-type Mode = 'draft' | 'build' | 'lane' | 'plan';
+type Mode = 'draft' | 'build' | 'lane' | 'plan' | 'enemies';
 const FULL = { w: 400, h: 660 };
 const PILL = { w: 320, h: 64 };
 
@@ -119,10 +120,10 @@ export function OverlayApp() {
     <div className={`ov ov--${effectInUse} ${clickThrough ? 'is-through' : ''}`} style={{ opacity: ov.opacity }}>
       <header className="ov__head" data-tauri-drag-region>
         <div className="ov-switch" role="tablist">
-          {(['draft', 'build', 'lane', 'plan'] as Mode[]).map((m) => (
+          {(['draft', 'build', 'lane', 'plan', 'enemies'] as Mode[]).map((m) => (
             <button key={m} role="tab" className={`ov-switch__btn ${shown === m ? 'is-on' : ''}`} onClick={() => setMode(m)}>
               {shown === m && <motion.span layoutId="ov-pill" className="ov-switch__pill" transition={{ type: 'spring', stiffness: 380, damping: 34 }} />}
-              <span>{m === 'draft' ? 'Драфт' : m === 'build' ? 'Билд' : m === 'lane' ? 'Линия' : 'План'}</span>
+              <span>{m === 'draft' ? 'Драфт' : m === 'build' ? 'Билд' : m === 'lane' ? 'Линия' : m === 'plan' ? 'План' : 'Враги'}</span>
             </button>
           ))}
         </div>
@@ -145,6 +146,7 @@ export function OverlayApp() {
       ) : (
         <div className="ov__body">
           <DisplayWarning />
+          {shown !== 'draft' && <WinStripHere />}
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={shown}
@@ -153,7 +155,17 @@ export function OverlayApp() {
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.2 }}
             >
-              {shown === 'draft' ? <DraftMode search={search} /> : shown === 'build' ? <BuildMode /> : shown === 'lane' ? <LaneMode /> : <PlanMode />}
+              {shown === 'draft' ? (
+                <DraftMode search={search} />
+              ) : shown === 'build' ? (
+                <BuildMode />
+              ) : shown === 'lane' ? (
+                <LaneMode />
+              ) : shown === 'plan' ? (
+                <PlanMode />
+              ) : (
+                <EnemiesHere />
+              )}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -248,6 +260,18 @@ function useDraftRequest(): DraftRequest {
 }
 
 /** My hero: GSI knows it; otherwise the ally I clicked, or the only ally. */
+function WinStripHere() {
+  const req = useDraftRequest();
+  const me = useMe(req);
+  const phase = useDraft((s) => s.phase);
+  return <WinStrip req={req} me={me} inGame={phase === 'game'} />;
+}
+
+function EnemiesHere() {
+  const req = useDraftRequest();
+  return <EnemiesMode enemies={req.enemies} />;
+}
+
 function useMe(req: DraftRequest) {
   const d = useDraft();
   if (d.myHero) return d.myHero;
@@ -421,7 +445,20 @@ interface Pace {
 
 interface GameLive {
   pace: Pace | null;
-  live: { clock: number | null; gold: number | null; has_items: boolean; alive: boolean | null; respawn: number | null } | null;
+  live: {
+    clock: number | null;
+    gold: number | null;
+    gpm: number | null;
+    daytime: boolean | null;
+    has_items: boolean;
+    has_abilities?: boolean;
+    neutral?: string | null;
+    alive: boolean | null;
+    respawn: number | null;
+  } | null;
+  skill?: SkillNext | null;
+  neutral_tier?: NeutralTierNow | null;
+  objectives?: Objectives | null;
   timers: { key: string; name: string; in: number }[];
   next: { key: string; name: string; cost: number; left: number; missing: number; ready: boolean; have: string[] } | null;
   buyback: { cost: number; enough: boolean; missing: number; cooldown: number } | null;
@@ -455,11 +492,19 @@ function PaceLines({ pace }: { pace: Pace }) {
 
 /** «Сейчас»: the next item of the top players' build with the gold still missing, the map timers
  * and buyback, from what Dota sends over GSI (backend ingame.py), refreshed every second. */
-function LiveHints({ plan, pos }: { plan: { key: string; name: string; minute: number | null }[]; pos: number }) {
+function LiveHints({ plan, pos, order, ab, hero, enemies }: {
+  plan: { key: string; name: string; minute: number | null }[];
+  pos: number;
+  order: { level: number; key: string; name: string }[];
+  ab: Record<string, AbilityInfo>;
+  hero: number | null;
+  enemies: number[];
+}) {
   const targets = plan.map((p) => p.key).join(',');
+  const skills = order.map((s) => s.key).join(',');
   const q = useQuery({
-    queryKey: ['game-live', targets, pos],
-    queryFn: () => api<GameLive>(`/game/live?targets=${encodeURIComponent(targets)}&pos=${pos}`),
+    queryKey: ['game-live', targets, skills, pos],
+    queryFn: () => api<GameLive>(`/game/live?targets=${encodeURIComponent(targets)}&skills=${encodeURIComponent(skills)}&pos=${pos}`),
     refetchInterval: 1000,
   });
   const g = q.data;
@@ -469,12 +514,19 @@ function LiveHints({ plan, pos }: { plan: { key: string; name: string; minute: n
   const minute = n ? plan.find((p) => p.key === n.key)?.minute : null;
   const late = n && minute != null ? Math.floor(clock / 60 - minute) : 0;
   const pct = n ? Math.round((100 * (n.cost - n.left + Math.min(g.live.gold ?? 0, n.left))) / Math.max(1, n.cost)) : 0;
+  // when the item is affordable at the current gold per minute (Dota's GPM is the match average)
+  const eta = n && !n.ready && g.live.gpm ? clock + (n.missing / g.live.gpm) * 60 : null;
+  const night = g.timers.find((t) => t.key === 'night');
   return (
     <div className="ov__live">
       <div className="ov__live-head">
         <span className="kicker">Сейчас · {mmss(clock)}</span>
         {g.live.gold != null && <span className="ov__gold">{g.live.gold.toLocaleString('ru')} золота</span>}
       </div>
+      {g.skill && <SkillNow s={g.skill} order={order} ab={ab} />}
+      {g.live.has_abilities === false && order.length > 0 && (
+        <p className="hint">Дота пока не присылает способности: перезапусти её один раз (конфиг GSI обновлён).</p>
+      )}
       {n ? (
         <div className={`ov__next ${n.ready ? 'is-ready' : ''}`}>
           <ItemIcon k={n.key} title={n.name} size={36} />
@@ -487,9 +539,12 @@ function LiveHints({ plan, pos }: { plan: { key: string; name: string; minute: n
             <div className="ov__bar">
               <i style={{ width: `${pct}%` }} />
             </div>
-            {minute != null && (
-              <span className={`small ${late > 0 ? 'c-bad' : 'muted'}`}>
-                у топов к {Math.round(minute)}′{late > 0 ? ` · опаздываешь на ${late} мин` : ''}
+            {(minute != null || eta != null) && (
+              <span className={`small ${late > 0 || (eta != null && minute != null && eta / 60 > minute + 2) ? 'c-bad' : 'muted'}`}>
+                {eta != null && `при твоём темпе ~${mmss(Math.round(eta))}`}
+                {eta != null && minute != null && ' · '}
+                {minute != null && `у топов к ${Math.round(minute)}′`}
+                {late > 0 ? ` · опаздываешь на ${late} мин` : ''}
               </span>
             )}
           </div>
@@ -512,6 +567,9 @@ function LiveHints({ plan, pos }: { plan: { key: string; name: string; minute: n
           {g.buyback.cooldown ? `перезарядка ${mmss(g.buyback.cooldown)}` : g.buyback.enough ? 'хватает' : `не хватает ${g.buyback.missing.toLocaleString('ru')}`}
         </p>
       )}
+      <NightNote night={g.live.daytime === false} nightIn={night && night.name === 'Ночь' ? night.in : null} me={hero} enemies={enemies} />
+      {g.neutral_tier && <NeutralTierLine t={g.neutral_tier} hero={hero} pos={pos} held={g.live.neutral ?? null} />}
+      {g.objectives && <ObjectivesRow o={g.objectives} />}
       {g.pace && <PaceLines pace={g.pace} />}
     </div>
   );
@@ -554,11 +612,22 @@ function BuildMode() {
   // no game against the whole draft: top games against my lane (Axe + Lich against my Anti-Mage)
   const laneVs = !found && topVs?.lane?.found ? topVs.lane : null;
   const shownVs = found ?? laneVs;
+  const shownBuild = build.data ? (build.data.build.builds[0] ?? build.data.build.approximate) : null;
+  const skillOrder = shownBuild ? [...shownBuild.skills].sort((a, b) => a.level - b.level) : [];
   const plan = shownVs ? [...(shownVs.boots ? [shownVs.boots] : []), ...(shownVs.core ?? [])] : top ? [...(top.boots ? [top.boots] : []), ...top.core] : [];
   if (!hero) return <p className="muted ov__center">Выбери своего героя в драфте — здесь появится билд против врагов.</p>;
   return (
     <div className="ov__build">
-      {d.phase === 'game' && hints && <LiveHints plan={plan} pos={build.data?.build.pos ?? req.pos ?? 1} />}
+      {d.phase === 'game' && hints && (
+        <LiveHints
+          plan={plan}
+          pos={build.data?.build.pos ?? req.pos ?? 1}
+          order={skillOrder}
+          ab={build.data?.build.abilities ?? {}}
+          hero={hero}
+          enemies={req.enemies}
+        />
+      )}
       {!d.myHero && allies.length > 1 && (
         <div className="ov__row ov__row--start">
           <span className="label">Мой герой</span>

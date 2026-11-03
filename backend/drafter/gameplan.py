@@ -74,6 +74,7 @@ def plan(allies: list[int], enemies: list[int], minute: float | None = None, t: 
                          "now": timing.bucket_of(minute) if minute is not None else None}
         signs = [1 if d > WINDOW else -1 if d < -WINDOW else 0 for d in diff]
         cross = next((timing.EDGES[i] for i in range(len(diff) - 1) if (diff[i] > 0) != (diff[i + 1] > 0)), None)
+        out["cross"] = cross   # the minute the stronger side changes, if it does
         if diff[0] > 0 and diff[-1] < 0:
             shape = "early"
             late = _late_heroes(enemies, t)

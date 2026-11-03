@@ -238,3 +238,51 @@ def details(hero_id: int, download: bool = True) -> dict:
              "right": talents[2 * i + 1] if 2 * i + 1 < len(talents) else None}
             for i, lvl in enumerate((10, 15, 20, 25))]
     return {"abilities": out, "talents": list(reversed(tree)), "source": "valve"}
+
+
+# ---------- what to watch out for: the enemies' abilities in a few words -----------------------
+
+PIERCES_IMMUNITY = 3        # Valve's SPELL_IMMUNITY_ENEMIES_YES: goes through Black King Bar
+DISPEL = {1: "только сильное развеивание", 2: "развеивается", 3: "не развеивается"}
+BEHAVIOR_HIDDEN, BEHAVIOR_PASSIVE = 1, 2
+TAGS = [("stun", "оглушение", r"оглуш"), ("silence", "безмолвие", r"безмолв|обезмолв|немот|применять способности"),
+        ("root", "обездвиживание", r"обездвиж|корн|не могут двигаться|не может двигаться"),
+        ("hex", "превращение", r"превращ"), ("disarm", "обезоруживание", r"обезоруж"), ("invis", "невидимость", r"невидим"),
+        ("slow", "замедление", r"замедл")]
+NIGHT = re.compile(r"\bночь|\bночью|\bночи\b", re.I)
+
+
+def threats(hero_id: int, download: bool = True) -> dict | None:
+    """The hero's castable abilities with the ultimate first: cooldown by level, whether it goes
+    through BKB, whether it can be dispelled, and the effects its text names (stun, silence…);
+    `night`: some ability of the hero changes at night (Night Stalker, Luna…)."""
+    vh = constants.valve_hero(hero_id)
+    if not vh:
+        return None
+    icons = hero_abilities(hero_id, download=download)
+    out = []
+    night = False
+    for ab in vh["abilities"]:
+        if not ab.get("name_loc") or ab["name"].startswith("generic_hidden"):
+            continue
+        values = _all_values(ab)
+        text = _text(ab.get("desc_loc", ""), values)
+        if NIGHT.search(text):
+            night = True
+        behavior = int(ab.get("behavior") or 0)
+        if str(ab.get("ability_is_innate")) == "True" or behavior & BEHAVIOR_HIDDEN or behavior & BEHAVIOR_PASSIVE:
+            continue
+        low = text.lower()
+        tags = [label for _, label, rx in TAGS if re.search(rx, low)]
+        on_enemy = bool(int(ab.get("target_team") or 0) & 2) or bool(tags)
+        out.append({
+            "key": ab["name"], "name": ab["name_loc"], "icon": (icons.get(ab["name"]) or {}).get("icon"),
+            "ultimate": int(ab.get("type") or 0) == ULTIMATE, "cooldown": _levels(ab.get("cooldowns")),
+            "pierces": int(ab.get("immunity") or 0) == PIERCES_IMMUNITY,
+            # dispel is about what lands on the enemy; on a self-buff it says nothing useful here
+            "dispel": DISPEL.get(int(ab.get("dispellable") or 0)) if on_enemy else None,
+            "tags": tags,
+            "desc": short_desc(ab.get("desc_loc", ""), values),
+        })
+    out.sort(key=lambda a: not a["ultimate"])
+    return {"hero": hero_id, "abilities": out, "night": night}
