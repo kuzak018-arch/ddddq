@@ -78,6 +78,7 @@ def live_from_payload(payload: dict) -> dict:
         "has_items": isinstance(items, dict), "items": owned, "neutral": neutral,
         "has_abilities": isinstance(abil, dict), "abilities": abilities,
         "talents": sum(1 for t in talent_keys if h.get(t) is True) if any(t in h for t in talent_keys) else None,
+        "attributes": h.get("attributes_level") if isinstance(h.get("attributes_level"), int) else None,
         "match_id": str(m.get("matchid") or "") or None,
         "roshan_state": m.get("roshan_state"), "roshan_end": m.get("roshan_state_end_seconds"),
         "ts": time.time(),
@@ -140,7 +141,9 @@ def next_skill(live: dict | None, order: list[str]) -> dict | None:
     for a in live.get("abilities") or []:
         have[a["name"]] = max(have[a["name"]], a["level"])
     level = int(live.get("level") or 0)
-    earned = level - sum(1 for lv in NO_POINT_LEVELS if lv <= level)
+    # the levels without a skill point give the attribute bonus by themselves: Dota says how many
+    attrs = live.get("attributes")
+    earned = level - attrs if isinstance(attrs, int) else level - sum(1 for lv in NO_POINT_LEVELS if lv <= level)
     in_order = set(order) - {"talent"}
     spent_abilities = sum(have[k] for k in in_order)
     talents = live.get("talents")

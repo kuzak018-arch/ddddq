@@ -193,3 +193,14 @@ def test_skip_marks_live_in_the_match_and_hints_use_them(monkeypatch):
     assert h["next"]["key"] == "butterfly" and h["passed"][0]["why"] == "skipped"
     ingame.mark_skip("basher", live, undo=True)
     assert ingame.hints(live, AM)["next"]["key"] == "basher"
+
+
+def test_attribute_levels_from_dota_count_as_spent():
+    # level 30 of a real match (Beastmaster, from the user's GSI log): 15 ability points, 8 talents, 7 attribute levels
+    order = ["a"] * 4 + ["b"] * 4 + ["c"] * 4 + ["u"] * 3 + ["talent"] * 8
+    live = _live(level=30, abilities=(("a", 4), ("b", 4), ("c", 4), ("u", 3)), talents=8)
+    live["attributes"] = 7
+    assert ingame.next_skill(live, order) is None or not ingame.next_skill(live, order)["now"]
+    live = _live(level=11, abilities=(("a", 4), ("b", 3), ("c", 1), ("u", 1)), talents=1)
+    live["attributes"] = 0
+    assert ingame.next_skill(live, order)["now"] is True       # 11 points earned, 10 spent
