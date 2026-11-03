@@ -783,7 +783,12 @@ html.is-widget #root {
   font-size: 12px;
   color: var(--text);
 }
-.wg:not(.is-edit) .wg__box:not(:has(> :not(.wg__edit))) {
+/* nothing to show (an empty .hud-line counts as nothing, e.g. «Сейчас» once «Качай» is gone):
+   the box is hidden, so no dark strip stays over the HUD */
+.hud-line:empty {
+  display: none;
+}
+.wg:not(.is-edit) .wg__box:not(:has(> :not(.wg__edit):not(:empty))) {
   visibility: hidden; /* nothing to show yet: keep the size, hide the glass */
 }
 .wg.is-edit .wg__box {

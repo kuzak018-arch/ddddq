@@ -66,7 +66,7 @@ def live_from_payload(payload: dict) -> dict:
         for k in sorted(abil, key=lambda x: int(x[7:]) if x[7:].isdigit() else 99):
             a = abil[k]
             if isinstance(a, dict) and a.get("name"):
-                abilities.append({"name": str(a["name"]), "level": int(a.get("level") or 0),
+                abilities.append({"name": str(a["name"]), "level": int(a.get("level") or 0), "slot": k,
                                   "ultimate": bool(a.get("ultimate")), "cooldown": a.get("cooldown")})
     talent_keys = [f"talent_{i}" for i in range(1, 9)]
     return {
@@ -130,6 +130,31 @@ def item_progress(target: str, owned: list[str], gold: int | None, items: dict) 
             "missing": missing, "ready": missing == 0, "have": have}
 
 
+# what each ability slot held last time it showed one of the build's abilities: casting some spells
+# swaps the slot for a while (Keeper of the Light's Illuminate → «Release Illuminate», Tusk's
+# Snowball, Phoenix's dives…), and the swapped ability must not read as an untaken skill
+_slots: dict = {"hero": None, "slots": {}}
+_slots_lock = threading.Lock()
+
+
+def _levels(live: dict, in_order: set[str]) -> Counter:
+    """Ability levels by name, a slot that shows a swapped-in ability counting as what it held."""
+    have: Counter = Counter()
+    with _slots_lock:
+        if _slots["hero"] != live.get("hero_id"):
+            _slots.update(hero=live.get("hero_id"), slots={})
+        mem = _slots["slots"]
+        for a in live.get("abilities") or []:
+            name, lvl, slot = a["name"], a["level"], a.get("slot")
+            if name in in_order:
+                if slot is not None:
+                    mem[slot] = (name, lvl)
+            elif slot in mem and not any(x["name"] == mem[slot][0] for x in live.get("abilities") or []):
+                name, lvl = mem[slot][0], max(mem[slot][1], lvl)
+            have[name] = max(have[name], lvl)
+    return have
+
+
 def next_skill(live: dict | None, order: list[str]) -> dict | None:
     """The build's next skill given what is already taken: `order` is the build's key per level
     ("talent" for a talent level). Walking the order, the first key taken fewer times than the
@@ -137,14 +162,12 @@ def next_skill(live: dict | None, order: list[str]) -> dict | None:
     `at` is the place in the order (the n-th point), not the hero level."""
     if not live or not live.get("has_abilities") or not order:
         return None
-    have = Counter()
-    for a in live.get("abilities") or []:
-        have[a["name"]] = max(have[a["name"]], a["level"])
+    in_order = set(order) - {"talent"}
+    have = _levels(live, in_order)
     level = int(live.get("level") or 0)
     # the levels without a skill point give the attribute bonus by themselves: Dota says how many
     attrs = live.get("attributes")
     earned = level - attrs if isinstance(attrs, int) else level - sum(1 for lv in NO_POINT_LEVELS if lv <= level)
-    in_order = set(order) - {"talent"}
     spent_abilities = sum(have[k] for k in in_order)
     talents = live.get("talents")
     if talents is None:  # an older Dota without talent flags: the points left over are talents
