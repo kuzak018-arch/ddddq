@@ -76,6 +76,7 @@ interface UiState {
     autoPerf: boolean;   // performance mode in the overlay while a match is running
     autoShow: boolean;   // show the overlay by itself when hero selection starts (GSI)
     hints: boolean;      // in-game hints in the build mode: next item, timers, buyback (GSI)
+    widgets: { timers: boolean; now: boolean; gold: boolean }; // small windows over the HUD in a match
   };
   go: (page: Page) => void;
   openHero: (id: number) => void;
@@ -111,7 +112,7 @@ export const useUi = create<UiState>()(
       },
       gameMods: false,
       lookTab: 'grids',
-      overlay: { toggle: 'Ctrl+Shift+M', interact: 'Ctrl+Shift+N', opacity: 0.94, effect: 'acrylic', mode: 'auto', autoPerf: true, autoShow: true, hints: true },
+      overlay: { toggle: 'Ctrl+Shift+M', interact: 'Ctrl+Shift+N', opacity: 0.94, effect: 'acrylic', mode: 'auto', autoPerf: true, autoShow: true, hints: true, widgets: { timers: true, now: true, gold: true } },
       go: (page) => set({ page }),
       openHero: (id) => set({ page: 'hero', heroPageId: id }),
       openBuild: (hero, pos) => set((s) => ({ page: 'builds', buildHero: hero, buildPos: pos ?? s.buildPos })),

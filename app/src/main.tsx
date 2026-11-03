@@ -18,6 +18,8 @@ import { installTilt } from './lib/tilt';
 import { installWheelDebug } from './lib/wheel';
 import { isOverlayWindow } from './lib/overlay';
 import { OverlayApp } from './overlay/OverlayApp';
+import { WidgetApp } from './overlay/Widgets';
+import { widgetKind } from './lib/widgets';
 import { useUi } from './state/ui';
 import './overlay/overlay.css';
 
@@ -64,7 +66,7 @@ backend().then(() => {
   ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
-        <Motion>{isOverlayWindow() ? <OverlayApp /> : <App />}</Motion>
+        <Motion>{widgetKind() ? <WidgetApp kind={widgetKind()!} /> : isOverlayWindow() ? <OverlayApp /> : <App />}</Motion>
       </QueryClientProvider>
     </React.StrictMode>,
   );

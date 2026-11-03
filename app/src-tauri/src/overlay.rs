@@ -10,6 +10,10 @@ use tauri::{AppHandle, Emitter, Manager, WebviewWindow};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
 pub const LABEL: &str = "overlay";
+/// Small widget windows over the game (tauri.conf): timers and «now» above the minimap, gold above
+/// the gold panel. Clicks go through them into the game unless the overlay is open and managed
+/// (visible and not click-through): then they can be dragged and their buttons pressed.
+pub const WIDGETS: [&str; 3] = ["w-timers", "w-now", "w-gold"];
 
 #[derive(Default)]
 pub struct OverlayState {
@@ -36,7 +40,24 @@ fn window(app: &AppHandle) -> Result<WebviewWindow, String> {
     app.get_webview_window(LABEL).ok_or_else(|| "окно оверлея не найдено".to_string())
 }
 
+/// Widgets take the mouse only while the overlay is shown and managed (its click-through off).
+fn widgets_interactive(app: &AppHandle) -> bool {
+    let visible = window(app).ok().and_then(|w| w.is_visible().ok()).unwrap_or(false);
+    visible && !*app.state::<OverlayState>().click_through.lock().unwrap()
+}
+
+fn sync_widgets(app: &AppHandle) {
+    let on = widgets_interactive(app);
+    for label in WIDGETS {
+        if let Some(w) = app.get_webview_window(label) {
+            let _ = w.set_ignore_cursor_events(!on);
+        }
+    }
+    let _ = app.emit("widgets-interactive", on);
+}
+
 pub fn emit_status(app: &AppHandle) {
+    sync_widgets(app);
     if let Ok(w) = window(app) {
         let status = OverlayStatus {
             visible: w.is_visible().unwrap_or(false),
@@ -81,6 +102,31 @@ pub fn set_click_through_inner(app: &AppHandle, on: bool) -> Result<(), String> 
     *app.state::<OverlayState>().click_through.lock().unwrap() = on;
     emit_status(app);
     Ok(())
+}
+
+/// Show or hide one widget window (the overlay page decides: in a match, when the widget is on).
+#[tauri::command]
+pub fn widget_show(app: AppHandle, label: String, show: bool) -> Result<(), String> {
+    if !WIDGETS.contains(&label.as_str()) {
+        return Err(format!("нет такого виджета: {label}"));
+    }
+    let w = app.get_webview_window(&label).ok_or_else(|| "окно виджета не найдено".to_string())?;
+    if show == w.is_visible().unwrap_or(false) {
+        return Ok(());
+    }
+    if show {
+        let _ = w.set_ignore_cursor_events(!widgets_interactive(&app));
+        show_keeping_focus(&w)?;
+        let _ = w.set_always_on_top(true);
+    } else {
+        w.hide().map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn widgets_interactive_now(app: AppHandle) -> bool {
+    widgets_interactive(&app)
 }
 
 #[tauri::command]

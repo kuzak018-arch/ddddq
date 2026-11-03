@@ -24,6 +24,7 @@ import { PAGE_ANIMS, replayPageIn } from '../lib/pageAnim';
 import { play } from '../lib/sounds';
 import { autostartEnabled, setAutostart } from '../lib/tray';
 import { loadBackgroundFile, saveBackgroundFile, saveFile } from '../state/bgstore';
+import { resetWidgetPlaces, WIDGET_KINDS, WIDGET_NAMES } from '../lib/widgets';
 import { useUi } from '../state/ui';
 
 /**
@@ -709,6 +710,24 @@ function OverlayCard() {
         label="Подсказки в игре: следующий предмет и сколько золота не хватает, таймеры рун и лотосов, ночь, выкуп"
       />
       <Toggle on={ov.autoPerf} onChange={(autoPerf) => setOv({ autoPerf })} label="Во время матча — режим производительности (без Acrylic и анимаций)" />
+      <div className="field">
+        <span className="label">Виджеты поверх игры в матче (маленькие окна у миникарты и у золота)</span>
+        {WIDGET_KINDS.map((k) => (
+          <Toggle
+            key={k}
+            on={!!ov.widgets?.[k]}
+            onChange={(v) => setOv({ widgets: { ...{ timers: true, now: true, gold: true }, ...ov.widgets, [k]: v } })}
+            label={WIDGET_NAMES[k]}
+          />
+        ))}
+        <p className="hint">
+          Клики проходят сквозь виджеты в игру. Чтобы передвинуть виджет или нажать «убит» у Рошана, открой оверлей и выключи сквозные клики ({ov.interact}) —
+          тогда виджеты можно тянуть мышью, место запоминается. Нужен режим Доты «Окно без рамки» или «Полноэкранный в окне».
+        </p>
+        <button className="btn btn--sm" onClick={() => resetWidgetPlaces()}>
+          Расставить виджеты заново (при следующем показе)
+        </button>
+      </div>
       <p className="hint">
         «Авто»: на стадии драфта — подсказки, с началом матча — билд против врагов (после подключения GSI на этапе 5).
         Позиция и размер оверлея запоминаются.

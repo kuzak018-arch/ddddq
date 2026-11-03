@@ -11,22 +11,24 @@ import { LogicalSize } from '@tauri-apps/api/dpi';
 import { isTauri } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { AnimatePresence, motion } from 'motion/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { api, waitForBackend } from '../api/client';
-import { useBans, useBuild, useEvaluate, useHeroes, usePlan, useSettings, useSettingsFromOtherWindow, useSuggest, useTopTimings, useTopVs } from '../api/hooks';
-import type { AbilityInfo, DraftRequest, GamePlan, TopVs } from '../api/types';
+import { useBans, useEvaluate, useHeroes, usePlan, useSettingsFromOtherWindow, useSuggest } from '../api/hooks';
+import type { GamePlan, TopVs } from '../api/types';
 import { Skills } from '../components/BuildView';
 import { HeroSearch, type HeroSearchHandle } from '../components/HeroSearch';
 import { NeutralItems } from '../components/NeutralItems';
-import { EnemiesMode, NightNote, NeutralTierLine, ObjectivesRow, SkillNow, WinStrip, type NeutralTierNow, type Objectives, type SkillNext } from './InGame';
+import { EnemiesMode, WinStrip } from './InGame';
+import { LiveHints, useBuildPlan, useDraftRequest, useMe } from './live';
+import { WidgetsController } from './Widgets';
 import { SteamGuideCompact } from '../components/SteamGuides';
 import { IconClose } from '../components/Icons';
 import { LaneCard, LaneView } from '../components/LaneView';
-import { fmtPct, fmtSigned, HeroIcon, HowTo, ItemIcon, Mins, plural } from '../components/ui';
+import { fmtPct, fmtSigned, HeroIcon, HowTo, ItemIcon, plural } from '../components/ui';
 import { onOverlayStatus, overlayStatus, setClickThrough, setOverlayEffect, showOverlay } from '../lib/overlay';
 import { useResolvedTheme } from '../lib/theme';
-import { picked, useDraft } from '../state/draft';
+import { useDraft } from '../state/draft';
 import { startSync } from '../state/sync';
 import { useUi } from '../state/ui';
 
@@ -114,6 +116,7 @@ export function OverlayApp() {
     return (
       <div className={`ov ov--${effectInUse} ov--pill ${clickThrough ? 'is-through' : ''}`} style={{ opacity: ov.opacity }}>
         {ready ? <Pill onOpen={() => toggleCollapsed(false)} /> : <span className="muted">Подключаюсь…</span>}
+        <WidgetsController />
       </div>
     );
   return (
@@ -146,6 +149,7 @@ export function OverlayApp() {
       ) : (
         <div className="ov__body">
           <DisplayWarning />
+          <WidgetsController />
           {shown !== 'draft' && <WinStripHere />}
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
@@ -243,22 +247,6 @@ function DisplayWarning() {
   );
 }
 
-function useDraftRequest(): DraftRequest {
-  const d = useDraft();
-  const settings = useSettings().data;
-  return useMemo(
-    () => ({
-      allies: picked(d.allies),
-      enemies: picked(d.enemies),
-      bans: d.bans,
-      pos: d.pos ?? settings?.pos ?? 1,
-      side: d.side,
-      use_comfort: d.comfort ?? settings?.use_comfort ?? true,
-    }),
-    [d.allies, d.enemies, d.bans, d.pos, d.side, d.comfort, settings],
-  );
-}
-
 /** My hero: GSI knows it; otherwise the ally I clicked, or the only ally. */
 function WinStripHere() {
   const req = useDraftRequest();
@@ -270,13 +258,6 @@ function WinStripHere() {
 function EnemiesHere() {
   const req = useDraftRequest();
   return <EnemiesMode enemies={req.enemies} />;
-}
-
-function useMe(req: DraftRequest) {
-  const d = useDraft();
-  if (d.myHero) return d.myHero;
-  if (d.myPick && req.allies.includes(d.myPick)) return d.myPick;
-  return req.allies.length === 1 ? req.allies[0]! : null;
 }
 
 function DraftMode({ search }: { search: React.RefObject<HeroSearchHandle | null> }) {
@@ -438,153 +419,6 @@ function LaneMode() {
   );
 }
 
-interface Pace {
-  networth: { minute: number; now: number; top: number; diff: number; ratio: number; games: number; estimated: boolean; verdict: 'bad' | 'ok' | 'good' } | null;
-  last_hits: { minute: number; last_hits: number; per_min: number; median: number | null; expected: number | null; percentile: number | null; few: boolean } | null;
-}
-
-interface GameLive {
-  pace: Pace | null;
-  live: {
-    clock: number | null;
-    gold: number | null;
-    gpm: number | null;
-    daytime: boolean | null;
-    has_items: boolean;
-    has_abilities?: boolean;
-    neutral?: string | null;
-    alive: boolean | null;
-    respawn: number | null;
-  } | null;
-  skill?: SkillNext | null;
-  neutral_tier?: NeutralTierNow | null;
-  objectives?: Objectives | null;
-  timers: { key: string; name: string; in: number }[];
-  next: { key: string; name: string; cost: number; left: number; missing: number; ready: boolean; have: string[] } | null;
-  buyback: { cost: number; enough: boolean; missing: number; cooldown: number } | null;
-}
-
-const mmss = (s: number) => `${s < 0 ? '-' : ''}${Math.floor(Math.abs(s) / 60)}:${String(Math.abs(s) % 60).padStart(2, '0')}`;
-
-/** Net worth against the top players of the hero at this minute, and few last hits (backend pace.py). */
-function PaceLines({ pace }: { pace: Pace }) {
-  const nw = pace.networth;
-  const lh = pace.last_hits;
-  const fmt = (n: number) => n.toLocaleString('ru');
-  return (
-    <div className="ov__pace">
-      {nw && (
-        <p className={`small ${nw.verdict === 'bad' ? 'c-bad' : nw.verdict === 'good' ? 'c-good' : 'muted'}`} title={`по ${nw.games} играм топов на этом герое${nw.estimated ? '; нетворс оценён по GPM' : ''}`}>
-          {nw.verdict === 'bad' ? 'Нетворс ниже топов' : nw.verdict === 'good' ? 'Нетворс выше топов' : 'Нетворс как у топов'}: {nw.estimated ? '≈ ' : ''}
-          {fmt(nw.now)} к {nw.minute}-й минуте, у них {fmt(nw.top)} ({nw.diff > 0 ? '+' : ''}
-          {Math.round((nw.ratio - 1) * 100)}%)
-        </p>
-      )}
-      {lh?.few && (
-        <p className="small c-bad" title="сравнение с игроками этого героя по данным OpenDota">
-          Мало добиваний: {lh.last_hits} к {lh.minute}-й минуте ({lh.per_min.toLocaleString('ru')} в минуту)
-          {lh.expected ? `, обычно около ${lh.expected}` : ''}
-        </p>
-      )}
-    </div>
-  );
-}
-
-/** «Сейчас»: the next item of the top players' build with the gold still missing, the map timers
- * and buyback, from what Dota sends over GSI (backend ingame.py), refreshed every second. */
-function LiveHints({ plan, pos, order, ab, hero, enemies }: {
-  plan: { key: string; name: string; minute: number | null; top?: boolean }[];
-  pos: number;
-  order: { level: number; key: string; name: string }[];
-  ab: Record<string, AbilityInfo>;
-  hero: number | null;
-  enemies: number[];
-}) {
-  const targets = plan.map((p) => p.key).join(',');
-  const skills = order.map((s) => s.key).join(',');
-  const q = useQuery({
-    queryKey: ['game-live', targets, skills, pos],
-    queryFn: () => api<GameLive>(`/game/live?targets=${encodeURIComponent(targets)}&skills=${encodeURIComponent(skills)}&pos=${pos}`),
-    refetchInterval: 1000,
-  });
-  const g = q.data;
-  if (!g?.live) return <p className="hint">Подсказки появятся, как только Дота пришлёт данные матча.</p>;
-  const clock = g.live.clock ?? 0;
-  const n = g.next;
-  const planned = n ? plan.find((p) => p.key === n.key) : undefined;
-  const minute = planned?.minute ?? null;
-  const late = n && minute != null ? Math.floor(clock / 60 - minute) : 0;
-  const pct = n ? Math.round((100 * (n.cost - n.left + Math.min(g.live.gold ?? 0, n.left))) / Math.max(1, n.cost)) : 0;
-  // when the item is affordable at the current gold per minute (Dota's GPM is the match average)
-  const eta = n && !n.ready && g.live.gpm ? clock + (n.missing / g.live.gpm) * 60 : null;
-  const night = g.timers.find((t) => t.key === 'night');
-  return (
-    <div className="ov__live">
-      <div className="ov__live-head">
-        <span className="kicker">Сейчас · {mmss(clock)}</span>
-        {g.live.gold != null && <span className="ov__gold">{g.live.gold.toLocaleString('ru')} золота</span>}
-      </div>
-      {g.skill && <SkillNow s={g.skill} order={order} ab={ab} />}
-      {g.live.has_abilities === false && order.length > 0 && (
-        <p className="hint">Дота пока не присылает способности: перезапусти её один раз (конфиг GSI обновлён).</p>
-      )}
-      {n ? (
-        <div className={`ov__next ${n.ready ? 'is-ready' : ''}`}>
-          <ItemIcon k={n.key} title={n.name} size={36} />
-          <div>
-            <b>{n.name}</b>
-            <span className="small">
-              {n.ready ? 'хватает — можно покупать' : `не хватает ${n.missing.toLocaleString('ru')}`}
-              {n.have.length > 0 && ' · часть уже есть'}
-            </span>
-            <div className="ov__bar">
-              <i style={{ width: `${pct}%` }} />
-            </div>
-            {(minute != null || eta != null) && (
-              <span className={`small ${late > 0 || (eta != null && minute != null && eta / 60 > minute + 2) ? 'c-bad' : 'muted'}`}>
-                {eta != null && (
-                  <>
-                    при твоём темпе ~<Mins m={eta / 60} />
-                  </>
-                )}
-                {eta != null && minute != null && ' · '}
-                {minute != null && (
-                  <>
-                    {planned?.top ? 'у топов к ' : 'обычно к '}
-                    <Mins m={minute} />
-                  </>
-                )}
-                {late > 0 ? ` · опаздываешь на ${late} мин` : ''}
-              </span>
-            )}
-          </div>
-        </div>
-      ) : g.live.has_items ? (
-        plan.length > 0 && <p className="hint">Весь кор билда уже собран.</p>
-      ) : (
-        <p className="hint">Дота пока не присылает предметы: перезапусти её один раз (конфиг GSI обновлён).</p>
-      )}
-      <div className="ov__timers">
-        {g.timers.slice(0, 4).map((t) => (
-          <span key={t.key} className={`ov__timer ${t.in <= 15 ? 'is-soon' : ''}`}>
-            {t.name} <b>{t.key === 'night' ? `через ${mmss(t.in)}` : mmss(t.in)}</b>
-          </span>
-        ))}
-      </div>
-      {g.buyback && (
-        <p className={`small ${g.buyback.cooldown ? 'muted' : g.buyback.enough ? 'c-good' : 'c-bad'}`}>
-          Выкуп {g.buyback.cost.toLocaleString('ru')}:{' '}
-          {g.buyback.cooldown ? `перезарядка ${mmss(g.buyback.cooldown)}` : g.buyback.enough ? 'хватает' : `не хватает ${g.buyback.missing.toLocaleString('ru')}`}
-        </p>
-      )}
-      <NightNote night={g.live.daytime === false} nightIn={night && night.name === 'Ночь' ? night.in : null} me={hero} enemies={enemies} />
-      {g.neutral_tier && <NeutralTierLine t={g.neutral_tier} hero={hero} pos={pos} held={g.live.neutral ?? null} />}
-      {g.objectives && <ObjectivesRow o={g.objectives} />}
-      {g.pace && <PaceLines pace={g.pace} />}
-    </div>
-  );
-}
-
 /** The build of top players (Divine+, Immortal, pros) from games where the enemy team had a draft
  * like this one (backend topgames.vs_draft). */
 function TopVsBuild({ vs, title }: { vs: TopVs; title: React.ReactNode }) {
@@ -608,30 +442,8 @@ function TopVsBuild({ vs, title }: { vs: TopVs; title: React.ReactNode }) {
 }
 
 function BuildMode() {
-  const d = useDraft();
-  const req = useDraftRequest();
-  const allies = picked(d.allies);
-  const me = useMe(req);
-  const hero = me ?? allies[0] ?? null;
-  const build = useBuild(hero, req.pos ?? 1, req.enemies, true);
+  const { d, req, allies, hero, build, topVs, found, laneVs, shownVs, plan, skillOrder, at } = useBuildPlan();
   const hints = useUi((s) => s.overlay.hints);
-  const top = build.data ? (build.data.build.builds[0] ?? build.data.build.approximate) : null;
-  // top players' games against a draft like this one: when there are some, their build is the one shown
-  const topVs = useTopVs(hero, build.data?.build.pos ?? req.pos ?? 1, req.enemies).data;
-  const found = topVs?.found ? topVs : null;
-  // no game against the whole draft: top games against my lane (Axe + Lich against my Anti-Mage)
-  const laneVs = !found && topVs?.lane?.found ? topVs.lane : null;
-  const shownVs = found ?? laneVs;
-  const shownBuild = build.data ? (build.data.build.builds[0] ?? build.data.build.approximate) : null;
-  const skillOrder = shownBuild ? [...shownBuild.skills].sort((a, b) => a.level - b.level) : [];
-  // timings: top players' won games on the hero (a good pace) when there are enough, else the build's own
-  const tt = useTopTimings(hero, build.data?.build.pos ?? req.pos ?? 1).data;
-  const raw = shownVs ? [...(shownVs.boots ? [shownVs.boots] : []), ...(shownVs.core ?? [])] : top ? [...(top.boots ? [top.boots] : []), ...top.core] : [];
-  const plan = raw.map((it) => {
-    const t = tt?.items[it.key];
-    return { key: it.key, name: it.name, minute: t?.minute ?? it.minute, top: !!t || !!shownVs };
-  });
-  const at = (key: string, fallback: number | null | undefined) => tt?.items[key]?.minute ?? fallback ?? 0;
   if (!hero) return <p className="muted ov__center">Выбери своего героя в драфте — здесь появится билд против врагов.</p>;
   return (
     <div className="ov__build">
