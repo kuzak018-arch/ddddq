@@ -179,7 +179,7 @@ export function ProfilePage() {
                     <HeroIcon id={h.hero} size="sm" /> <AttrIcon attr={heroes?.byId.get(h.hero)?.attr ?? ''} size={14} /> {heroes?.byId.get(h.hero)?.name}
                   </td>
                   <td>{h.games}</td>
-                  <td className={h.wins / h.games >= 0.5 ? 'c-good' : 'c-bad'}>{fmtPct(h.wins / h.games, 0)}</td>
+                  <td>{fmtPct(h.wins / h.games, 0)}</td>
                   <td className={h.edge >= 0 ? 'c-good' : 'c-bad'}>{fmtSigned(pp(h.edge))}%</td>
                   <td className="muted">{fmtSigned(pp(h.experience))}%</td>
                 </tr>
@@ -243,7 +243,7 @@ function ProfileCard({ p, summary }: { p: Profile; summary?: MeSummary }) {
           )}
           {b.tiles.winrate && (
             <div className="pro__tile">
-              <b className={(p.overall?.wr ?? 0) >= 0.5 ? 'c-good' : 'c-bad'}>{fmtPct(p.overall?.wr)}</b>
+              <b>{fmtPct(p.overall?.wr)}</b>
               <span>побед</span>
             </div>
           )}
@@ -493,7 +493,7 @@ function Summary({ s }: { s: MeSummary }) {
                   <i style={{ width: `${(x.games / maxPos) * 100}%` }} />
                 </div>
                 <span className="muted">{x.games}</span>
-                <b className={x.wr >= 0.5 ? 'c-good' : 'c-bad'}>{fmtPct(x.wr, 0)}</b>
+                <b>{fmtPct(x.wr, 0)}</b>
               </div>
             ))}
           </div>
@@ -514,7 +514,7 @@ function Summary({ s }: { s: MeSummary }) {
                 <HeroIcon id={h.hero} size="sm" />
                 <span>{heroes?.byId.get(h.hero)?.name}</span>
                 <span className="muted">{h.games}</span>
-                <b className={h.wr >= 0.5 ? 'c-good' : 'c-bad'}>{fmtPct(h.wr, 0)}</b>
+                <b>{fmtPct(h.wr, 0)}</b>
               </button>
             ))}
           </div>

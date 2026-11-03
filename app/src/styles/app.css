@@ -1339,6 +1339,13 @@ svg.lucide {
   padding: 14px 22px 16px 16px;
   border-radius: var(--radius-lg, 18px);
   box-shadow: inset 0 0 0 1px var(--glass-rim-2);
+  /* the scene under the header is always a dark blurred picture: light text in either theme */
+  --text: #fff;
+  --text-2: rgba(255, 255, 255, 0.8);
+  --text-3: rgba(255, 255, 255, 0.62);
+  --good: #5be39a;
+  --bad: #ff7a6b;
+  color: var(--text);
 }
 .hero-hdr__scene {
   position: absolute;
