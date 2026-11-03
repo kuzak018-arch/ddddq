@@ -4,16 +4,16 @@
  * situational items, skill order by level and talents from the same games.
  */
 import { ChevronsUp, Crosshair, Flag, Footprints, Gem, GitFork, ListOrdered, Shuffle, Sunrise } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 
+import { useTopTimings } from '../api/hooks';
 import type { AbilityInfo, Build, BuildEntry, BuildsResponse, VsItem } from '../api/types';
 import { AbilityIcon, TalentIcon } from './Ability';
 import { Ti } from './Icons';
 import { NeutralItems } from './NeutralItems';
 import { Tip } from './Tip';
-import { fmtPct, ItemIcon, Segmented } from './ui';
+import { fmtPct, ItemIcon, Mins, Segmented } from './ui';
 
-const minute = (m: number | null | undefined) => (m == null ? '' : `${Math.round(m)}′`);
 
 function Alternatives({ alts }: { alts?: BuildEntry[] }) {
   if (!alts?.length) return null;
@@ -31,6 +31,20 @@ function Alternatives({ alts }: { alts?: BuildEntry[] }) {
   );
 }
 
+/** Top players' timings for the hero shown (won games of this patch): they replace the bracket's
+ * slower medians where known; the bracket's minute stays in the tooltip. */
+const TopTimes = createContext<Record<string, { minute: number; n: number }> | undefined>(undefined);
+
+function When({ e }: { e: { key: string; minute: number | null } }) {
+  const top = useContext(TopTimes)?.[e.key];
+  if (!top) return <Mins m={e.minute} />;
+  return (
+    <span title={`У топов в выигранных играх (${top.n}); обычно на твоём ранге — к ${e.minute != null ? Math.round(e.minute) : '?'} мин`}>
+      <Mins m={top.minute} /> у топов
+    </span>
+  );
+}
+
 function Step({ e, index }: { e: BuildEntry; index?: number }) {
   return (
     <li className="bv__step">
@@ -39,7 +53,7 @@ function Step({ e, index }: { e: BuildEntry; index?: number }) {
       <span className="bv__step-main">
         <b>{e.name}</b>
         <small className="muted">
-          {minute(e.minute)} · {fmtPct(e.share, 0)} игр
+          <When e={e} /> · {fmtPct(e.share, 0)} игр
         </small>
       </span>
       <Alternatives alts={e.alternatives} />
@@ -248,7 +262,7 @@ function BuildBody({ b, vs, reliableGames, ab }: { b: Build; vs: VsItem[]; relia
               <span className="bv__step-main">
                 <b>позже: {b.boots_upgrade.name}</b>
                 <small className="muted">
-                  {minute(b.boots_upgrade.minute)} · {fmtPct(b.boots_upgrade.share, 0)} игр
+                  <When e={b.boots_upgrade} /> · {fmtPct(b.boots_upgrade.share, 0)} игр
                 </small>
               </span>
               <Alternatives alts={b.boots_upgrade.alternatives} />
@@ -310,7 +324,9 @@ export function BuildView({ r, vs }: { r: BuildsResponse; vs: VsItem[] }) {
   const [tab, setTab] = useState(0);
   useEffect(() => setTab(0), [r.hero, r.pos, r.mode]);
   const b = all[Math.min(tab, all.length - 1)];
+  const tt = useTopTimings(r.hero, r.pos).data;
   return (
+    <TopTimes.Provider value={tt && tt.games ? tt.items : undefined}>
     <div className="bv">
       {r.requested_pos && (
         <p className="hint">
@@ -351,5 +367,6 @@ export function BuildView({ r, vs }: { r: BuildsResponse; vs: VsItem[] }) {
         <NeutralItems hero={r.hero} pos={r.pos} />
       </section>
     </div>
+    </TopTimes.Provider>
   );
 }

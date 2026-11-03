@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { useHeroes } from '../api/hooks';
 import { Ti } from './Icons';
-import { Empty, ErrorBox, HeroIcon, HowTo, ItemIcon, Loading } from './ui';
+import { Empty, ErrorBox, HeroIcon, HowTo, ItemIcon, Loading, Mins } from './ui';
 
 interface RuinPlayer {
   hero: number;
@@ -382,9 +382,9 @@ function PlayerDetail({ p, d, name }: { p: RuinPlayer; d: RuinDetail | null; nam
                   <li key={it.key} title={it.name}>
                     <ItemIcon k={it.key} size={22} title={it.name} />
                     <span>{it.name}</span>
-                    <b>{Math.round(it.minute)}′</b>
+                    <b><Mins m={it.minute} /></b>
                     <small className={it.late == null ? 'muted' : it.late >= 5 ? 'c-bad' : it.late <= -2 ? 'c-good' : 'muted'}>
-                      {it.norm == null ? '—' : `${Math.round(it.norm)}′`}
+                      {it.norm == null ? '—' : <Mins m={it.norm} />}
                     </small>
                   </li>
                 ))}

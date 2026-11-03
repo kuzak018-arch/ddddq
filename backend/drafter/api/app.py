@@ -1425,6 +1425,14 @@ class TopVsIn(BaseModel):
     pos: int | None = Field(default=None, ge=1, le=5)
 
 
+@app.get("/top-games/{hero_id}/timings")
+def top_games_timings(hero_id: int, pos: int | None = Query(None, ge=1, le=5)):
+    """When top players finish each item on the hero (a good game's pace): {items: {key: {minute, n}}}."""
+    from .. import topgames
+    _hero_or_404(hero_id)
+    return topgames.timings(hero_id, pos)
+
+
 @app.post("/top-games/vs")
 def top_games_vs(body: TopVsIn):
     """The build of top players on the hero in games where the enemy team had this draft (the

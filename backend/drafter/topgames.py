@@ -496,3 +496,44 @@ def _summary(hits: list, base: dict, enemies: int) -> dict:
     return {**base, "found": True, "reason": None, "games": n, "wins": sum(1 for h in hits if h[1].get("w")),
             "full": sum(1 for h in hits if h[0] == enemies), "enemies": enemies, "sources": labels,
             "boots": boot, "core": core_out, "matches": shown}
+
+
+# ---------- item timings of top players --------------------------------------------------------
+
+TIMING_MIN_GAMES = 5       # games of the hero on the position needed for timings
+TIMING_MIN_ITEM = 3        # an item needs this many purchases for a timing
+TIMING_QUANTILE = 0.35     # the faster side of how top players get it: a timing to aim for, not the average
+
+
+def _quantile_minute(times: list[int], q: float) -> float:
+    ordered = sorted(times)
+    return round(ordered[min(len(ordered) - 1, int(len(ordered) * q))] / 60, 1)
+
+
+def timings(hero_id: int, pos: int | None, load: bool = True) -> dict:
+    """The minute top players (Divine+, Immortal, pros; this patch) finish each item on the hero on
+    this position: from their won games when there are enough of them (else all their games), the
+    TIMING_QUANTILE of the purchase times — the pace of a good game, not the bracket's average,
+    which lags (Battle Fury on Anti-Mage: ~14–17 min on Legend/Ancient, ~13 in won top games)."""
+    from .builds import sequences
+
+    pool, loading, _ = _pool(hero_id, load)
+    games = [(rec, g) for rec, _ in pool.values()
+             if (pos is None or rec.get("pos") in (pos, None)) and (g := sequences.parse(rec))]
+    won = [(r, g) for r, g in games if r.get("w")]
+    use, wins_only = (won, True) if len(won) >= TIMING_MIN_GAMES else (games, False)
+    out = {"games": len(use), "wins_only": wins_only, "loading": loading, "items": {}}
+    if len(use) < TIMING_MIN_GAMES:
+        return out
+    times: dict[str, list[int]] = {}
+    for _, g in use:
+        seen: dict[str, int] = {}
+        for k, t in [*(([g.boots] if g.boots else [])), *(([g.upgrade] if g.upgrade else [])), *g.core,
+                     *g.early.items(), *g.later.items()]:
+            if k not in seen or t < seen[k]:
+                seen[k] = t
+        for k, t in seen.items():
+            times.setdefault(k, []).append(t)
+    out["items"] = {k: {"minute": _quantile_minute(ts, TIMING_QUANTILE), "n": len(ts)}
+                    for k, ts in times.items() if len(ts) >= TIMING_MIN_ITEM}
+    return out

@@ -14,7 +14,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { api, waitForBackend } from '../api/client';
-import { useBans, useBuild, useEvaluate, useHeroes, usePlan, useSettings, useSettingsFromOtherWindow, useSuggest, useTopVs } from '../api/hooks';
+import { useBans, useBuild, useEvaluate, useHeroes, usePlan, useSettings, useSettingsFromOtherWindow, useSuggest, useTopTimings, useTopVs } from '../api/hooks';
 import type { AbilityInfo, DraftRequest, GamePlan, TopVs } from '../api/types';
 import { Skills } from '../components/BuildView';
 import { HeroSearch, type HeroSearchHandle } from '../components/HeroSearch';
@@ -23,7 +23,7 @@ import { EnemiesMode, NightNote, NeutralTierLine, ObjectivesRow, SkillNow, WinSt
 import { SteamGuideCompact } from '../components/SteamGuides';
 import { IconClose } from '../components/Icons';
 import { LaneCard, LaneView } from '../components/LaneView';
-import { fmtPct, fmtSigned, HeroIcon, HowTo, ItemIcon, plural } from '../components/ui';
+import { fmtPct, fmtSigned, HeroIcon, HowTo, ItemIcon, Mins, plural } from '../components/ui';
 import { onOverlayStatus, overlayStatus, setClickThrough, setOverlayEffect, showOverlay } from '../lib/overlay';
 import { useResolvedTheme } from '../lib/theme';
 import { picked, useDraft } from '../state/draft';
@@ -493,7 +493,7 @@ function PaceLines({ pace }: { pace: Pace }) {
 /** «Сейчас»: the next item of the top players' build with the gold still missing, the map timers
  * and buyback, from what Dota sends over GSI (backend ingame.py), refreshed every second. */
 function LiveHints({ plan, pos, order, ab, hero, enemies }: {
-  plan: { key: string; name: string; minute: number | null }[];
+  plan: { key: string; name: string; minute: number | null; top?: boolean }[];
   pos: number;
   order: { level: number; key: string; name: string }[];
   ab: Record<string, AbilityInfo>;
@@ -511,7 +511,8 @@ function LiveHints({ plan, pos, order, ab, hero, enemies }: {
   if (!g?.live) return <p className="hint">Подсказки появятся, как только Дота пришлёт данные матча.</p>;
   const clock = g.live.clock ?? 0;
   const n = g.next;
-  const minute = n ? plan.find((p) => p.key === n.key)?.minute : null;
+  const planned = n ? plan.find((p) => p.key === n.key) : undefined;
+  const minute = planned?.minute ?? null;
   const late = n && minute != null ? Math.floor(clock / 60 - minute) : 0;
   const pct = n ? Math.round((100 * (n.cost - n.left + Math.min(g.live.gold ?? 0, n.left))) / Math.max(1, n.cost)) : 0;
   // when the item is affordable at the current gold per minute (Dota's GPM is the match average)
@@ -541,9 +542,18 @@ function LiveHints({ plan, pos, order, ab, hero, enemies }: {
             </div>
             {(minute != null || eta != null) && (
               <span className={`small ${late > 0 || (eta != null && minute != null && eta / 60 > minute + 2) ? 'c-bad' : 'muted'}`}>
-                {eta != null && `при твоём темпе ~${mmss(Math.round(eta))}`}
+                {eta != null && (
+                  <>
+                    при твоём темпе ~<Mins m={eta / 60} />
+                  </>
+                )}
                 {eta != null && minute != null && ' · '}
-                {minute != null && `у топов к ${Math.round(minute)}′`}
+                {minute != null && (
+                  <>
+                    {planned?.top ? 'у топов к ' : 'обычно к '}
+                    <Mins m={minute} />
+                  </>
+                )}
                 {late > 0 ? ` · опаздываешь на ${late} мин` : ''}
               </span>
             )}
@@ -614,7 +624,14 @@ function BuildMode() {
   const shownVs = found ?? laneVs;
   const shownBuild = build.data ? (build.data.build.builds[0] ?? build.data.build.approximate) : null;
   const skillOrder = shownBuild ? [...shownBuild.skills].sort((a, b) => a.level - b.level) : [];
-  const plan = shownVs ? [...(shownVs.boots ? [shownVs.boots] : []), ...(shownVs.core ?? [])] : top ? [...(top.boots ? [top.boots] : []), ...top.core] : [];
+  // timings: top players' won games on the hero (a good pace) when there are enough, else the build's own
+  const tt = useTopTimings(hero, build.data?.build.pos ?? req.pos ?? 1).data;
+  const raw = shownVs ? [...(shownVs.boots ? [shownVs.boots] : []), ...(shownVs.core ?? [])] : top ? [...(top.boots ? [top.boots] : []), ...top.core] : [];
+  const plan = raw.map((it) => {
+    const t = tt?.items[it.key];
+    return { key: it.key, name: it.name, minute: t?.minute ?? it.minute, top: !!t || !!shownVs };
+  });
+  const at = (key: string, fallback: number | null | undefined) => tt?.items[key]?.minute ?? fallback ?? 0;
   if (!hero) return <p className="muted ov__center">Выбери своего героя в драфте — здесь появится билд против врагов.</p>;
   return (
     <div className="ov__build">
@@ -671,9 +688,9 @@ function BuildMode() {
                   {found ? 'Обычный билд героя' : b.approximate ? 'Популярные предметы (приблизительно)' : `${b.title} · ${b.games} игр · ${Math.round((b.wr ?? 0) * 100)}%`}
                 </span>
                 <div className="ov__items">
-                  {b.boots && <ItemIcon k={b.boots.key} title={`${b.boots.name} ~${Math.round(b.boots.minute ?? 0)} мин`} size={found ? 26 : 34} />}
+                  {b.boots && <ItemIcon k={b.boots.key} title={`${b.boots.name} ~${Math.round(at(b.boots.key, b.boots.minute))} мин`} size={found ? 26 : 34} />}
                   {b.core.map((it) => (
-                    <ItemIcon key={it.key} k={it.key} title={`${it.name} ~${Math.round(it.minute ?? 0)} мин`} size={found ? 26 : 34} />
+                    <ItemIcon key={it.key} k={it.key} title={`${it.name} ~${Math.round(at(it.key, it.minute))} мин`} size={found ? 26 : 34} />
                   ))}
                 </div>
                 {(b.skills.length > 0 || (b.skill_order?.length ?? 0) > 0) && (

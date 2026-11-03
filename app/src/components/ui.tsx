@@ -1,4 +1,5 @@
 /** Small shared pieces: icons, segmented control, toggle, slider, win bar, sparkline, explanations. */
+import { Clock } from 'lucide-react';
 import { motion, useSpring, useTransform } from 'motion/react';
 import { useEffect, useId, type ReactNode } from 'react';
 
@@ -21,6 +22,18 @@ export function HeroIcon({ id, size = 'md', dim, onClick, title }: {
       title={title ?? hero?.name}
     >
       {hero && <img src={asset(hero.icon)} alt={hero.name} draggable={false} loading="lazy" />}
+    </span>
+  );
+}
+
+/** A game minute as Dota's clock shows it, with a clock icon: 13.7 -> «⏱ 13:42». */
+export function Mins({ m, className = '' }: { m: number | null | undefined; className?: string }) {
+  if (m == null) return null;
+  const s = Math.round(m * 60);
+  return (
+    <span className={`mins ${className}`}>
+      <Clock size="0.95em" aria-hidden />
+      {Math.floor(s / 60)}:{String(s % 60).padStart(2, '0')}
     </span>
   );
 }
