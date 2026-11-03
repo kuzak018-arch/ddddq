@@ -373,6 +373,14 @@ def _builds(hero_id: int, pos: int, mode: str, rank_tier: int | None, fallback: 
     return build_service.get(hero_id, pos, mode, stratz.bracket_for(_rank(rank_tier)), _pred().pos_mat, fallback)
 
 
+@app.get("/heroes/{hero_id}/guides")
+def hero_guides(hero_id: int, refresh: bool = False):
+    """The hero's best Steam Workshop guides (needs the user's Steam Web API key)."""
+    from ..data import steam_guides
+    _hero_or_404(hero_id)
+    return steam_guides.for_hero(hero_id, refresh)
+
+
 @app.get("/heroes/{hero_id}/neutrals")
 def hero_neutrals(hero_id: int, pos: int | None = Query(None, ge=1, le=5), rank_tier: int | None = None):
     """Neutral items by tier with what each does; the hero's players' popular ones first."""
@@ -754,13 +762,15 @@ def my_refresh():
 @app.get("/setup")
 def get_setup():
     s = config.settings()
-    return {"account_id": s.account_id, "has_stratz_token": bool(s.stratz_token), "env_file": str(config.ENV_FILE),
+    return {"account_id": s.account_id, "has_stratz_token": bool(s.stratz_token), "has_steam_key": bool(s.steam_api_key),
+            "env_file": str(config.ENV_FILE),
             "installed": config.FROZEN, "has_matches": matches.summary().get("matches", 0) > 0}
 
 
 class SetupIn(BaseModel):
     account_id: int | None = Field(None, gt=0, lt=2**32)
     stratz_token: str | None = Field(None, max_length=2000)
+    steam_key: str | None = Field(None, max_length=64)
 
 
 @app.put("/setup")
@@ -774,6 +784,11 @@ def put_setup(body: SetupIn):
         if token and not re.fullmatch(r"[A-Za-z0-9._\-]+", token):
             raise HTTPException(422, "токен Stratz выглядит неправильно")
         values["STRATZ_TOKEN"] = token
+    if body.steam_key is not None:
+        key = body.steam_key.strip()
+        if key and not re.fullmatch(r"[A-Fa-f0-9]{32}", key):
+            raise HTTPException(422, "ключ Steam Web API — 32 знака 0–9 и A–F (steamcommunity.com/dev/apikey)")
+        values["STEAM_API_KEY"] = key
     if values:
         config.write_env(**values)
     return get_setup()

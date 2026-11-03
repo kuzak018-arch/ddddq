@@ -6892,3 +6892,63 @@ a.btn {
   margin: 4px 0;
   padding-left: 16px;
 }
+
+/* Steam Workshop guides on the hero page */
+.sguide {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sguide__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.sguide__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.sguide__actions {
+  display: inline-flex;
+  gap: 4px;
+}
+.sguide__desc {
+  margin: 0;
+  white-space: pre-line;
+}
+.sguide__cat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sguide__items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.sguide__skills {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 3px;
+}
+.sguide__skills li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.sguide__skills small {
+  font-size: 9.5px;
+  color: var(--text-3);
+}
+.sguide--compact {
+  gap: 4px;
+}
+.sguide--compact .label {
+  font-size: 10px;
+}

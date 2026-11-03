@@ -19,6 +19,7 @@ import type { DraftRequest, GamePlan, TopVs } from '../api/types';
 import { Skills } from '../components/BuildView';
 import { HeroSearch, type HeroSearchHandle } from '../components/HeroSearch';
 import { NeutralItems } from '../components/NeutralItems';
+import { SteamGuideCompact } from '../components/SteamGuides';
 import { IconClose } from '../components/Icons';
 import { LaneCard, LaneView } from '../components/LaneView';
 import { fmtPct, fmtSigned, HeroIcon, HowTo, ItemIcon, plural } from '../components/ui';
@@ -617,6 +618,7 @@ function BuildMode() {
               </>
             )}
             {hero && <NeutralItems hero={hero} pos={r.pos} compact />}
+            {hero && <SteamGuideCompact hero={hero} />}
             {build.data.vs.length > 0 && <span className="kicker">Против этого драфта</span>}
             <ul className="ov__vs">
               {build.data.vs.slice(0, 5).map((v) => (

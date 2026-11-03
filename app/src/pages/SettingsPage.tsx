@@ -376,20 +376,25 @@ const STATE_RU: Record<string, string> = {
 /** My Steam32 id (Friend ID) and the Stratz token: set at first start, changeable here any time. */
 function AccountCard() {
   const qc = useQueryClient();
-  const setup = useQuery({ queryKey: ['setup'], queryFn: () => api<{ account_id: number | null; has_stratz_token: boolean }>('/setup') });
+  const setup = useQuery({
+    queryKey: ['setup'],
+    queryFn: () => api<{ account_id: number | null; has_stratz_token: boolean; has_steam_key?: boolean }>('/setup'),
+  });
   const [acc, setAcc] = useState<string | null>(null);
   const [token, setToken] = useState('');
+  const [steamKey, setSteamKey] = useState('');
   const save = useMutation({
     mutationFn: async () => {
       const id = Number((acc ?? '').replace(/\D/g, ''));
       await api('/setup', {
         method: 'PUT',
-        body: { account_id: acc === null ? null : id || null, stratz_token: token.trim() || null },
+        body: { account_id: acc === null ? null : id || null, stratz_token: token.trim() || null, steam_key: steamKey.trim() || null },
       });
       if (acc !== null && id) await api('/me/refresh', { method: 'POST' });
     },
     onSuccess: () => {
       setToken('');
+      setSteamKey('');
       setAcc(null);
       qc.invalidateQueries();
     },
@@ -424,13 +429,25 @@ function AccountCard() {
           placeholder="stratz.com/api → вход через Steam → токен"
         />
       </label>
+      <label className="field">
+        <span className="label">
+          Ключ Steam Web API {s?.has_steam_key && <span className="muted">— есть, впиши новый, чтобы заменить</span>}
+        </span>
+        <input
+          className="input"
+          type="password"
+          value={steamKey}
+          onChange={(e) => setSteamKey(e.target.value)}
+          placeholder="steamcommunity.com/dev/apikey → домен любой → 32 знака"
+        />
+      </label>
       <div className="row">
-        <button className="btn btn--accent" onClick={() => save.mutate()} disabled={save.isPending || (acc === null && !token.trim())}>
+        <button className="btn btn--accent" onClick={() => save.mutate()} disabled={save.isPending || (acc === null && !token.trim() && !steamKey.trim())}>
           {save.isPending ? 'Сохраняю…' : 'Сохранить'}
         </button>
       </div>
       {save.error && <ErrorBox error={save.error} />}
-      <p className="hint">Хранится только у тебя в .env. Нужен для истории матчей и твоего пула; токен — для позиций, билдов и линий.</p>
+      <p className="hint">Хранится только у тебя в .env. Нужен для истории матчей и твоего пула; токен — для позиций, билдов и линий; ключ Steam — для руководств из мастерской на странице героя.</p>
     </Section>
   );
 }

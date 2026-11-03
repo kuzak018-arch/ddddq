@@ -77,6 +77,7 @@ class Settings:
     account_id: int | None
     stratz_token: str | None
     opendota_key: str | None
+    steam_api_key: str | None = None
 
 
 def settings() -> Settings:
@@ -85,6 +86,7 @@ def settings() -> Settings:
         account_id=int(acc) if acc.isdigit() else None,
         stratz_token=os.getenv("STRATZ_TOKEN", "").strip() or None,
         opendota_key=os.getenv("OPENDOTA_API_KEY", "").strip() or None,
+        steam_api_key=os.getenv("STEAM_API_KEY", "").strip() or None,
     )
 
 

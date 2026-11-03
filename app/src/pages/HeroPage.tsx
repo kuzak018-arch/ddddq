@@ -1,4 +1,4 @@
-import { Ban, Hammer, HeartHandshake, Percent, Shield, Star, Swords, ThumbsDown, Trophy, TrendingUp, User, type LucideIcon } from 'lucide-react';
+import { Ban, BookOpen, Hammer, HeartHandshake, Percent, Shield, Star, Swords, ThumbsDown, Trophy, TrendingUp, User, type LucideIcon } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { useEffect, useState } from 'react';
 
@@ -14,6 +14,7 @@ import { HeroAbilities } from '../components/HeroAbilities';
 import { HeroModeSwitch } from '../components/HeroModeSwitch';
 import { Ti } from '../components/Icons';
 import { HeroSearch } from '../components/HeroSearch';
+import { SteamGuides } from '../components/SteamGuides';
 import { Empty, ErrorBox, fmtPct, fmtSigned, HeroIcon, Loading, Segmented } from '../components/ui';
 import { useUi } from '../state/ui';
 
@@ -78,6 +79,13 @@ export function HeroPage() {
             {build.isPending && <Empty>Загрузка…</Empty>}
             {build.error && <ErrorBox error={build.error} />}
             {build.data && <BuildView r={build.data.build} vs={[]} />}
+            <section className="build__group">
+              <h4>
+                <Ti icon={BookOpen} />
+                Руководства Steam
+              </h4>
+              {id && <SteamGuides hero={id} />}
+            </section>
           </Panel>
         </>
       )}
