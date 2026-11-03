@@ -78,9 +78,6 @@ interface UiState {
     autoShow: boolean;   // show the overlay by itself when hero selection starts (GSI)
     hints: boolean;      // in-game hints in the build mode: next item, timers, buyback (GSI)
     widgets: { timers: boolean; now: boolean; gold: boolean }; // small windows over the HUD in a match
-    /** «Расставить виджеты»: the widgets show (even out of a match) with their name and a frame and
-     * can be dragged; off, they are only the hints (their buttons still work while managing) */
-    arrange?: boolean;
   };
   go: (page: Page) => void;
   openHero: (id: number) => void;
@@ -102,7 +99,7 @@ export const useUi = create<UiState>()(
       bgPos: { x: 50, y: 30 },
       autoUpdate: true,
       refraction: false,
-      material: 'glass',
+      material: 'dota',
       performance: false,
       pageAnim: 'rise',
       settingsTab: 'main',
@@ -127,7 +124,7 @@ export const useUi = create<UiState>()(
       name: 'drafter-ui',
       // 3: the live refraction is off by default (it re-blurs the wallpaper every frame and
       // flickered in WebView2); the blurred wallpaper is made once instead (lib/glassBackdrop.ts)
-      version: 6,
+      version: 5,
       // v1 had no overlay settings: keep everything else, take the defaults for the new block
       migrate: (old, version) => migrateUi(old, version) as UiState,
       merge: (persisted, current) => keepUnchanged({

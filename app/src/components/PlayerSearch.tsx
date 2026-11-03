@@ -4,13 +4,13 @@
  * A closed profile (no public match data) says so plainly; its rank medal is still shown.
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ExternalLink as LinkIcon, RefreshCw, Search } from 'lucide-react';
+import { Clock, ExternalLink as LinkIcon, LayoutGrid, RefreshCw, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { api } from '../api/client';
 import { useHeroes } from '../api/hooks';
 import { rankName } from '../lib/ranks';
-import { PlusBadge, PosTag, RankMedal } from './DotaIcons';
+import { PlusBadge, RankMedal, RoleIcon } from './DotaIcons';
 import { ExternalLink } from './ExternalLink';
 import { Ti } from './Icons';
 import { Empty, ErrorBox, fmtPct, HeroIcon } from './ui';
@@ -53,6 +53,7 @@ interface Player {
 }
 
 const RECENT_KEY = 'player-search-recent';
+const POS = ['', 'керри', 'мид', 'оффлейн', 'четвёрка', 'пятёрка'];
 const fmtDur = (s: number | null) => (s ? `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}` : '');
 const fmtDate = (t: number | null) =>
   t ? new Date(t * 1000).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
@@ -155,7 +156,7 @@ export function PlayerSearch() {
               </p>
               {p.games > 0 && (
                 <p>
-                  <b>{fmtPct(p.winrate)}</b> побед ·{' '}
+                  <b className={(p.winrate ?? 0) >= 0.5 ? 'c-good' : 'c-bad'}>{fmtPct(p.winrate)}</b> побед ·{' '}
                   <span className="muted">
                     {p.wins} – {p.losses}, {p.games} матчей
                   </span>
@@ -195,6 +196,7 @@ export function PlayerSearch() {
           {!!p.heroes.length && (
             <>
               <h3 className="section-title">
+                <Ti icon={LayoutGrid} />
                 Герои
               </h3>
               <div className="psearch__heroes">
@@ -204,7 +206,7 @@ export function PlayerSearch() {
                     <span>
                       <b>{h.games}</b> <span className="muted small">игр</span>
                     </span>
-                    <span className="small">{fmtPct(h.wins / h.games)}</span>
+                    <span className={h.wins / h.games >= 0.5 ? 'c-good small' : 'c-bad small'}>{fmtPct(h.wins / h.games)}</span>
                   </div>
                 ))}
               </div>
@@ -213,6 +215,7 @@ export function PlayerSearch() {
           {!!p.matches.length && (
             <>
               <h3 className="section-title">
+                <Ti icon={Clock} />
                 Последние матчи
               </h3>
               <ul className="mh__list">
@@ -224,7 +227,8 @@ export function PlayerSearch() {
                         <b>{name(m.hero)}</b>
                         {m.pos && (
                           <span className="muted mh__pos">
-                            <PosTag pos={m.pos} />
+                            <RoleIcon pos={m.pos} size={14} />
+                            {POS[m.pos]}
                           </span>
                         )}
                         <span className={m.win ? 'c-good' : 'c-bad'}>{m.win ? 'победа' : 'поражение'}</span>

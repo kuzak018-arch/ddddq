@@ -2,10 +2,12 @@
  * Lane matchup: who wins the lane (Stratz lane outcomes) and how it goes minute by minute in real
  * matches of the pair: the gap in networth or experience, pressure windows and both heroes' spikes.
  */
+import { Clock, Route } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { useHeroes, useLane, useLaneOpponents } from '../api/hooks';
 import type { LaneEvent, LaneOutcome, LanePoint, LaneResponse, LaneWindow } from '../api/types';
+import { Ti } from './Icons';
 import { ErrorBox, fmtPct, HeroIcon, ItemIcon, Loading, plural, Segmented } from './ui';
 
 const POS_SHORT = ['', 'керри', 'мид', 'оффлейн', 'четвёрка', 'пятёрка'];
@@ -150,6 +152,7 @@ export function LaneCard({ hero, pos, enemies, when, onMore }: {
     <div className={`lane-card ${lead === 'hero' ? 'is-good' : lead === 'enemy' ? 'is-bad' : ''}`}>
       <div className="lane-card__head">
         <span className="kicker">
+          <Ti icon={Route} />
           Линия{lanePos !== pos ? ` · ${POS_SHORT[lanePos]}` : ''}
         </span>
         {when && <span className="muted small">{when}</span>}
@@ -269,6 +272,7 @@ function LaneBody({ r }: { r: LaneResponse }) {
         <>
           <div className="lane__head">
             <h3 className="section-title">
+              <Ti icon={Clock} />
               По минутам
             </h3>
             <Segmented

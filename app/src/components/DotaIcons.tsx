@@ -1,18 +1,23 @@
 /**
- * Dota's own icons (public/dota-icons, see its README): attributes, rank medals and Dota Plus.
- * Positions are not pictograms: a number with the role's name («1 Керри», PosTag).
+ * Dota's own icons (public/dota-icons, see its README): positions, attributes, rank medals and
+ * Dota Plus. The position icons are white shapes used as a mask, so they take the text colour
+ * (dark on the active white pill, light elsewhere).
  */
+import type { CSSProperties } from 'react';
+
 import { medalFor, rankName } from '../lib/ranks';
 
-export const POS_ROLE = ['', 'Керри', 'Мид', 'Хард', 'Роумер', 'Саппорт'];
+export const POS_ROLE = ['', 'Керри', 'Мид', 'Оффлейн', 'Роумер', 'Саппорт'];
 
-/** A position: its number and, unless `bare`, the role's name — «1 Керри». */
-export function PosTag({ pos, bare, className = '' }: { pos: number; bare?: boolean; className?: string }) {
+export function RoleIcon({ pos, size = 18, title, className = '' }: { pos: number; size?: number; title?: string; className?: string }) {
   return (
-    <span className={`pos-tag ${className}`} title={bare ? `Позиция ${pos} · ${POS_ROLE[pos] ?? ''}` : undefined}>
-      <b>{pos}</b>
-      {!bare && POS_ROLE[pos] && <span>{POS_ROLE[pos]}</span>}
-    </span>
+    <span
+      className={`role-ico ${className}`}
+      role="img"
+      aria-label={title ?? `Позиция ${pos} · ${POS_ROLE[pos] ?? ''}`}
+      title={title}
+      style={{ '--ico': `url("/dota-icons/roles/pos${pos}.webp")`, width: size, height: size } as CSSProperties}
+    />
   );
 }
 

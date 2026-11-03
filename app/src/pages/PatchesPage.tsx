@@ -5,7 +5,7 @@
  * are marked in the list of patches.
  */
 import { useQuery } from '@tanstack/react-query';
-import { Globe, Package, RefreshCw, Search, Shield, Star } from 'lucide-react';
+import { CalendarDays, Globe, Package, RefreshCw, ScrollText, Search, Shield, Star } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import { api, asset } from '../api/client';
@@ -60,6 +60,7 @@ export function PatchesPage() {
       <Panel className="patches__list" refracting>
         <div className="panel__head">
           <h2>
+            <Ti icon={ScrollText} />
             Патчи
           </h2>
           <button className="btn btn--sm btn--ghost" onClick={() => setRefresh((n) => n + 1)} disabled={list.isFetching} title="Скачать свежие патчноуты">
@@ -80,7 +81,7 @@ export function PatchesPage() {
                 </span>
                 {p.mine.length > 0 && (
                   <span className="patches__mine" title="Изменились твои герои">
-                    твоих · {p.mine.length}
+                    <Star size={12} strokeWidth={2.4} /> {p.mine.length}
                   </span>
                 )}
               </button>
@@ -125,7 +126,7 @@ function PatchView({ version }: { version: string }) {
           Патч {p.version}
           {p.date && (
             <span className="muted patch__date">
-              {fmtDate(p.date)}
+              <CalendarDays size={14} /> {fmtDate(p.date)}
             </span>
           )}
         </h2>
@@ -142,13 +143,14 @@ function PatchView({ version }: { version: string }) {
           ]}
         />
         <label className="patch__search">
-          <Ti icon={Search} />
+          <Search size={15} />
           <input className="input" value={text} onChange={(e) => setText(e.target.value)} placeholder="Герой, предмет или слово…" spellCheck={false} />
         </label>
       </div>
       {p.mine.length > 0 && filter === 'all' && !needle && (
         <div className="patch__minebar">
           <span className="label">
+            <Ti icon={Star} />
             Изменились твои герои
           </span>
           {p.mine.map((id) => (
@@ -162,6 +164,7 @@ function PatchView({ version }: { version: string }) {
       {shown.general.length > 0 && (
         <section className="patch__sec">
           <h3 className="section-title">
+            <Ti icon={Globe} />
             Общие изменения
           </h3>
           {shown.general.map((g, i) => (
@@ -179,6 +182,7 @@ function PatchView({ version }: { version: string }) {
       {shown.heroes.length > 0 && (
         <section className="patch__sec">
           <h3 className="section-title">
+            <Ti icon={Shield} />
             Герои
           </h3>
           <div className="patch__heroes">
@@ -191,6 +195,7 @@ function PatchView({ version }: { version: string }) {
       {shown.items.length > 0 && (
         <section className="patch__sec">
           <h3 className="section-title">
+            <Ti icon={Package} />
             Предметы
           </h3>
           <div className="patch__items">
@@ -225,7 +230,7 @@ function HeroChanges({ h, mine }: { h: PatchHero; mine: boolean }) {
         <b>{h.name}</b>
         {mine && (
           <span className="pill">
-            твой
+            <Star size={11} strokeWidth={2.4} /> твой
           </span>
         )}
       </button>

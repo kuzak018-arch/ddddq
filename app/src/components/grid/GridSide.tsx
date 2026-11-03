@@ -2,6 +2,7 @@
  * The editor's side panel: what is selected (name, size, heroes, glyphs the game will not show)
  * and the heroes to drag onto the grid, found by name or slang like the draft's search.
  */
+import { Layers, Shapes, Tag, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 import { useHeroes } from '../../api/hooks';
@@ -11,6 +12,7 @@ import { clampItem, type GroupItem, type Item } from '../../lib/grid/doc';
 import { searchHeroes } from '../../lib/search';
 import { activeGrid, useGrids } from '../../state/grids';
 import { AttrIcon } from '../DotaIcons';
+import { Ti } from '../Icons';
 import { Segmented, Slider } from '../ui';
 import { Portrait, useHeroDrag } from './GridCanvas';
 
@@ -57,6 +59,7 @@ function Inspector({ item, onEditArt }: { item: Item; onEditArt: (id: string) =>
     return (
       <div className="gside__box">
         <h3>
+          <Ti icon={Tag} />
           Подпись
         </h3>
         <input className="input" value={item.text} maxLength={300} onChange={(e) => patch({ text: cleanName(e.target.value) }, true)} />
@@ -70,6 +73,7 @@ function Inspector({ item, onEditArt }: { item: Item; onEditArt: (id: string) =>
   return (
     <div className="gside__box">
       <h3>
+        <Ti icon={Shapes} />
         {item.source.kind === 'text' ? 'Арт из текста' : 'Арт из картинки'}
       </h3>
       <p className="hint">
@@ -98,6 +102,7 @@ function GroupInspector({ g, patch, remove }: { g: GroupItem; patch: (p: Partial
   return (
     <div className="gside__box">
       <h3>
+        <Ti icon={Layers} />
         Группа
       </h3>
       <input className="input" value={g.name} maxLength={120} placeholder="Без названия" onChange={(e) => patch({ name: cleanName(e.target.value) }, true)} />
@@ -142,6 +147,7 @@ function Palette({ group, placed }: { group: GroupItem | null; placed: Set<numbe
   return (
     <div className="gside__box gside__palette">
       <h3>
+        <Ti icon={Users} />
         Герои
       </h3>
       <input

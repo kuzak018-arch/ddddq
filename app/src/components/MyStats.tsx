@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { api } from '../api/client';
 import { useHeroes } from '../api/hooks';
 import { useUi } from '../state/ui';
-import { Empty, ErrorBox, fmtPct, fmtSigned, HeroIcon, HowTo, Loading } from './ui';
+import { Empty, ErrorBox, fmtPct, HeroIcon, HowTo, Loading } from './ui';
 
 interface Row {
   games: number;
@@ -87,11 +87,11 @@ export function MyStats({ onAnalyze }: { onAnalyze?: (matchId: number) => void }
       <Overview s={s} onAnalyze={onAnalyze} />
       <Ratings onAnalyze={onAnalyze} />
       {s.tilt?.advice && <p className="mys__advice">{s.tilt.advice}</p>}
-      <HeroesTable rows={s.heroes ?? []} />
+      <HeroesTable rows={s.heroes ?? []} base={base} />
       <div className="mys__grid">
         {s.when && <When w={s.when} base={base} />}
         {s.tilt && <Tilt t={s.tilt} base={base} />}
-        {s.matchups && <Matchups m={s.matchups} />}
+        {s.matchups && <Matchups m={s.matchups} base={base} />}
         {s.party && <Party p={s.party} base={base} hasPeers={!!s.has_peers} />}
       </div>
       <HowTo>
@@ -113,7 +113,7 @@ function Overview({ s, onAnalyze }: { s: Stats; onAnalyze?: (id: number) => void
   return (
     <div className="mys__over">
       <Stat label="Матчей" value={s.games.toLocaleString('ru')} sub={`${date(s.first)} – ${date(s.last)}`} />
-      <Stat label="Победы" value={fmtPct(s.wr ?? null)} sub={`${s.wins} – ${losses}`} />
+      <Stat label="Победы" value={fmtPct(s.wr ?? null)} sub={`${s.wins} – ${losses}`} cls={wrCls(s.wr ?? null)} />
       {r && <Stat label="Средняя игра" value={`${r.avg_minutes} мин`} />}
       {r && <Stat label="Лучшая серия" value={`${r.win_streak} побед`} sub={`худшая — ${r.loss_streak} поражений`} />}
       {r && (
@@ -146,7 +146,7 @@ function Stat({ label, value, sub, cls, onClick }: { label: string; value: strin
   );
 }
 
-function HeroesTable({ rows }: { rows: HeroRow[] }) {
+function HeroesTable({ rows, base }: { rows: HeroRow[]; base: number }) {
   const heroes = useHeroes().data;
   const openHero = useUi((s) => s.openHero);
   const [sort, setSort] = useState<SortKey>('games');
@@ -194,7 +194,7 @@ function HeroesTable({ rows }: { rows: HeroRow[] }) {
                   <span>{r.games}</span>
                 </span>
               </td>
-              <td>{fmtPct(r.wr)}</td>
+              <td className={wrCls(r.wr, base)}>{fmtPct(r.wr)}</td>
               <td>
                 {r.kda.toFixed(2)}
                 <small className="muted">
@@ -205,7 +205,7 @@ function HeroesTable({ rows }: { rows: HeroRow[] }) {
               <td>
                 {r.recent_games ? (
                   <>
-                    {r.recent_games} <small className="muted">{fmtPct(r.recent_wr, 0)}</small>
+                    {r.recent_games} <small className={wrCls(r.recent_wr, base)}>{fmtPct(r.recent_wr, 0)}</small>
                   </>
                 ) : (
                   <span className="muted">—</span>
@@ -235,7 +235,6 @@ function When({ w, base }: { w: NonNullable<Stats['when']>; base: number }) {
   return (
     <section>
       <h3 className="section-title">Когда ты играешь</h3>
-      <p className="muted small">Высота — сколько матчей, цвет — винрейт к твоему среднему {fmtPct(base, 0)}: зелёный выше, красный ниже; ± в таблице — к нему же.</p>
       <div className="mys__hours">
         {w.hours.map((h) => (
           <span
@@ -286,7 +285,7 @@ function Tilt({ t, base }: { t: NonNullable<Stats['tilt']>; base: number }) {
           <tr>
             <th>Следующая игра</th>
             <th>Матчи</th>
-            <th>Победы · ± к твоему среднему</th>
+            <th>Победы</th>
           </tr>
         </thead>
         <tbody>
@@ -305,14 +304,14 @@ function Tilt({ t, base }: { t: NonNullable<Stats['tilt']>; base: number }) {
   );
 }
 
-function Matchups({ m }: { m: NonNullable<Stats['matchups']> }) {
+function Matchups({ m, base }: { m: NonNullable<Stats['matchups']>; base: number }) {
   const heroes = useHeroes().data;
   const list = (rows: (Row & { hero: number })[]) =>
     rows.map((r) => (
       <li key={r.hero}>
         <HeroIcon id={r.hero} size="sm" />
         <span>{heroes?.byId.get(r.hero)?.name}</span>
-        <b>{fmtPct(r.wr, 0)}</b>
+        <b className={wrCls(r.wr, base)}>{fmtPct(r.wr, 0)}</b>
         <small className="muted">{r.games}</small>
       </li>
     ));
@@ -338,7 +337,6 @@ function Party({ p, base, hasPeers }: { p: NonNullable<Stats['party']>; base: nu
   return (
     <section>
       <h3 className="section-title">Соло и пати</h3>
-      <p className="muted small">± — к твоему среднему {fmtPct(base, 0)}.</p>
       <table className="table mys__mini">
         <tbody>
           <MiniRow label="соло" r={p.solo} base={base} />
@@ -351,7 +349,7 @@ function Party({ p, base, hasPeers }: { p: NonNullable<Stats['party']>; base: nu
             <tr>
               <th>С кем играешь</th>
               <th>Матчи</th>
-              <th>Победы · ± к твоему среднему</th>
+              <th>Победы</th>
             </tr>
           </thead>
           <tbody>
@@ -367,18 +365,12 @@ function Party({ p, base, hasPeers }: { p: NonNullable<Stats['party']>; base: nu
   );
 }
 
-/** Games and win rate, neutral; with 8+ games the difference to the player's average, coloured
- * (the table's head or the section's note says «± к твоему среднему»). */
 function MiniRow({ label, r, base }: { label: string; r: Row; base: number }) {
-  const d = r.games >= 8 && r.wr != null ? r.wr - base : null;
   return (
     <tr>
       <td className="table__hero">{label}</td>
       <td>{r.games}</td>
-      <td className={r.games >= 8 ? '' : 'muted'}>
-        {r.games ? fmtPct(r.wr) : '—'}
-        {d != null && Math.abs(d) >= 0.005 && <small className={`mys__vs ${d > 0 ? 'c-good' : 'c-bad'}`}>{fmtSigned(d * 100)}</small>}
-      </td>
+      <td className={r.games >= 8 ? wrCls(r.wr, base) : 'muted'}>{r.games ? fmtPct(r.wr) : '—'}</td>
     </tr>
   );
 }

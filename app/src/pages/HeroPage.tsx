@@ -1,3 +1,4 @@
+import { Ban, BookOpen, Hammer, HeartHandshake, Percent, Shield, Star, Swords, ThumbsDown, Trophy, TrendingUp, User, type LucideIcon } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { useEffect, useState } from 'react';
 
@@ -8,9 +9,10 @@ import { heroArt } from '../components/Chrome';
 import { BuildView } from '../components/BuildView';
 import { HeroModel, useHeroModel } from '../components/HeroModel';
 import { Panel } from '../components/Glass';
-import { AttrIcon, PosTag } from '../components/DotaIcons';
+import { AttrIcon, RoleIcon } from '../components/DotaIcons';
 import { HeroAbilities } from '../components/HeroAbilities';
 import { HeroModeSwitch } from '../components/HeroModeSwitch';
+import { Ti } from '../components/Icons';
 import { HeroSearch } from '../components/HeroSearch';
 import { SteamGuides } from '../components/SteamGuides';
 import { Empty, ErrorBox, fmtPct, fmtSigned, HeroIcon, Loading, Segmented } from '../components/ui';
@@ -47,14 +49,15 @@ export function HeroPage() {
               <h3 className="section-title">Способности</h3>
               {id && <HeroAbilities hero={id} />}
             </section>
-            <MatchupList title="Хорош против" rows={p.matchups.counters} />
-            <MatchupList title="Его контрят" rows={p.matchups.countered_by} />
-            <MatchupList title="Лучшие союзники" rows={p.matchups.synergy} />
-            <MatchupList title="Плохо сочетается" rows={p.matchups.anti_synergy} />
+            <MatchupList icon={Swords} title="Хорош против" rows={p.matchups.counters} />
+            <MatchupList icon={Shield} title="Его контрят" rows={p.matchups.countered_by} />
+            <MatchupList icon={HeartHandshake} title="Лучшие союзники" rows={p.matchups.synergy} />
+            <MatchupList icon={ThumbsDown} title="Плохо сочетается" rows={p.matchups.anti_synergy} />
           </Panel>
           <Panel className="hero-page__build">
             <div className="panel__head">
               <h2>
+                <Ti icon={Hammer} />
                 Билд
               </h2>
               <Segmented
@@ -63,7 +66,12 @@ export function HeroPage() {
                 onChange={(v) => setPos(v)}
                 options={[1, 2, 3, 4, 5].map((n) => ({
                   value: n,
-                  label: <PosTag pos={n} bare={n !== buildPos} />,
+                  label: (
+                    <>
+                      <RoleIcon pos={n} size={13} className="seg-role" />
+                      {n}
+                    </>
+                  ),
                   title: `Позиция ${n}${p.builds_for_positions.includes(n) ? '' : ': на ней почти не играют'}`,
                 }))}
               />
@@ -73,6 +81,7 @@ export function HeroPage() {
             {build.data && <BuildView r={build.data.build} vs={[]} />}
             <section className="build__group">
               <h4>
+                <Ti icon={BookOpen} />
                 Руководства Steam
               </h4>
               {id && <SteamGuides hero={id} />}
@@ -91,9 +100,11 @@ const ROLES_RU: Record<string, string> = {
 const ATTR_RU: Record<string, string> = { str: 'Сила', agi: 'Ловкость', int: 'Интеллект', all: 'Универсальный' };
 
 /** The hero's header across the page: the model over its scene in the hero's colour, the name,
- * the roles, the numbers and the positions (builds and top games are the mode switch and the tab above). */
+ * the roles, the numbers and the positions, and shortcuts to its builds and top players' games. */
 function HeroHeader({ p }: { p: HeroPageData }) {
   const color = useHeroModel(p.hero.key).color;
+  const openBuild = useUi((s) => s.openBuild);
+  const go = useUi((s) => s.go);
   const best = p.positions.indexOf(Math.max(...p.positions)) + 1;
   return (
     <div className="hero-hdr" style={{ '--glow': color ?? 'var(--accent)' } as CSSProperties}>
@@ -115,10 +126,11 @@ function HeroHeader({ p }: { p: HeroPageData }) {
           ))}
         </div>
         <div className="stats hero-hdr__stats">
-          <Stat label="Винрейт в мете" value={fmtPct(p.meta_wr)} vs={{ delta: p.meta_wr - 0.5, to: 'к среднему' }} />
-          <Stat label="Пикрейт" value={fmtPct(p.pick_rate)} />
+          <Stat icon={Percent} label="Винрейт в мете" value={fmtPct(p.meta_wr)} good={p.meta_wr >= 0.5} />
+          <Stat icon={TrendingUp} label="Пикрейт" value={fmtPct(p.pick_rate)} />
           {p.bans && (
             <Stat
+              icon={Ban}
               label="Доля банов"
               value={`${fmtPct(p.bans.share)}${p.bans.place ? ` · ${p.bans.place}-й` : ''}`}
               title={
@@ -129,7 +141,7 @@ function HeroHeader({ p }: { p: HeroPageData }) {
             />
           )}
           {p.me && (
-            <Stat label="Мои игры" value={`${p.me.games} · ${fmtPct(p.me.wins / p.me.games, 0)}`} vs={{ delta: p.me.wins / p.me.games - 0.5, to: 'к среднему' }} />
+            <Stat icon={User} label="Мои игры" value={`${p.me.games} · ${fmtPct(p.me.wins / p.me.games, 0)}`} good={p.me.wins / p.me.games >= 0.5} />
           )}
         </div>
       </div>
@@ -140,37 +152,47 @@ function HeroHeader({ p }: { p: HeroPageData }) {
             <div key={i} className={`posbar ${i + 1 === best ? 'is-best' : ''}`} title={`Позиция ${i + 1}: ${fmtPct(s)} игр`}>
               <small>{Math.round(s * 100)}%</small>
               <div className="posbar__fill" style={{ height: `${Math.max(4, s * 100)}%` }} />
-              <PosTag pos={i + 1} className="posbar__tag" />
+              <span>
+                <RoleIcon pos={i + 1} size={15} />
+              </span>
             </div>
           ))}
+        </div>
+        <div className="hero-hdr__actions">
+          <button className="btn btn--sm" onClick={() => openBuild(p.hero.id, best)}>
+            <Ti icon={Hammer} />
+            Билды
+          </button>
+          <button className="btn btn--sm" onClick={() => go('top')}>
+            <Ti icon={Trophy} />
+            Игры топов
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-/** A figure, neutral; colour only on the comparison under it, which says what it is compared to. */
-function Stat({ label, value, vs, title }: { label: string; value: string; vs?: { delta: number; to: string }; title?: string }) {
+function Stat({ icon, label, value, good, title }: { icon: LucideIcon; label: string; value: string; good?: boolean; title?: string }) {
   return (
     <div className="stat" title={title}>
-      <span className="stat__label">{label}</span>
-      <span className="stat__value">{value}</span>
-      {vs && (
-        <small className={`stat__vs ${vs.delta >= 0 ? 'c-good' : 'c-bad'}`}>
-          {fmtSigned(vs.delta * 100)}% {vs.to}
-        </small>
-      )}
+      <span className="stat__label">
+        <Ti icon={icon} />
+        {label}
+      </span>
+      <span className={`stat__value ${good === undefined ? '' : good ? 'c-good' : 'c-bad'}`}>{value}</span>
     </div>
   );
 }
 
-function MatchupList({ title, rows }: { title: string; rows: Matchup[] }) {
+function MatchupList({ icon, title, rows }: { icon: LucideIcon; title: string; rows: Matchup[] }) {
   const openHero = useUi((s) => s.openHero);
   const heroes = useHeroes().data;
   return (
     <section className="matchups">
-      <h3 className="section-title" title="Насколько меняется шанс на победу против этого героя (или вместе с ним) по сравнению с обычным шансом без этой пары">
-        {title} <small className="muted">· % к обычному шансу</small>
+      <h3 className="section-title">
+        <Ti icon={icon} />
+        {title}
       </h3>
       <ul className="matchups__rows">
         {rows.map((r) => (
@@ -201,6 +223,7 @@ function HeroPicks({ onPick }: { onPick: (id: number) => void }) {
       {pool.length > 0 && (
         <>
           <h3 className="section-title">
+            <Ti icon={Star} />
             Твои герои
           </h3>
           <div className="hero-picks__list">

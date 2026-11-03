@@ -5,11 +5,13 @@
  * only replace Valve's files: Panorama reads them with fontconfig from the folder, not from packs).
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Type } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { api, apiBytes, apiUpload, backend } from '../../api/client';
 import { activeGrid, useGrids } from '../../state/grids';
 import { useUi } from '../../state/ui';
+import { Ti } from '../Icons';
 import { ErrorBox, Toggle } from '../ui';
 import { FitWidth, GridPicture } from './DotaScreens';
 import { FontScene } from './FontScene';
@@ -146,6 +148,7 @@ export function FontBuilder() {
       </div>
       <div className="fontb-side">
         <h3>
+          <Ti icon={Type} />
           Шрифт
         </h3>
         <div className="fontb-list">
