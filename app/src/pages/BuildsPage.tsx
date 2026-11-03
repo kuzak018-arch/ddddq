@@ -37,7 +37,7 @@ export function BuildsPage() {
         <Segmented
           value={buildPos}
           onChange={(p) => set({ buildPos: p })}
-          options={[1, 2, 3, 4, 5].map((p) => ({ value: p, title: `Позиция ${p}`, label: <PosTag pos={p} /> }))}
+          options={[1, 2, 3, 4, 5].map((p) => ({ value: p, title: `Позиция ${p}`, label: <PosTag pos={p} bare={p !== buildPos} /> }))}
         />
         <span className="label">
           Чьи билды

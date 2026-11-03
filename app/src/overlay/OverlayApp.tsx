@@ -19,6 +19,7 @@ import { useBans, useEvaluate, useHeroes, usePlan, useSettingsFromOtherWindow, u
 import type { GamePlan, TopVs } from '../api/types';
 import { Skills } from '../components/BuildView';
 import { HeroSearch, type HeroSearchHandle } from '../components/HeroSearch';
+import { byMinute, ItemTimeline } from '../components/ItemTimeline';
 import { NeutralItems } from '../components/NeutralItems';
 import { EnemiesMode, WinStrip } from './InGame';
 import { LiveHints, useBuildPlan, useDraftRequest, useMe } from './live';
@@ -449,11 +450,7 @@ function TopVsBuild({ vs, title }: { vs: TopVs; title: React.ReactNode }) {
         {games} {plural(games, 'игра', 'игры', 'игр')}, {vs.wins ?? 0} {plural(vs.wins ?? 0, 'победа', 'победы', 'побед')}
         {vs.full ? ` · ${vs.full} с тем же драфтом` : ''} · {who}
       </p>
-      <div className="ov__items">
-        {items.map((it) => (
-          <ItemIcon key={it.key} k={it.key} title={`${it.name} ~${Math.round(it.minute ?? 0)} мин · ${Math.round(it.share * 100)}% игр`} size={36} />
-        ))}
-      </div>
+      <ItemTimeline compact size={32} steps={byMinute(items.map((it) => ({ key: it.key, name: it.name, minute: it.minute ?? null, share: it.share, title: 'у топов в этих играх' })))} />
     </div>
   );
 }
@@ -516,12 +513,11 @@ function BuildMode() {
                 <span className="kicker">
                   {found ? 'Обычный билд героя' : b.approximate ? 'Популярные предметы (приблизительно)' : `${b.title} · ${b.games} игр · ${Math.round((b.wr ?? 0) * 100)}%`}
                 </span>
-                <div className="ov__items">
-                  {b.boots && <ItemIcon k={b.boots.key} title={`${b.boots.name} ~${Math.round(at(b.boots.key, b.boots.minute))} мин`} size={found ? 26 : 34} />}
-                  {b.core.map((it) => (
-                    <ItemIcon key={it.key} k={it.key} title={`${it.name} ~${Math.round(at(it.key, it.minute))} мин`} size={found ? 26 : 34} />
-                  ))}
-                </div>
+                <ItemTimeline
+                  compact
+                  size={found ? 26 : 32}
+                  steps={byMinute([...(b.boots ? [b.boots] : []), ...b.core].map((it) => ({ key: it.key, name: it.name, minute: at(it.key, it.minute) || null, share: it.share })))}
+                />
                 {(b.skills.length > 0 || (b.skill_order?.length ?? 0) > 0) && (
                   <>
                     <span className="kicker">Прокачка</span>

@@ -334,7 +334,7 @@ export function WinStrip({ req, me, inGame }: { req: DraftRequest; me: number | 
             ? 'враги сильнее во всех фазах'
             : null;
   return (
-    <div className={`ov__winstrip ${p >= 0.5 ? 'is-good' : 'is-bad'}`} title={`Оценка драфта: ${req.allies.length} на ${req.enemies.length}`}>
+    <div className="ov__winstrip" title={`Оценка драфта: ${req.allies.length} на ${req.enemies.length}`}>
       <span>
         Ваш драфт <b>{fmtPct(p, 0)}</b>
       </span>

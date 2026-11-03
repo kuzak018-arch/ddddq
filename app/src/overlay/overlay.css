@@ -50,8 +50,8 @@ html.is-overlay body {
 .ov__head {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 12px 12px 6px;
+  gap: 4px;
+  padding: 10px 10px 6px;
   cursor: grab;
 }
 .ov-switch {
@@ -89,13 +89,13 @@ html.is-overlay body {
   box-shadow: inset 0 1px 0 #fff;
 }
 .ov-round {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   flex: none;
   display: grid;
   place-items: center;
   border: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.08);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
   color: var(--text-2);
@@ -108,6 +108,9 @@ html.is-overlay body {
 .ov-round.is-on {
   background: var(--chip-on);
   color: var(--chip-on-text);
+}
+.ov-round .ti {
+  margin: 0;
 }
 .ov-round__min {
   width: 12px;
@@ -687,12 +690,7 @@ html.perf .ov__skillnow.is-now {
   font-size: 12.5px;
   background: rgba(255, 255, 255, 0.05);
 }
-.ov__winstrip.is-good b {
-  color: var(--good);
-}
-.ov__winstrip.is-bad b {
-  color: var(--bad);
-}
+/* the draft's chance is a plain number: in a match red is kept for «ты купишь» running late */
 
 /* «Враги» */
 .ov__enemies {

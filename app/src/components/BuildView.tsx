@@ -1,61 +1,47 @@
 /**
- * Whole builds from real purchase sequences: tabs per build, exact starting set, ONE boots choice
- * ("or" alternatives with share), core items in order with median timings and alternatives,
- * situational items, skill order by level and talents from the same games.
+ * Whole builds from real purchase sequences: tabs per build, exact starting set, then the early
+ * items, ONE boots choice, the core and the boots upgrade as one timeline with minutes (top players'
+ * where known) and "or" alternatives, situational items, skill order by level and talents.
  */
 import { createContext, useContext, useEffect, useState } from 'react';
 
 import { useTopTimings } from '../api/hooks';
 import type { AbilityInfo, Build, BuildEntry, BuildsResponse, VsItem } from '../api/types';
 import { AbilityIcon, TalentIcon } from './Ability';
+import { byMinute, clock, ItemTimeline, type TimelineStep } from './ItemTimeline';
 import { NeutralItems } from './NeutralItems';
 import { Tip } from './Tip';
-import { fmtPct, ItemIcon, Mins, Segmented } from './ui';
-
-
-function Alternatives({ alts }: { alts?: BuildEntry[] }) {
-  if (!alts?.length) return null;
-  return (
-    <span className="bv__alts">
-      {alts.map((a) => (
-        <span key={a.key} className="bv__alt" title={`${a.name}: ${fmtPct(a.share, 0)} игр, ~${Math.round(a.minute ?? 0)} мин`}>
-          <i>или</i>
-          <ItemIcon k={a.key} title={a.name} size={22} />
-          <span>{a.name}</span>
-          <small>{fmtPct(a.share, 0)}</small>
-        </span>
-      ))}
-    </span>
-  );
-}
+import { fmtPct, ItemIcon, Segmented } from './ui';
 
 /** Top players' timings for the hero shown (won games of this patch): they replace the bracket's
  * slower medians where known; the bracket's minute stays in the tooltip. */
 const TopTimes = createContext<Record<string, { minute: number; n: number }> | undefined>(undefined);
 
-function When({ e }: { e: { key: string; minute: number | null } }) {
-  const top = useContext(TopTimes)?.[e.key];
-  if (!top) return <Mins m={e.minute} />;
+/** Early items, boots, core and the boots upgrade as one timeline by minute. */
+function Timings({ b }: { b: Build }) {
+  const top = useContext(TopTimes);
+  const step = (e: BuildEntry): TimelineStep => {
+    const t = top?.[e.key];
+    const usual = e.minute != null ? `обычно на твоём ранге к ${clock(e.minute)}` : '';
+    return {
+      key: e.key,
+      name: e.name,
+      minute: t ? t.minute : e.minute,
+      share: e.share,
+      title: t ? `у топов в выигранных играх (${t.n})${usual ? `; ${usual}` : ''}` : usual,
+      alternatives: e.alternatives,
+    };
+  };
+  const all = [...b.early, ...(b.boots ? [b.boots] : []), ...b.core, ...(b.boots_upgrade ? [b.boots_upgrade] : [])];
+  const anyTop = !!top && all.some((e) => top[e.key]);
   return (
-    <span title={`У топов в выигранных играх (${top.n}); обычно на твоём ранге — к ${e.minute != null ? Math.round(e.minute) : '?'} мин`}>
-      <Mins m={top.minute} /> у топов
-    </span>
-  );
-}
-
-function Step({ e, index }: { e: BuildEntry; index?: number }) {
-  return (
-    <li className="bv__step">
-      {index != null && <span className="bv__n">{index}</span>}
-      <ItemIcon k={e.key} title={e.name} size={30} />
-      <span className="bv__step-main">
-        <b>{e.name}</b>
-        <small className="muted">
-          <When e={e} /> · {fmtPct(e.share, 0)} игр
-        </small>
-      </span>
-      <Alternatives alts={e.alternatives} />
-    </li>
+    <section className="build__group">
+      <h4>
+        Предметы по времени{' '}
+        <span className="muted">· {anyTop ? 'минуты у топов в выигранных играх, где их нет — обычно на твоём ранге' : 'минуты — обычно на твоём ранге'}</span>
+      </h4>
+      <ItemTimeline steps={byMinute(all.map(step))} />
+    </section>
   );
 }
 
@@ -192,8 +178,7 @@ function BuildBody({ b, vs, reliableGames, ab }: { b: Build; vs: VsItem[]; relia
 
       {vs.length > 0 && (
         <section className="build__vs">
-          <h4>
-          Против этого драфта</h4>
+          <h4>Против этого драфта</h4>
           <ul>
             {vs.map((v) => (
               <li key={v.item} className={v.rare_on_hero ? 'is-rare' : ''}>
@@ -221,7 +206,8 @@ function BuildBody({ b, vs, reliableGames, ab }: { b: Build; vs: VsItem[]; relia
 
       <section className="build__group">
         <h4>
-          Старт {b.starting_share != null && <span className="muted">· ровно так начинают {fmtPct(b.starting_share, 0)}</span>}</h4>
+          Старт {b.starting_share != null && <span className="muted">· ровно так начинают {fmtPct(b.starting_share, 0)}</span>}
+        </h4>
         <div className="build__items">
           {b.starting.map((s) => (
             <div key={s.key} className="build__item" title={s.name}>
@@ -232,53 +218,11 @@ function BuildBody({ b, vs, reliableGames, ab }: { b: Build; vs: VsItem[]; relia
         </div>
       </section>
 
-      {b.early.length > 0 && (
-        <section className="build__group">
-          <h4>
-          Ранние</h4>
-          <ul className="bv__steps">
-            {b.early.map((e) => (
-              <Step key={e.key} e={e} />
-            ))}
-          </ul>
-        </section>
-      )}
-
-      <section className="build__group">
-        <h4>
-          Сапоги</h4>
-        <ul className="bv__steps">
-          {b.boots && <Step e={b.boots} />}
-          {b.boots_upgrade && (
-            <li className="bv__step bv__step--up">
-              <span className="bv__n">↑</span>
-              <ItemIcon k={b.boots_upgrade.key} title={b.boots_upgrade.name} size={30} />
-              <span className="bv__step-main">
-                <b>позже: {b.boots_upgrade.name}</b>
-                <small className="muted">
-                  <When e={b.boots_upgrade} /> · {fmtPct(b.boots_upgrade.share, 0)} игр
-                </small>
-              </span>
-              <Alternatives alts={b.boots_upgrade.alternatives} />
-            </li>
-          )}
-        </ul>
-      </section>
-
-      <section className="build__group">
-        <h4>
-          Кор по порядку</h4>
-        <ul className="bv__steps">
-          {b.core.map((e, i) => (
-            <Step key={e.key} e={e} index={i + 1} />
-          ))}
-        </ul>
-      </section>
+      <Timings b={b} />
 
       {b.situational.length > 0 && (
         <section className="build__group">
-          <h4>
-          Ситуативные</h4>
+          <h4>Ситуативные</h4>
           <div className="build__items">
             {b.situational.map((it) => (
               <div
@@ -295,14 +239,12 @@ function BuildBody({ b, vs, reliableGames, ab }: { b: Build; vs: VsItem[]; relia
       )}
 
       <section className="build__group">
-        <h4>
-          Прокачка</h4>
+        <h4>Прокачка</h4>
         <Skills b={b} ab={ab} />
       </section>
 
       <section className="build__group">
-        <h4>
-          Таланты</h4>
+        <h4>Таланты</h4>
         <Talents b={b} ab={ab} />
       </section>
     </div>
