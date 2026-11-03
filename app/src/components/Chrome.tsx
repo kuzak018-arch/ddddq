@@ -53,7 +53,7 @@ export function TitleBar() {
         </span>
       </div>
 
-      <nav className="tabs glass" aria-label="Разделы">
+      <nav className="tabs glass glass--float" aria-label="Разделы">
         {NAV.map(({ page: p, label, icon, also }, i) => {
           const on = page === p || !!also?.includes(page);
           return (
@@ -77,7 +77,7 @@ export function TitleBar() {
       <div className="topbar__right" data-tauri-drag-region>
         <PositionPicker />
         <button
-          className={`round-btn glass ${page === 'settings' || page === 'vision' ? 'is-active' : ''}`}
+          className={`round-btn glass glass--float ${page === 'settings' || page === 'vision' ? 'is-active' : ''}`}
           onClick={() => go('settings')}
           title={update ? `Настройки (Ctrl+8) · доступна версия ${update}` : 'Настройки (Ctrl+8)'}
           aria-label="Настройки"
@@ -109,7 +109,7 @@ function PositionPicker() {
   const d = useDraft();
   const pos = d.pos ?? settings?.pos ?? 1;
   return (
-    <div className="posnav glass" role="radiogroup" aria-label="Моя позиция">
+    <div className="posnav glass glass--float" role="radiogroup" aria-label="Моя позиция">
       {[1, 2, 3, 4, 5].map((p) => (
         <button
           key={p}

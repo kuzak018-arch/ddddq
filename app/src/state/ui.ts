@@ -99,7 +99,7 @@ export const useUi = create<UiState>()(
       bgPos: { x: 50, y: 30 },
       autoUpdate: true,
       refraction: false,
-      material: 'dota',
+      material: 'glass',
       performance: false,
       pageAnim: 'rise',
       settingsTab: 'main',
@@ -124,7 +124,7 @@ export const useUi = create<UiState>()(
       name: 'drafter-ui',
       // 3: the live refraction is off by default (it re-blurs the wallpaper every frame and
       // flickered in WebView2); the blurred wallpaper is made once instead (lib/glassBackdrop.ts)
-      version: 5,
+      version: 6,
       // v1 had no overlay settings: keep everything else, take the defaults for the new block
       migrate: (old, version) => migrateUi(old, version) as UiState,
       merge: (persisted, current) => keepUnchanged({

@@ -13,12 +13,13 @@ html.is-overlay body {
   height: 100%;
   display: flex;
   flex-direction: column;
-  border-radius: 26px;
+  border-radius: 18px;
   overflow: hidden;
   color: var(--text);
+  /* the app's glass recipe: hairline rim and a 1px highlight on the top edge */
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+    inset 0 1px 0 var(--glass-highlight),
+    inset 0 0 0 1px var(--glass-border);
   transition: opacity var(--dur) var(--ease-out);
 }
 /* Acrylic already blurs and tints the game: a light white veil keeps text readable. Acrylic fills
@@ -27,20 +28,17 @@ html.is-overlay body {
 .ov--acrylic {
   border-radius: 8px;
   background:
-    radial-gradient(130% 70% at 10% -10%, rgba(255, 255, 255, 0.16), transparent 55%),
-    linear-gradient(rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.06)),
+    linear-gradient(var(--glass-tint-float), var(--glass-tint-float)),
     rgba(10, 11, 16, 0.42);
 }
 /* no Acrylic (or performance mode): a dark translucent glass of our own */
 .ov--tint {
   background:
-    radial-gradient(130% 70% at 10% -10%, rgba(255, 255, 255, 0.1), transparent 55%),
-    rgba(14, 15, 21, 0.88);
+    linear-gradient(var(--glass-tint-float), var(--glass-tint-float)),
+    rgba(14, 15, 21, 0.86);
 }
 :root[data-theme='light'] .ov--acrylic {
-  background:
-    radial-gradient(130% 70% at 10% -10%, rgba(255, 255, 255, 0.5), transparent 55%),
-    rgba(250, 250, 252, 0.5);
+  background: rgba(250, 250, 252, 0.6);
 }
 :root[data-theme='light'] .ov--tint {
   background: rgba(248, 248, 250, 0.92);
@@ -60,7 +58,7 @@ html.is-overlay body {
   flex: 1;
   display: flex;
   padding: 4px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.08);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
@@ -69,7 +67,7 @@ html.is-overlay body {
   flex: 1;
   height: 32px;
   border: 0;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-xs);
   background: transparent;
   font-weight: 600;
   font-size: 13px;
@@ -86,7 +84,7 @@ html.is-overlay body {
 .ov-switch__pill {
   position: absolute;
   inset: 0;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-xs);
   background: var(--chip-on);
   box-shadow: inset 0 1px 0 #fff;
 }
@@ -163,7 +161,7 @@ html.is-overlay body {
 }
 .is-overlay .hero-search__field {
   height: 40px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
 }
 .is-overlay .hero-search__field input {
   font-size: 13px;
@@ -567,7 +565,7 @@ html.is-overlay body {
 }
 .ov__timer {
   padding: 3px 8px;
-  border-radius: 99px;
+  border-radius: var(--radius-xs);
   font-size: 11.5px;
   background: rgba(255, 255, 255, 0.08);
 }
@@ -667,7 +665,7 @@ html.perf .ov__skillnow.is-now {
   height: 22px;
   padding: 0 9px;
   border: 0;
-  border-radius: 99px;
+  border-radius: var(--radius-xs);
   background: rgba(255, 255, 255, 0.1);
   color: var(--text);
   font-size: 11.5px;
@@ -737,7 +735,7 @@ html.perf .ov__skillnow.is-now {
 }
 .ov-badge {
   padding: 1px 6px;
-  border-radius: 99px;
+  border-radius: var(--radius-xs);
   background: rgba(255, 255, 255, 0.09);
   font-size: 10.5px;
   font-weight: 600;
@@ -793,11 +791,9 @@ html.is-widget #root {
   box-shadow: inset 0 0 0 1px var(--gold, #e3b341);
 }
 .wg__edit {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--gold, #e3b341);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
 }
 .wg .ov__timers {
   gap: 4px;

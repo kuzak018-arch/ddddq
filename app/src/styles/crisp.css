@@ -99,9 +99,8 @@ html[data-material='dota'] .table td {
 }
 html[data-material='dota'] .kicker,
 html[data-material='dota'] .section-title {
-  font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.07em;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--text-3);
 }
 html[data-material='dota'] .section-title {
@@ -235,10 +234,8 @@ html[data-material='dota'] .table {
   border-collapse: collapse;
 }
 html[data-material='dota'] .table th {
-  font-size: 11px;
-  font-weight: 650;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--text-3);
   border-bottom: 1px solid var(--hairline);
 }
