@@ -16,7 +16,7 @@ import { refractionSupported } from '../glass/refraction';
 import { useDraft } from '../state/draft';
 import { loadBackgroundFile } from '../state/bgstore';
 import { useUi, type Background, type Page } from '../state/ui';
-import { POS_ROLE, RoleIcon } from './DotaIcons';
+import { POS_ROLE, PosTag } from './DotaIcons';
 import { IconClose, IconMax, IconMin, IconSettings, Ti } from './Icons';
 
 /** The tab pill. Builds live under «Герои» (the hero page and its builds share one tab). */
@@ -121,9 +121,7 @@ function PositionPicker() {
           aria-label={`Позиция ${p} · ${POS_ROLE[p]}`}
         >
           {p === pos && <motion.span layoutId="pos-pill" className="posnav__pill" transition={{ type: 'spring', stiffness: 380, damping: 34 }} />}
-          <span>
-            <RoleIcon pos={p} size={20} />
-          </span>
+          <PosTag pos={p} bare={p !== pos} />
         </button>
       ))}
     </div>

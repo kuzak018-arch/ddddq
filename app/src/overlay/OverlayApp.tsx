@@ -24,6 +24,7 @@ import { LiveHints, useBuildPlan, useDraftRequest, useMe } from './live';
 import { WidgetsController } from './Widgets';
 import { SteamGuideCompact } from '../components/SteamGuides';
 import { IconClose } from '../components/Icons';
+import { POS_ROLE } from '../components/DotaIcons';
 import { LaneCard, LaneView } from '../components/LaneView';
 import { fmtPct, fmtSigned, HeroIcon, HowTo, ItemIcon, plural } from '../components/ui';
 import { onOverlayStatus, overlayStatus, setClickThrough, setOverlayEffect, showOverlay } from '../lib/overlay';
@@ -308,7 +309,7 @@ function DraftMode({ search }: { search: React.RefObject<HeroSearchHandle | null
         </div>
       )}
       <div className="ov-picks__head">
-        <span className="kicker">Лучшие пики · pos {req.pos}</span>
+        <span className="kicker">Лучшие пики{req.pos ? ` · ${req.pos} ${POS_ROLE[req.pos]}` : ''}</span>
         <span className="ov-pos">
           {[1, 2, 3, 4, 5].map((v) => (
             <button key={v} className={v === req.pos ? 'is-on' : ''} onClick={() => d.setPos(v)} title={`Моя позиция ${v}`}>

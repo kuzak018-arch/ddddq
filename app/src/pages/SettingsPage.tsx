@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AppWindow, Database, KeyRound, Lightbulb, Monitor, Palette, Plug, ScanEye, Volume2, Wand } from 'lucide-react';
+import { Volume2, Wand } from 'lucide-react';
 
 import { comboFromEvent, dotaKeyName, toggleOverlay, useHotkeyStatus } from '../lib/overlay';
 
@@ -88,7 +88,6 @@ function AppearanceCard() {
   return (
     <Panel refracting>
       <h2>
-        <Ti icon={Palette} />
         Оформление
       </h2>
       <div className="field">
@@ -424,7 +423,6 @@ function AccountCard() {
     <Section>
       <div className="panel__head">
         <h2>
-          <Ti icon={KeyRound} />
           Аккаунт
         </h2>
         {s && <span className="pill">{s.account_id ? `id ${s.account_id}` : 'не указан'}</span>}
@@ -487,7 +485,6 @@ function GsiCard() {
     <Section>
       <div className="panel__head">
         <h2>
-          <Ti icon={Plug} />
           Интеграция с игрой
         </h2>
         <span className={`pill ${fresh ? 'c-good' : ''}`}>{fresh ? 'Дота на связи' : 'нет данных'}</span>
@@ -572,7 +569,6 @@ function VisionCard() {
     <Section>
       <div className="panel__head">
         <h2>
-          <Ti icon={ScanEye} />
           Чтение драфта с экрана
         </h2>
         <span className="pill">{!s?.enabled ? 'выключено' : s.cautious ? 'учится' : 'включено'}</span>
@@ -678,7 +674,6 @@ function OverlayCard() {
     <Section>
       <div className="panel__head">
         <h2>
-          <Ti icon={AppWindow} />
           Оверлей
         </h2>
         <button className="btn btn--accent" onClick={() => toggleOverlay()}>
@@ -769,7 +764,6 @@ function AdviceCard() {
   return (
     <Section>
       <h2>
-        <Ti icon={Lightbulb} />
         Подсказки
       </h2>
       <div className="field">
@@ -808,7 +802,6 @@ function AppCard() {
   return (
     <Section>
       <h2>
-        <Ti icon={Monitor} />
         Приложение
       </h2>
       <Toggle on={ui.closeToTray} onChange={(closeToTray) => ui.set({ closeToTray })} label="Сворачивать в трей при закрытии окна" />
@@ -857,7 +850,6 @@ function DataCard() {
   return (
     <Section>
       <h2>
-        <Ti icon={Database} />
         Данные
       </h2>
       {health && (

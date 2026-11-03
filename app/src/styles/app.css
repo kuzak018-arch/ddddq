@@ -350,16 +350,12 @@ html:not(.kbd-nav) :focus-visible {
     0 4px 14px -6px rgba(0, 0, 0, 0.45);
 }
 .tabs__label,
-.posnav__btn > span:not(.posnav__pill) {
+.posnav__btn > .pos-tag {
   position: relative;
   z-index: 1;
 }
-.posnav__btn > span:not(.posnav__pill) {
-  display: grid;
-  place-items: center;
-}
 
-/* my position: round buttons 1–5 */
+/* my position: 1–5, the chosen one with its role's name («1 Керри») */
 .posnav {
   display: flex;
   gap: 4px;
@@ -368,14 +364,14 @@ html:not(.kbd-nav) :focus-visible {
 }
 .posnav__btn {
   position: relative;
-  width: 38px;
-  height: 38px;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 10px;
   border: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text);
-  font-family: var(--font-display);
-  font-weight: 700;
+  font: inherit;
   font-size: 14px;
   cursor: pointer;
   transition:
@@ -452,8 +448,6 @@ html:not(.kbd-nav) :focus-visible {
   }
   .tabs__item:not(.is-active) .ti {
     margin-right: 0;
-    width: 18px;
-    height: 18px;
   }
 }
 
@@ -730,30 +724,36 @@ html:not(.kbd-nav) :focus-visible {
   color: var(--text-2);
 }
 /* line icons in front of titles and labels: sized to the text, a touch dimmer than it */
+/* one icon set (Lucide), one size, one stroke width — a direct <Lucide size=…> takes the same
+   stroke through .lucide */
 .ti {
   display: inline-block;
   flex: none;
-  width: 1.2em;
-  height: 1.2em;
-  margin-right: 0.45em;
-  vertical-align: -0.24em;
-  opacity: 0.85;
+  width: 16px;
+  height: 16px;
+  margin-right: 6px;
+  vertical-align: -3px;
 }
-.section-title .ti {
-  width: 1.4em;
-  height: 1.4em;
-  margin-right: 0.55em;
-  vertical-align: -0.36em;
+svg.lucide {
+  stroke-width: 1.75;
+}
+/* a position: «1 Керри» (PosTag in components/DotaIcons.tsx) — the number in tabular figures,
+   the role's name lighter */
+.pos-tag {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  white-space: nowrap;
+}
+.pos-tag > b {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.pos-tag > span {
+  font-weight: 500;
+  opacity: 0.78;
 }
 /* Dota's own icons (components/DotaIcons.tsx) */
-.role-ico {
-  display: inline-block;
-  flex: none;
-  vertical-align: middle;
-  background-color: currentColor;
-  -webkit-mask: var(--ico) center / contain no-repeat;
-  mask: var(--ico) center / contain no-repeat;
-}
 .attr-ico {
   flex: none;
   vertical-align: middle;
@@ -1415,7 +1415,7 @@ html:not(.kbd-nav) :focus-visible {
   margin-top: 0;
 }
 .hero-hdr__side .posbar {
-  width: 34px;
+  width: 46px;
 }
 .hero-hdr__side .posbar small {
   font-size: 10px;
@@ -1426,10 +1426,6 @@ html:not(.kbd-nav) :focus-visible {
 }
 .hero-hdr__side .posbar.is-best {
   color: var(--text);
-}
-.hero-hdr__actions {
-  display: flex;
-  gap: 8px;
 }
 @media (max-width: 1180px) {
   .hero-hdr {
@@ -1559,14 +1555,15 @@ html:not(.kbd-nav) :focus-visible {
   align-items: center;
   gap: 10px;
 }
-.posbar > span {
-  display: grid;
-  place-items: center;
-  height: 14px;
+.posbar__tag {
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  line-height: 1.15;
+  font-size: 12px;
 }
-.seg-role {
-  margin-right: 4px;
-  vertical-align: -2px;
+.posbar__tag > span {
+  font-size: 10px;
 }
 .seg-medal {
   margin: -4px 3px -4px -4px;
@@ -1576,9 +1573,8 @@ html:not(.kbd-nav) :focus-visible {
   align-items: center;
   gap: 4px;
 }
-.h-role {
-  margin-left: 4px;
-  vertical-align: -0.15em;
+.h-pos > span {
+  opacity: 1;
 }
 .title-attr {
   margin-right: 0.5em;
@@ -2092,14 +2088,6 @@ html:not(.kbd-nav) :focus-visible {
 .banner:last-child {
   margin-bottom: -18px;
 }
-.banner__accent {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  /* no coloured fog: the accent is only the avatar ring and the buttons */
-  display: none;
-}
 .banner.has-img {
   min-height: 230px;
   display: flex;
@@ -2129,13 +2117,6 @@ html:not(.kbd-nav) :focus-visible {
   background:
     linear-gradient(180deg, transparent 35%, rgba(0, 0, 0, calc(0.25 + var(--dim) * 0.6)) 100%),
     rgba(0, 0, 0, var(--dim));
-}
-.banner__glow {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  display: none;
 }
 .banner__fig {
   position: absolute;
@@ -6997,4 +6978,14 @@ a.btn {
 }
 .ability-icon--glyph img {
   object-fit: contain;
+}
+
+/* comparisons: the coloured number always says what it is compared to (HeroPage Stat, MyStats) */
+.stat__vs {
+  font-size: 12px;
+  font-weight: 500;
+}
+.mys__vs {
+  margin-left: 6px;
+  font-size: 11px;
 }

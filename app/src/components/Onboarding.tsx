@@ -14,7 +14,7 @@ import {
   Gamepad2,
   KeyRound,
   Palette,
-  ScanEye,
+  
   Sparkles,
   Swords,
   TriangleAlert,
@@ -205,18 +205,9 @@ function Hello() {
       <h2>Добро пожаловать в Dota Drafter</h2>
       <p className="muted">Минута настройки — и подсказки будут про тебя: твой ранг, твои герои, твоя игра.</p>
       <ul className="wiz__feats">
-        <li>
-          <Ti icon={Swords} />
-          Кого взять и кого банить прямо во время драфта, с причинами
-        </li>
-        <li>
-          <Ti icon={ScanEye} />
-          Драфт читается с экрана, оверлей поверх игры
-        </li>
-        <li>
-          <Ti icon={Sparkles} />
-          Мета, билды против врагов, линии, игры топов
-        </li>
+        <li>Кого взять и кого банить прямо во время драфта, с причинами</li>
+        <li>Драфт читается с экрана, оверлей поверх игры</li>
+        <li>Мета, билды против врагов, линии, игры топов</li>
       </ul>
     </div>
   );
@@ -241,7 +232,6 @@ function DotaStep() {
   return (
     <>
       <h2>
-        <Ti icon={FolderOpen} />
         Папка Доты
       </h2>
       <p className="muted">Туда ставится конфиг Game State Integration — официальный способ Valve сообщать стадию матча и твоего героя.</p>
@@ -307,7 +297,6 @@ function AccountStep({ acc, setAcc }: { acc: string; setAcc: (v: string) => void
   return (
     <>
       <h2>
-        <Ti icon={User} />
         Твой аккаунт
       </h2>
       <p className="muted">По нему — история матчей, твой пул героев и ранг для подсказок.</p>
@@ -369,7 +358,6 @@ function StratzStep({ hasToken }: { hasToken: boolean }) {
   return (
     <>
       <h2>
-        <Ti icon={KeyRound} />
         Токен Stratz
       </h2>
       <p className="muted">
@@ -412,7 +400,6 @@ function GameStep() {
   return (
     <>
       <h2>
-        <Ti icon={Gamepad2} />
         Связь с игрой
       </h2>
       <div className={`wiz__found ${st?.installed ? 'is-ok' : st && !st.dota_found ? 'is-warn' : ''}`}>
@@ -451,7 +438,6 @@ function LookStep() {
   return (
     <>
       <h2>
-        <Ti icon={Palette} />
         Как будет выглядеть
       </h2>
       <div className="field">

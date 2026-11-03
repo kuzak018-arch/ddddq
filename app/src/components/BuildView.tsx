@@ -3,13 +3,11 @@
  * ("or" alternatives with share), core items in order with median timings and alternatives,
  * situational items, skill order by level and talents from the same games.
  */
-import { ChevronsUp, Crosshair, Flag, Footprints, Gem, GitFork, ListOrdered, Shuffle, Sunrise } from 'lucide-react';
 import { createContext, useContext, useEffect, useState } from 'react';
 
 import { useTopTimings } from '../api/hooks';
 import type { AbilityInfo, Build, BuildEntry, BuildsResponse, VsItem } from '../api/types';
 import { AbilityIcon, TalentIcon } from './Ability';
-import { Ti } from './Icons';
 import { NeutralItems } from './NeutralItems';
 import { Tip } from './Tip';
 import { fmtPct, ItemIcon, Mins, Segmented } from './ui';
@@ -182,7 +180,7 @@ function BuildBody({ b, vs, reliableGames, ab }: { b: Build; vs: VsItem[]; relia
           </span>
         ) : (
           <span className="muted">
-            {b.games} игр · винрейт <b className={(b.wr ?? 0) >= 0.5 ? 'c-good' : 'c-bad'}>{fmtPct(b.wr)}</b>
+            {b.games} игр · винрейт <b>{fmtPct(b.wr)}</b>
             {!b.reliable && (
               <span className="pill warn" title={`Меньше ${reliableGames} игр — винрейт может сильно ошибаться`}>
                 ненадёжно
@@ -195,7 +193,6 @@ function BuildBody({ b, vs, reliableGames, ab }: { b: Build; vs: VsItem[]; relia
       {vs.length > 0 && (
         <section className="build__vs">
           <h4>
-          <Ti icon={Crosshair} />
           Против этого драфта</h4>
           <ul>
             {vs.map((v) => (
@@ -224,7 +221,6 @@ function BuildBody({ b, vs, reliableGames, ab }: { b: Build; vs: VsItem[]; relia
 
       <section className="build__group">
         <h4>
-          <Ti icon={Flag} />
           Старт {b.starting_share != null && <span className="muted">· ровно так начинают {fmtPct(b.starting_share, 0)}</span>}</h4>
         <div className="build__items">
           {b.starting.map((s) => (
@@ -239,7 +235,6 @@ function BuildBody({ b, vs, reliableGames, ab }: { b: Build; vs: VsItem[]; relia
       {b.early.length > 0 && (
         <section className="build__group">
           <h4>
-          <Ti icon={Sunrise} />
           Ранние</h4>
           <ul className="bv__steps">
             {b.early.map((e) => (
@@ -251,7 +246,6 @@ function BuildBody({ b, vs, reliableGames, ab }: { b: Build; vs: VsItem[]; relia
 
       <section className="build__group">
         <h4>
-          <Ti icon={Footprints} />
           Сапоги</h4>
         <ul className="bv__steps">
           {b.boots && <Step e={b.boots} />}
@@ -273,7 +267,6 @@ function BuildBody({ b, vs, reliableGames, ab }: { b: Build; vs: VsItem[]; relia
 
       <section className="build__group">
         <h4>
-          <Ti icon={ListOrdered} />
           Кор по порядку</h4>
         <ul className="bv__steps">
           {b.core.map((e, i) => (
@@ -285,7 +278,6 @@ function BuildBody({ b, vs, reliableGames, ab }: { b: Build; vs: VsItem[]; relia
       {b.situational.length > 0 && (
         <section className="build__group">
           <h4>
-          <Ti icon={Shuffle} />
           Ситуативные</h4>
           <div className="build__items">
             {b.situational.map((it) => (
@@ -304,14 +296,12 @@ function BuildBody({ b, vs, reliableGames, ab }: { b: Build; vs: VsItem[]; relia
 
       <section className="build__group">
         <h4>
-          <Ti icon={ChevronsUp} />
           Прокачка</h4>
         <Skills b={b} ab={ab} />
       </section>
 
       <section className="build__group">
         <h4>
-          <Ti icon={GitFork} />
           Таланты</h4>
         <Talents b={b} ab={ab} />
       </section>
@@ -361,7 +351,6 @@ export function BuildView({ r, vs }: { r: BuildsResponse; vs: VsItem[] }) {
       {b ? <BuildBody b={b} vs={vs} reliableGames={r.reliable_games} ab={r.abilities ?? {}} /> : <p className="muted">Пока нет данных.</p>}
       <section className="build__group">
         <h4>
-          <Ti icon={Gem} />
           Нейтральные предметы
         </h4>
         <NeutralItems hero={r.hero} pos={r.pos} />

@@ -1,10 +1,8 @@
 /** Settings card: an option to download lane data for the user's pool in the background. */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Route } from 'lucide-react';
 
 import { api } from '../api/client';
 import { useHeroes } from '../api/hooks';
-import { Ti } from './Icons';
 import { Section } from './Section';
 import { ErrorBox } from './ui';
 
@@ -50,7 +48,6 @@ export function LaneBulkCard() {
   return (
     <Section>
       <h2>
-        <Ti icon={Route} />
         Данные линий
       </h2>
       <p className="hint">
