@@ -25,6 +25,12 @@ def refresh(account_id: int | None = None) -> dict:
         raise ValueError("не указан аккаунт: укажи Steam ID в «Настройки → Аккаунт»")
     od = OpenDota()
     try:
+        # ask OpenDota to pull the newest matches from Steam (it otherwise picks them up on its own
+        # schedule, sometimes days late); best effort, the list below is read either way
+        try:
+            od.post(f"/players/{account_id}/refresh", retries=1)
+        except Exception:  # noqa: BLE001
+            pass
         profile = od.get(f"/players/{account_id}")
         # all time: the experience curve needs to know which game on a hero each match was
         matches = od.get(f"/players/{account_id}/matches", {"lobby_type": RANKED, "game_mode": ALL_PICK})
@@ -44,6 +50,47 @@ def refresh(account_id: int | None = None) -> dict:
     _download_avatar(profile)
     _refresh_positions(account_id)
     return data
+
+
+STALE_AFTER = 3600          # the history is refreshed by itself when older than this
+_bg_lock = __import__("threading").Lock()
+_bg_running = False
+
+
+def refresh_in_background(max_age: float = STALE_AFTER, delay: float = 0.0, on_done=None) -> bool:
+    """Refresh the history in a thread when it is older than `max_age` (0: always). One at a time;
+    returns whether a refresh was started. `on_done(data)` is called after a successful one."""
+    import threading
+    global _bg_running
+    import os
+    if not config.settings().account_id or os.environ.get("DRAFTER_NO_BUILD_LOAD") == "1":   # tests: no network
+        return False
+    d = load()
+    if d and max_age and time.time() - (d.get("fetched") or 0) < max_age:
+        return False
+    with _bg_lock:
+        if _bg_running:
+            return False
+        _bg_running = True
+
+    def run():
+        global _bg_running
+        try:
+            if delay:
+                time.sleep(delay)
+            data = refresh()
+            if on_done:
+                on_done(data)
+        except Exception:  # noqa: BLE001 - the saved history stays; the next look tries again
+            pass
+        finally:
+            _bg_running = False
+    threading.Thread(target=run, name="me-refresh", daemon=True).start()
+    return True
+
+
+def refreshing() -> bool:
+    return _bg_running
 
 
 def _write(path, text: str) -> None:

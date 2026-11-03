@@ -138,6 +138,19 @@ async def lifespan(app: FastAPI):
             except Exception:  # noqa: BLE001 - never a reason to disturb the app
                 pass
         threading.Thread(target=_hero_art, name="hero-art", daemon=True).start()
+        me.refresh_in_background(max_age=6 * 3600, delay=30,      # the history of the last days
+                                 on_done=lambda d: bus.publish("me", fetched=d.get("fetched")))
+        def _ui_icons():
+            time.sleep(25)
+            try:
+                from ..data import ui_icons
+                if any(ui_icons.ensure().values()):
+                    bus.publish("ui-icons", **ui_icons.paths())
+            except Exception:  # noqa: BLE001 - the app's own glyphs stay
+                pass
+        threading.Thread(target=_ui_icons, name="ui-icons", daemon=True).start()
+        from .. import patch_watch
+        patch_watch.start(lambda kind, **data: bus.publish(kind, **data))
         try:
             build_service.start_prefetch(_pred().pos_mat)
         except HTTPException:
@@ -271,6 +284,13 @@ def items():
         if it.get("cost") and it.get("img"):
             out.append({"key": key, "name": it["dname"], "cost": it["cost"], "icon": f"/icons/items/{key}.png"})
     return out
+
+
+@app.get("/ui-icons")
+def ui_icons_list():
+    """Dota's talent and innate glyphs when downloaded (else null: the app draws its own)."""
+    from ..data import ui_icons
+    return ui_icons.paths()
 
 
 @app.get("/heroes/threats")
@@ -550,9 +570,12 @@ def my_history(offset: int = Query(0, ge=0), limit: int = Query(50, ge=1, le=200
     """Every ranked match of the history with the user's numbers (and the rating of those broken down)."""
     from ..data import me_stats
     data = me.load()
+    if os.environ.get("DRAFTER_NO_BUILD_LOAD") != "1":   # older than an hour: fresh one in the background
+        me.refresh_in_background(on_done=lambda d: bus.publish("me", fetched=d.get("fetched")))
     if not data:
         raise HTTPException(404, "истории ещё нет: нажми «Обновить историю»")
-    return me_stats.history(data, after_match_mod.load(), offset, limit, hero, result, party)
+    return {**me_stats.history(data, after_match_mod.load(), offset, limit, hero, result, party),
+            "refreshing": me.refreshing()}
 
 
 @app.get("/me/ratings")
@@ -1040,6 +1063,10 @@ def _live() -> dict | None:
     live = tracker.live
     if live and time.time() - live["ts"] > 15:
         live = None  # Dota closed or the match ended without a final message
+    if live and live.get("clock") is not None and not live.get("paused"):
+        # the clock of the last message, moved on by the time since it came (Dota sends a few a
+        # second, the overlay asks twice a second: without this the timers ran ~1 s behind the game)
+        live = {**live, "clock": live["clock"] + min(2.0, max(0.0, time.time() - live["ts"]))}
     return live
 
 
@@ -1054,6 +1081,21 @@ def game_live(targets: str = "", skills: str = "", pos: int | None = Query(None,
     out = ingame.hints(live, keys, order)
     out["pace"] = pace.pace(live, (live or {}).get("hero_id"), pos)
     return out
+
+
+class SkipIn(BaseModel):
+    key: str = Field(..., pattern=r"^[a-z0-9_]{1,60}$")
+    undo: bool = False
+
+
+@app.post("/game/skip")
+def game_skip(body: SkipIn):
+    """The player won't build the shown next item (a Nullifier instead of the Basher): the hint
+    moves on to the build's next one, for this match."""
+    live = _live()
+    if not live:
+        raise HTTPException(409, "нет данных матча от Доты")
+    return {"skipped": ingame.mark_skip(body.key, live, body.undo)}
 
 
 class MarkIn(BaseModel):
@@ -1608,6 +1650,16 @@ def debug_log(body: DebugLogIn):
         for line in body.lines:
             f.write(line[:4000].replace("\n", " ") + "\n")
     return {"ok": True, "path": str(path)}
+
+
+@app.get("/data/patch-status")
+def data_patch_status(check: bool = False):
+    """Is the data behind Dota's newest patch (Valve's patch list, checked in the background)?
+    `check`: ask Valve now."""
+    from .. import patch_watch
+    if check:
+        patch_watch.check()
+    return patch_watch.status()
 
 
 @app.post("/data/refresh")

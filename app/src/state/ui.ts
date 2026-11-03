@@ -35,6 +35,7 @@ interface UiState {
   performance: boolean; // no blur, no refraction, no animations
   /** how one tab turns into another (lib/pageAnim.ts) */
   pageAnim: PageAnim;
+  settingsTab: 'main' | 'more';   // Settings: the everyday cards, or the rest
   /** cards lean towards the pointer with a glare (lib/tilt.ts) */
   tilt: boolean;
   /** interface sounds (lib/sounds.ts): on/off, volume 0..1, a tick on tab change */
@@ -101,6 +102,7 @@ export const useUi = create<UiState>()(
       material: 'dota',
       performance: false,
       pageAnim: 'rise',
+      settingsTab: 'main',
       tilt: true,
       sounds: { on: true, volume: 0.5, tabs: false },
       closeToTray: false,

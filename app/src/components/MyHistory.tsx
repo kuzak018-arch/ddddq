@@ -1,8 +1,8 @@
 /** Profile → «История»: every ranked match with the numbers, filters and pages (backend me_stats.history). */
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 
-import { api } from '../api/client';
+import { api, subscribe } from '../api/client';
 import { useHeroes } from '../api/hooks';
 import { HeroSearch } from './HeroSearch';
 import { Empty, ErrorBox, fmtPct, HeroIcon, Loading, Segmented } from './ui';
@@ -30,7 +30,16 @@ interface Page {
   rows: Row[];
   offset: number;
   limit: number;
+  fetched?: number | null;
+  refreshing?: boolean;
 }
+
+const ago = (t: number) => {
+  const m = Math.max(0, Math.round((Date.now() / 1000 - t) / 60));
+  if (m < 60) return `${m} мин назад`;
+  const h = Math.round(m / 60);
+  return h < 48 ? `${h} ч назад` : `${Math.round(h / 24)} дн назад`;
+};
 
 const PAGE = 50;
 const when = (t: number | null) =>
@@ -52,7 +61,12 @@ export function MyHistory({ onAnalyze }: { onAnalyze: (matchId: number) => void 
     queryFn: () => api<Page>(`/me/history?${params}`),
     retry: false,
     placeholderData: keepPreviousData,
+    // a refresh started in the background (the history was over an hour old): look again soon
+    refetchInterval: (qq) => (qq.state.data?.refreshing ? 8000 : false),
   });
+  const qc = useQueryClient();
+  // the history was refreshed (in the background, or after a match): every profile query reads it again
+  useEffect(() => subscribe((e) => e.type === 'me' && void qc.invalidateQueries({ queryKey: ['me'] })), [qc]);
   const p = q.data;
   const reset = (f: () => void) => {
     f();
@@ -85,6 +99,8 @@ export function MyHistory({ onAnalyze }: { onAnalyze: (matchId: number) => void 
         {p && (
           <span className="muted small">
             {p.total.toLocaleString('ru')} матчей · <b className={p.wr != null && p.wr >= 0.5 ? 'c-good' : 'c-bad'}>{fmtPct(p.wr)}</b> побед
+            {p.fetched ? ` · обновлено ${ago(p.fetched)}` : ''}
+            {p.refreshing ? ' · обновляю…' : ''}
           </span>
         )}
       </div>

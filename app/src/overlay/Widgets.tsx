@@ -13,7 +13,7 @@ import { onWidgetsInteractive, placeOnce, showWidget, WIDGET_KINDS, widgetsInter
 import { useDraft } from '../state/draft';
 import { startSync } from '../state/sync';
 import { useUi } from '../state/ui';
-import { NeutralTierLine, ObjectivesRow, SkillNow, WinStrip } from './InGame';
+import { NeutralTierLine, ObjectivesRow, SkillAnnounce, useElapsed, WinStrip } from './InGame';
 import { Buyback, NextItem, NightLine, PaceLines, TimersRow, useBuildPlan, useGameLive } from './live';
 
 export function WidgetApp({ kind }: { kind: WidgetKind }) {
@@ -99,11 +99,13 @@ function useFitToContent(box: React.RefObject<HTMLDivElement | null>) {
 
 function TimersWidget() {
   const { hero, pos } = useBuildPlan();
-  const g = useGameLive([], [], pos).data;
+  const q = useGameLive([], [], pos);
+  const elapsed = useElapsed(q.dataUpdatedAt);
+  const g = q.data;
   if (!g?.live) return null;
   return (
     <>
-      <TimersRow g={g} max={5} />
+      <TimersRow g={g} max={5} elapsed={g.live.paused ? 0 : elapsed} />
       {g.neutral_tier && <NeutralTierLine t={g.neutral_tier} hero={hero} pos={pos} held={g.live.neutral ?? null} />}
       {g.objectives && <ObjectivesRow o={g.objectives} />}
     </>
@@ -117,7 +119,7 @@ function NowWidget() {
   if (!g?.live) return null;
   return (
     <>
-      {g.skill?.now && <SkillNow s={g.skill} order={skillOrder} ab={ab} />}
+      <SkillAnnounce s={g.skill} order={skillOrder} ab={ab} />
       <NightLine g={g} hero={hero} enemies={req.enemies} />
       <WinStrip req={req} me={me} inGame={phase === 'game'} />
     </>

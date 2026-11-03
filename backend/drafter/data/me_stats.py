@@ -210,4 +210,4 @@ def history(data: dict, ratings: dict | None = None, offset: int = 0, limit: int
                      "rating": r.get("rating"), "tag": r.get("tag")})
     wins = sum(1 for r in rows if r["win"])
     return {"total": len(rows), "wins": wins, "wr": _wr(wins, len(rows)), "rows": rows[offset:offset + limit],
-            "offset": offset, "limit": limit}
+            "offset": offset, "limit": limit, "fetched": data.get("fetched")}
