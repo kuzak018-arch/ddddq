@@ -10,6 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 import { LogicalSize } from '@tauri-apps/api/dpi';
 import { isTauri } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { Move } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 
@@ -23,7 +24,7 @@ import { EnemiesMode, WinStrip } from './InGame';
 import { LiveHints, useBuildPlan, useDraftRequest, useMe } from './live';
 import { WidgetsController } from './Widgets';
 import { SteamGuideCompact } from '../components/SteamGuides';
-import { IconClose } from '../components/Icons';
+import { IconClose, Ti } from '../components/Icons';
 import { POS_ROLE } from '../components/DotaIcons';
 import { LaneCard, LaneView } from '../components/LaneView';
 import { fmtPct, fmtSigned, HeroIcon, HowTo, ItemIcon, plural } from '../components/ui';
@@ -45,6 +46,7 @@ export function OverlayApp() {
   const [collapsed, setCollapsed] = useState(false);
   const [mode, setMode] = useState<Mode | null>(null); // null: follow the setting (auto = build in a match)
   const ov = useUi((s) => s.overlay);
+  const setOv = (patch: Partial<typeof ov>) => useUi.getState().set({ overlay: { ...useUi.getState().overlay, ...patch } });
   const theme = useResolvedTheme(useUi((s) => s.theme));
   const phase = useDraft((s) => s.phase);
   const perf = ov.autoPerf && phase === 'game';
@@ -138,6 +140,20 @@ export function OverlayApp() {
         >
           <CursorIcon />
         </button>
+        {Object.values(ov.widgets ?? {}).some(Boolean) && (
+          <button
+            className={`ov-round ${ov.arrange ? 'is-on' : ''}`}
+            title={ov.arrange ? 'Готово: виджеты на месте' : 'Расставить виджеты: показать их и передвинуть мышью'}
+            aria-pressed={!!ov.arrange}
+            onClick={() => {
+              // arranging needs the mouse: the overlay stops letting clicks through
+              if (!ov.arrange) void setClickThrough(false);
+              setOv({ arrange: !ov.arrange });
+            }}
+          >
+            <Ti icon={Move} />
+          </button>
+        )}
         <button className="ov-round" title="Свернуть в таблетку" onClick={() => toggleCollapsed(true)}>
           <span className="ov-round__min" />
         </button>

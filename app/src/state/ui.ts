@@ -78,6 +78,9 @@ interface UiState {
     autoShow: boolean;   // show the overlay by itself when hero selection starts (GSI)
     hints: boolean;      // in-game hints in the build mode: next item, timers, buyback (GSI)
     widgets: { timers: boolean; now: boolean; gold: boolean }; // small windows over the HUD in a match
+    /** «Расставить виджеты»: the widgets show (even out of a match) with their name and a frame and
+     * can be dragged; off, they are only the hints (their buttons still work while managing) */
+    arrange?: boolean;
   };
   go: (page: Page) => void;
   openHero: (id: number) => void;
