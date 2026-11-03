@@ -131,8 +131,10 @@ fn build_widget(app: &AppHandle, label: &str) -> Result<WebviewWindow, String> {
 }
 
 /// Show or hide one widget window (the overlay page decides: in a match, when the widget is on).
+/// Async on purpose: a synchronous command runs on the main thread, and building a window there
+/// waits for that same thread on Windows — it hung, and no widget ever appeared (1.2.6).
 #[tauri::command]
-pub fn widget_show(app: AppHandle, label: String, show: bool) -> Result<(), String> {
+pub async fn widget_show(app: AppHandle, label: String, show: bool) -> Result<(), String> {
     if !WIDGETS.contains(&label.as_str()) {
         return Err(format!("нет такого виджета: {label}"));
     }
