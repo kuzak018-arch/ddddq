@@ -138,7 +138,7 @@ def test_a_guide_without_file_url_is_fetched_by_its_content_handle(env):
         return httpx.Response(200, json={"response": {"players": []}})
     out = G.for_hero(1, http=httpx.Client(transport=httpx.MockTransport(handler)), now=50_000)
     assert [g["id"] for g in out["guides"]] == ["7"]
-    assert out["diag"] == {"queried": 1, "with_file": 1, "downloaded": 1, "guides": 1, "this_hero": 1}
+    assert out["diag"] == {"queried": 1, "with_file": 1, "downloaded": 1, "guides": 1, "this_hero": 1, "kinds": {"text": 1}}
 
 
 def test_an_old_cache_is_asked_again(env):
@@ -147,3 +147,28 @@ def test_an_old_cache_is_asked_again(env):
     http = httpx.Client(transport=httpx.MockTransport(lambda r: hits.append(1) or httpx.Response(200, json={"response": {}})))
     G.for_hero(1, http=http, now=10_000)
     assert hits         # the old cache (no version) is not trusted
+
+
+def test_decode_binary_json_and_zip():
+    import io
+    import zipfile
+
+    def kv_bin(d):
+        out = b""
+        for k, v in d.items():
+            if isinstance(v, dict):
+                out += b"\x00" + k.encode() + b"\x00" + kv_bin(v) + b"\x08"
+            else:
+                out += b"\x01" + k.encode() + b"\x00" + v.encode() + b"\x00"
+        return out
+    tree = {"guidedata": {"Hero": "npc_dota_hero_antimage", "Items": {"#DOTA_Item_Build_Core_Items": {"item": "item_bfury"}}}}
+    kind, t = G.decode_file(kv_bin(tree) + b"\x08")
+    assert kind == "binary" and G.guide_from_kv(t)["items"] == [{"name": "Основные", "items": ["bfury"]}]
+    kind, t = G.decode_file(json.dumps(tree).encode())
+    assert kind == "json" and G.guide_from_kv(t)["hero"] == "antimage"
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("guide.txt", GUIDE)
+    kind, t = G.decode_file(buf.getvalue())
+    assert kind == "zip/text" and G.guide_from_kv(t)["hero"] == "antimage"
+    assert G.decode_file(b"\x89PNG\r\n\x1a\nxxxx")[0] == "image"
