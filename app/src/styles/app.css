@@ -6816,3 +6816,79 @@ a.btn {
   vertical-align: middle;
   margin-right: 4px;
 }
+
+/* neutral items: a row per tier, the hero's popular ones lit, what each does in the tooltip */
+.neutrals {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.neutrals__row {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  align-items: center;
+  gap: 10px;
+}
+.neutrals__head {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  font-size: 12.5px;
+}
+.neutrals__items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.neutrals__item {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  border-radius: 6px;
+  outline: none;
+  opacity: 0.55;
+  transition: opacity 0.2s, transform 0.25s var(--ease-spring);
+}
+.neutrals__item:hover,
+.neutrals__item:focus-visible {
+  opacity: 1;
+  transform: translateY(-2px);
+}
+.neutrals__item.is-pop {
+  opacity: 1;
+}
+.neutrals__item.is-pop .item-icon {
+  box-shadow: 0 0 0 2px var(--gold, #e3b341);
+  border-radius: 4px;
+}
+.neutrals__item small {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--gold, #e3b341);
+  font-variant-numeric: tabular-nums;
+}
+/* without the hero's numbers every item is just a reference: none is dimmed */
+.neutrals:not(:has(.is-pop)) .neutrals__item {
+  opacity: 1;
+}
+.neutrals--compact {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+.neutrals__ctier {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.neutrals__tier {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+.ntip__stats {
+  margin: 4px 0;
+  padding-left: 16px;
+}

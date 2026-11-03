@@ -373,6 +373,14 @@ def _builds(hero_id: int, pos: int, mode: str, rank_tier: int | None, fallback: 
     return build_service.get(hero_id, pos, mode, stratz.bracket_for(_rank(rank_tier)), _pred().pos_mat, fallback)
 
 
+@app.get("/heroes/{hero_id}/neutrals")
+def hero_neutrals(hero_id: int, pos: int | None = Query(None, ge=1, le=5), rank_tier: int | None = None):
+    """Neutral items by tier with what each does; the hero's players' popular ones first."""
+    from ..builds import neutrals
+    _hero_or_404(hero_id)
+    return neutrals.for_hero(hero_id, pos, stratz.bracket_for(_rank(rank_tier)))
+
+
 @app.get("/builds/{hero_id}")
 def build(hero_id: int, pos: int = Query(..., ge=1, le=5), mode: str = "all", rank_tier: int | None = None,
           fallback: bool = False):

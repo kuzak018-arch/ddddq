@@ -105,7 +105,7 @@ def candidates(hero_id: int, exclude: set[int]) -> list[int]:
     return [m for m in df["match_id"].to_list() if m not in exclude]
 
 
-_Q = """{ match(id: %d) { id startDateTime durationSeconds rank players { heroId steamAccountId isVictory position
+_Q = """{ match(id: %d) { id startDateTime durationSeconds rank players { heroId steamAccountId isVictory position neutral0Id
   stats { itemPurchases { time itemId } } abilities { abilityId time level } } } }"""
 
 
@@ -131,6 +131,7 @@ def fetch_match(sz: stratz.Stratz, match_id: int, hero_id: int) -> dict:
         "pos": int(pos[-1]) if pos and pos.startswith("POSITION_") else None,
         "items": [[x["time"], item_ids.get(x["itemId"], str(x["itemId"]))] for x in purchases],
         "skills": [ability_ids.get(a["abilityId"], str(a["abilityId"])) for a in sorted(p.get("abilities") or [], key=lambda a: a["time"])],
+        "neutral": item_ids.get(p.get("neutral0Id") or 0),
     }
 
 

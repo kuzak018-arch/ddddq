@@ -16,7 +16,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, waitForBackend } from '../api/client';
 import { useBans, useBuild, useEvaluate, useHeroes, usePlan, useSettings, useSettingsFromOtherWindow, useSuggest, useTopVs } from '../api/hooks';
 import type { DraftRequest, GamePlan, TopVs } from '../api/types';
+import { Skills } from '../components/BuildView';
 import { HeroSearch, type HeroSearchHandle } from '../components/HeroSearch';
+import { NeutralItems } from '../components/NeutralItems';
 import { IconClose } from '../components/Icons';
 import { LaneCard, LaneView } from '../components/LaneView';
 import { fmtPct, fmtSigned, HeroIcon, HowTo, ItemIcon, plural } from '../components/ui';
@@ -604,8 +606,17 @@ function BuildMode() {
                     <ItemIcon key={it.key} k={it.key} title={`${it.name} ~${Math.round(it.minute ?? 0)} мин`} size={found ? 26 : 34} />
                   ))}
                 </div>
+                {(b.skills.length > 0 || (b.skill_order?.length ?? 0) > 0) && (
+                  <>
+                    <span className="kicker">Прокачка</span>
+                    <div className="ov__skills">
+                      <Skills b={b} ab={r.abilities ?? {}} size={20} legend={false} />
+                    </div>
+                  </>
+                )}
               </>
             )}
+            {hero && <NeutralItems hero={hero} pos={r.pos} compact />}
             {build.data.vs.length > 0 && <span className="kicker">Против этого драфта</span>}
             <ul className="ov__vs">
               {build.data.vs.slice(0, 5).map((v) => (
