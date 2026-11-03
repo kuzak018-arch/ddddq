@@ -2,7 +2,7 @@
  * Settings card «Версия и обновления»: the app's version, checking for a newer one, downloading
  * and installing it (lib/updates.ts), automatic updates, and the author's Telegram.
  */
-import { Download, Info, RefreshCw, RotateCw } from 'lucide-react';
+import { Download, RefreshCw, RotateCw } from 'lucide-react';
 import { useEffect } from 'react';
 
 import { useUi } from '../state/ui';
@@ -32,7 +32,6 @@ export function VersionCard() {
     <Section>
       <div className="panel__head">
         <h2>
-          <Ti icon={Info} />
           Версия и обновления
         </h2>
         {u.version && <span className="pill">версия {u.version}</span>}
@@ -86,7 +85,7 @@ export function VersionCard() {
       <p className="hint">Обновление ставится поверх старой версии: настройки и данные сохраняются.</p>
       <ExternalLink className="contact" href={`https://t.me/${TELEGRAM}`}>
         <span className="contact__icon">
-          <IconTelegram width={18} height={18} />
+          <IconTelegram />
         </span>
         <span>
           <b>@{TELEGRAM}</b>

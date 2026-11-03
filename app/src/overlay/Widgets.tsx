@@ -1,6 +1,7 @@
 /** The widget windows over the game: small glass blocks at the minimap and the gold panel, shown in
  * a match. Clicks go through them into the game; while the overlay is open and managed (its
- * click-through off) they can be dragged and their buttons pressed. */
+ * click-through off) their buttons can be pressed. Only in «Расставить виджеты» (the overlay's
+ * button) they show their name and a frame and can be dragged. */
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { isTauri } from '@tauri-apps/api/core';
 import { useEffect, useRef, useState } from 'react';
@@ -21,6 +22,8 @@ export function WidgetApp({ kind }: { kind: WidgetKind }) {
   const [ready, setReady] = useState(false);
   const [edit, setEdit] = useState(false);
   const opacity = useUi((s) => s.overlay.opacity);
+  const arrange = useUi((s) => !!s.overlay.arrange);
+  const moving = edit && arrange;
   const theme = useResolvedTheme(useUi((s) => s.theme));
   const box = useRef<HTMLDivElement>(null);
   useSettingsFromOtherWindow();
@@ -46,16 +49,16 @@ export function WidgetApp({ kind }: { kind: WidgetKind }) {
     };
   }, [kind]);
   return (
-    <div className={`wg wg--${kind} ${edit ? 'is-edit' : ''}`} style={{ opacity }}>
+    <div className={`wg wg--${kind} ${moving ? 'is-edit' : ''}`} style={{ opacity }}>
       <div
         ref={box}
         className="wg__box"
         onPointerDown={(e) => {
-          // drag by any empty part of the box while managing (buttons keep their clicks)
-          if (edit && isTauri() && !(e.target as HTMLElement).closest('button')) void getCurrentWindow().startDragging();
+          // drag by any empty part of the box while arranging (buttons keep their clicks)
+          if (moving && isTauri() && !(e.target as HTMLElement).closest('button')) void getCurrentWindow().startDragging();
         }}
       >
-        {edit && <span className="wg__edit">перетащи · {kind === 'timers' ? 'таймеры' : kind === 'now' ? 'сейчас' : 'золото'}</span>}
+        {moving && <span className="wg__edit">{kind === 'timers' ? 'Таймеры' : kind === 'now' ? 'Сейчас' : 'Золото'} · перетащи мышью</span>}
         {ready && (kind === 'timers' ? <TimersWidget /> : kind === 'now' ? <NowWidget /> : <GoldWidget />)}
       </div>
     </div>
@@ -147,14 +150,16 @@ function GoldWidget() {
   );
 }
 
-/** In the overlay page (always loaded, even hidden): shows the enabled widgets while a match runs. */
+/** In the overlay page (always loaded, even hidden): shows the enabled widgets while a match runs,
+ * and while they are being arranged. */
 export function WidgetsController() {
   const phase = useDraft((s) => s.phase);
   const on = useUi((s) => s.overlay.widgets);
   const hints = useUi((s) => s.overlay.hints);
+  const arrange = useUi((s) => !!s.overlay.arrange);
   useEffect(() => {
-    for (const k of WIDGET_KINDS) void showWidget(k, phase === 'game' && hints && !!on?.[k]);
-  }, [phase, on, hints]);
+    for (const k of WIDGET_KINDS) void showWidget(k, (arrange || (phase === 'game' && hints)) && !!on?.[k]);
+  }, [phase, on, hints, arrange]);
   useEffect(() => () => WIDGET_KINDS.forEach((k) => void showWidget(k, false)), []);
   return null;
 }

@@ -5,7 +5,7 @@
  * confirm frames, which also measures accuracy. Dragging the rects by hand is the fallback.
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { RotateCcw, ScanEye, Target } from 'lucide-react';
+import { RotateCcw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { api, backend } from '../api/client';
@@ -308,7 +308,6 @@ export function VisionPage() {
             ← Настройки
           </button>
           <h2>
-            <Ti icon={ScanEye} />
             Чтение экрана
           </h2>
           <span className="pill">эксперимент</span>
@@ -473,7 +472,6 @@ export function VisionPage() {
         </details>
 
         <h3 className="section-title">
-          <Ti icon={Target} />
           Точность
         </h3>
         <dl className="kv">

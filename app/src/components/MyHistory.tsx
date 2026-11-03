@@ -98,7 +98,7 @@ export function MyHistory({ onAnalyze }: { onAnalyze: (matchId: number) => void 
         />
         {p && (
           <span className="muted small">
-            {p.total.toLocaleString('ru')} матчей · <b className={p.wr != null && p.wr >= 0.5 ? 'c-good' : 'c-bad'}>{fmtPct(p.wr)}</b> побед
+            {p.total.toLocaleString('ru')} матчей · <b>{fmtPct(p.wr)}</b> побед
             {p.fetched ? ` · обновлено ${ago(p.fetched)}` : ''}
             {p.refreshing ? ' · обновляю…' : ''}
           </span>

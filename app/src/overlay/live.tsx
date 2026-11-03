@@ -8,7 +8,7 @@ import { useBuild, useSettings, useTopTimings, useTopVs } from '../api/hooks';
 import type { AbilityInfo, DraftRequest } from '../api/types';
 import { ItemIcon, Mins } from '../components/ui';
 import { picked, useDraft } from '../state/draft';
-import { BuybackHud, NeutralHud, NightHud, ObjectivesHud, TimersHud } from './HudBits';
+import { BuybackHud, NeutralHud, NightHud, ObjectivesHud, SOON, TimersHud } from './HudBits';
 import { mmss, NightNote, SkillAnnounce, SkillNow, useElapsed, type NeutralTierNow, type Objectives, type SkillNext } from './InGame';
 
 export function useDraftRequest(): DraftRequest {
@@ -110,14 +110,14 @@ export function PaceLines({ pace }: { pace: Pace }) {
   return (
     <div className="ov__pace">
       {nw && (
-        <p className={`small ${nw.verdict === 'bad' ? 'c-bad' : nw.verdict === 'good' ? 'c-good' : 'muted'}`} title={`по ${nw.games} играм топов на этом герое${nw.estimated ? '; нетворс оценён по GPM' : ''}`}>
+        <p className="small" title={`по ${nw.games} играм топов на этом герое${nw.estimated ? '; нетворс оценён по GPM' : ''}`}>
           {nw.verdict === 'bad' ? 'Нетворс ниже топов' : nw.verdict === 'good' ? 'Нетворс выше топов' : 'Нетворс как у топов'}: {nw.estimated ? '≈ ' : ''}
           {fmt(nw.now)} к {nw.minute}-й минуте, у них {fmt(nw.top)} ({nw.diff > 0 ? '+' : ''}
           {Math.round((nw.ratio - 1) * 100)}%)
         </p>
       )}
       {lh?.few && (
-        <p className="small c-bad" title="сравнение с игроками этого героя по данным OpenDota">
+        <p className="small" title="сравнение с игроками этого героя по данным OpenDota">
           Мало добиваний: {lh.last_hits} к {lh.minute}-й минуте ({lh.per_min.toLocaleString('ru')} в минуту)
           {lh.expected ? `, обычно около ${lh.expected}` : ''}
         </p>
@@ -219,7 +219,7 @@ export function TimersRow({ g, max = 4, elapsed = 0 }: { g: GameLive; max?: numb
       {g.timers.slice(0, max).map((t) => {
         const left = Math.max(0, Math.round(t.in - elapsed));
         return (
-          <span key={t.key} className={`ov__timer ${left <= 15 ? 'is-soon' : ''}`}>
+          <span key={t.key} className={`ov__timer ${left <= SOON ? 'is-soon' : ''}`}>
             {t.name} <b>{t.key === 'night' ? `через ${mmss(left)}` : mmss(left)}</b>
           </span>
         );
@@ -232,7 +232,7 @@ export function Buyback({ g }: { g: GameLive }) {
   if (!g.buyback) return null;
   const b = g.buyback;
   return (
-    <p className={`small ${b.cooldown ? 'muted' : b.enough ? 'c-good' : 'c-bad'}`}>
+    <p className={`small ${b.cooldown || b.enough ? 'muted' : ''}`}>
       Выкуп {b.cost.toLocaleString('ru')}: {b.cooldown ? `перезарядка ${mmss(b.cooldown)}` : b.enough ? 'хватает' : `не хватает ${b.missing.toLocaleString('ru')}`}
     </p>
   );

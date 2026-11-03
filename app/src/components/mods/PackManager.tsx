@@ -4,7 +4,7 @@
  * over another file, removed one by one or with «Убрать всё».
  */
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { FileArchive, Trash2, Upload } from 'lucide-react';
+import { Trash2, Upload } from 'lucide-react';
 import { useRef, useState } from 'react';
 
 import { api, apiBytes } from '../../api/client';
@@ -50,7 +50,6 @@ export function PackManager() {
     <div className="packs">
       <div className="panel__head">
         <h2>
-          <Ti icon={FileArchive} />
           Свои VPK
         </h2>
         <button className="btn btn--sm btn--accent" disabled={!!block || add.isPending} onClick={() => input.current?.click()}>
@@ -112,7 +111,6 @@ export function PackManager() {
         <ul className="packs__list">
           {packs.map((p) => (
             <li key={p.id} className="packs__row">
-              <Ti icon={FileArchive} />
               <div>
                 <b>{p.name}</b>
                 <span className="muted small">

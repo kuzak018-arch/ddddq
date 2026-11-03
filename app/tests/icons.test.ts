@@ -17,11 +17,10 @@ test('a rank tier picks its medal and stars, Immortals by leaderboard place', ()
   assert.deepEqual(medalFor(80, 3), { medal: '8c', stars: 0 });
 });
 
-test('every medal, star row, position and attribute icon the UI asks for is shipped', () => {
+test('every medal, star row and attribute icon the UI asks for is shipped (positions are digits now)', () => {
   for (let t = 0; t <= 8; t++) assert.ok(existsSync(pub(`ranks/medal_${t}.webp`)), `medal ${t}`);
   for (const m of ['8b', '8c']) assert.ok(existsSync(pub(`ranks/medal_${m}.webp`)));
   for (let s = 1; s <= 7; s++) assert.ok(existsSync(pub(`ranks/stars_${s}.webp`)), `stars ${s}`);
-  for (let p = 1; p <= 5; p++) assert.ok(existsSync(pub(`roles/pos${p}.webp`)), `pos ${p}`);
   for (const a of ['str', 'agi', 'int', 'all']) assert.ok(existsSync(pub(`attr/${a}.png`)), a);
   assert.ok(existsSync(pub('plus.webp')));
 });

@@ -1,6 +1,6 @@
 /** «Кто заруинил»: the breakdown of one match — every player rated, the ruiner and the MVP named. */
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Crown, Skull, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { api } from '../api/client';
@@ -180,7 +180,6 @@ function Breakdown({ r, onRefresh }: { r: Ruin; onRefresh: () => void }) {
           <HeroIcon id={ruiner.hero} />
           <div>
             <b>
-              <Ti icon={Skull} />
               {v.kind === 'sure' ? 'Заруинил' : v.kind === 'likely' ? 'Скорее всего заруинил' : 'Проиграли все вместе'}
               {v.kind !== 'together' ? `: ${name(ruiner.hero)}` : ''}
               {ruiner.name && v.kind !== 'together' ? ` (${ruiner.name})` : ''}
@@ -201,7 +200,6 @@ function Breakdown({ r, onRefresh }: { r: Ruin; onRefresh: () => void }) {
             <div className="ruin__mvp">
               <HeroIcon id={mvp.hero} size="sm" />
               <span>
-                <Ti icon={Crown} />
                 MVP: {name(mvp.hero)}, {mvp.rating}
               </span>
             </div>

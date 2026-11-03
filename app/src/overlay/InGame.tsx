@@ -97,7 +97,7 @@ export function SkillAnnounce({ s, order, ab }: { s: SkillNext | null | undefine
                 {now.points > 1 && <span className="muted small"> · свободных очков {now.points}</span>}
               </>
             ) : (
-              <b className="c-good">✓ {name(show)}</b>
+              <b>✓ {name(show)}</b>
             )}
           </span>
         </motion.div>
@@ -126,7 +126,7 @@ export function NeutralTierLine({ t, hero, pos, held }: { t: NeutralTierNow; her
   return (
     <div className="ov__ntier small">
       {fresh ? (
-        <b className="c-good">Открылся тир {t.tier} нейтралок</b>
+        <b>Открылся тир {t.tier} нейтралок</b>
       ) : t.next ? (
         <span className="muted">
           Тир {t.next} нейтралок через {mmss(t.in ?? 0)}
@@ -184,7 +184,7 @@ export function ObjectivesRow({ o }: { o: Objectives }) {
       <div className={`ov__obj-row ${r.state === 'alive' ? 'is-up' : ''}`}>
         <span className="small">
           <b>Рошан</b> {rText}
-          {r.aegis != null && <span className="c-good"> · аегис ещё {mmss(r.aegis)}</span>}
+          {r.aegis != null && <span> · аегис ещё {mmss(r.aegis)}</span>}
           {r.source === 'dota' && <span className="muted"> · по Доте</span>}
         </span>
         {r.source !== 'dota' &&
@@ -255,7 +255,7 @@ export function NightNote({ night, nightIn, me, enemies }: { night: boolean; nig
   if (!who.length) return null;
   const names = who.map((h) => `${heroes?.byId.get(h.hero)?.name ?? ''}${h.hero === me ? ' (ты)' : ' (враг)'}`).join(', ');
   return (
-    <p className={`small ${night ? 'c-bad' : nightIn != null && nightIn <= 60 ? 'c-gold' : 'muted'}`}>
+    <p className={`small ${night ? '' : 'muted'}`}>
       {night ? 'Сейчас ночь' : nightIn != null ? `Ночь через ${mmss(nightIn)}` : 'Днём'} — ночью сильнее: {names}
     </p>
   );
@@ -334,7 +334,7 @@ export function WinStrip({ req, me, inGame }: { req: DraftRequest; me: number | 
             ? 'враги сильнее во всех фазах'
             : null;
   return (
-    <div className={`ov__winstrip ${p >= 0.5 ? 'is-good' : 'is-bad'}`} title={`Оценка драфта: ${req.allies.length} на ${req.enemies.length}`}>
+    <div className="ov__winstrip" title={`Оценка драфта: ${req.allies.length} на ${req.enemies.length}`}>
       <span>
         Ваш драфт <b>{fmtPct(p, 0)}</b>
       </span>

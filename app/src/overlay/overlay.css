@@ -13,12 +13,13 @@ html.is-overlay body {
   height: 100%;
   display: flex;
   flex-direction: column;
-  border-radius: 26px;
+  border-radius: 18px;
   overflow: hidden;
   color: var(--text);
+  /* the app's glass recipe: hairline rim and a 1px highlight on the top edge */
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+    inset 0 1px 0 var(--glass-highlight),
+    inset 0 0 0 1px var(--glass-border);
   transition: opacity var(--dur) var(--ease-out);
 }
 /* Acrylic already blurs and tints the game: a light white veil keeps text readable. Acrylic fills
@@ -27,20 +28,17 @@ html.is-overlay body {
 .ov--acrylic {
   border-radius: 8px;
   background:
-    radial-gradient(130% 70% at 10% -10%, rgba(255, 255, 255, 0.16), transparent 55%),
-    linear-gradient(rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.06)),
+    linear-gradient(var(--glass-tint-float), var(--glass-tint-float)),
     rgba(10, 11, 16, 0.42);
 }
 /* no Acrylic (or performance mode): a dark translucent glass of our own */
 .ov--tint {
   background:
-    radial-gradient(130% 70% at 10% -10%, rgba(255, 255, 255, 0.1), transparent 55%),
-    rgba(14, 15, 21, 0.88);
+    linear-gradient(var(--glass-tint-float), var(--glass-tint-float)),
+    rgba(14, 15, 21, 0.86);
 }
 :root[data-theme='light'] .ov--acrylic {
-  background:
-    radial-gradient(130% 70% at 10% -10%, rgba(255, 255, 255, 0.5), transparent 55%),
-    rgba(250, 250, 252, 0.5);
+  background: rgba(250, 250, 252, 0.6);
 }
 :root[data-theme='light'] .ov--tint {
   background: rgba(248, 248, 250, 0.92);
@@ -52,15 +50,15 @@ html.is-overlay body {
 .ov__head {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 12px 12px 6px;
+  gap: 4px;
+  padding: 10px 10px 6px;
   cursor: grab;
 }
 .ov-switch {
   flex: 1;
   display: flex;
   padding: 4px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.08);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
@@ -69,7 +67,7 @@ html.is-overlay body {
   flex: 1;
   height: 32px;
   border: 0;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-xs);
   background: transparent;
   font-weight: 600;
   font-size: 13px;
@@ -86,18 +84,18 @@ html.is-overlay body {
 .ov-switch__pill {
   position: absolute;
   inset: 0;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-xs);
   background: var(--chip-on);
   box-shadow: inset 0 1px 0 #fff;
 }
 .ov-round {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   flex: none;
   display: grid;
   place-items: center;
   border: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.08);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
   color: var(--text-2);
@@ -110,6 +108,9 @@ html.is-overlay body {
 .ov-round.is-on {
   background: var(--chip-on);
   color: var(--chip-on-text);
+}
+.ov-round .ti {
+  margin: 0;
 }
 .ov-round__min {
   width: 12px;
@@ -163,7 +164,7 @@ html.is-overlay body {
 }
 .is-overlay .hero-search__field {
   height: 40px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
 }
 .is-overlay .hero-search__field input {
   font-size: 13px;
@@ -506,7 +507,7 @@ html.is-overlay body {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: linear-gradient(140deg, #4a8cff, #6a3fd0);
+  background: var(--accent);
 }
 
 /* «Сейчас» in a match (LiveHints): the next item, map timers, buyback */
@@ -527,7 +528,7 @@ html.is-overlay body {
 .ov__gold {
   font-size: 12px;
   font-weight: 700;
-  color: #f5c451;
+  color: var(--gold, #e3b341);
 }
 .ov__next {
   display: flex;
@@ -542,7 +543,7 @@ html.is-overlay body {
   gap: 3px;
 }
 .ov__next.is-ready b {
-  color: var(--good);
+  color: var(--text);
 }
 .ov__bar {
   height: 5px;
@@ -554,11 +555,11 @@ html.is-overlay body {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #f5c451, #ffe08a);
+  background: var(--gold, #e3b341);
   transition: width 0.6s ease-out;
 }
 .ov__next.is-ready .ov__bar i {
-  background: var(--good);
+  background: var(--accent);
 }
 .ov__timers {
   display: flex;
@@ -567,12 +568,12 @@ html.is-overlay body {
 }
 .ov__timer {
   padding: 3px 8px;
-  border-radius: 99px;
+  border-radius: var(--radius-xs);
   font-size: 11.5px;
   background: rgba(255, 255, 255, 0.08);
 }
 .ov__timer.is-soon {
-  background: color-mix(in srgb, #f5c451 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
   color: #fff;
 }
 
@@ -616,16 +617,16 @@ html.is-overlay body {
   background: rgba(255, 255, 255, 0.05);
 }
 .ov__skillnow.is-now {
-  background: rgba(227, 179, 65, 0.14);
-  box-shadow: inset 0 0 0 1px rgba(227, 179, 65, 0.55);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent);
   animation: ov-pulse 1.6s ease-in-out infinite;
 }
 .ov__skillnow.is-now b {
-  color: var(--gold, #e3b341);
+  color: var(--text);
 }
 @keyframes ov-pulse {
   50% {
-    box-shadow: inset 0 0 0 1px rgba(227, 179, 65, 0.15);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 15%, transparent);
   }
 }
 html.perf .ov__skillnow.is-now {
@@ -667,7 +668,7 @@ html.perf .ov__skillnow.is-now {
   height: 22px;
   padding: 0 9px;
   border: 0;
-  border-radius: 99px;
+  border-radius: var(--radius-xs);
   background: rgba(255, 255, 255, 0.1);
   color: var(--text);
   font-size: 11.5px;
@@ -689,12 +690,7 @@ html.perf .ov__skillnow.is-now {
   font-size: 12.5px;
   background: rgba(255, 255, 255, 0.05);
 }
-.ov__winstrip.is-good b {
-  color: var(--good);
-}
-.ov__winstrip.is-bad b {
-  color: var(--bad);
-}
+/* the draft's chance is a plain number: in a match red is kept for «ты купишь» running late */
 
 /* «Враги» */
 .ov__enemies {
@@ -737,7 +733,7 @@ html.perf .ov__skillnow.is-now {
 }
 .ov-badge {
   padding: 1px 6px;
-  border-radius: 99px;
+  border-radius: var(--radius-xs);
   background: rgba(255, 255, 255, 0.09);
   font-size: 10.5px;
   font-weight: 600;
@@ -790,14 +786,12 @@ html.is-widget #root {
   min-height: 30px;
   min-width: 120px;
   cursor: move;
-  box-shadow: inset 0 0 0 1px var(--gold, #e3b341);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 .wg__edit {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--gold, #e3b341);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
 }
 .wg .ov__timers {
   gap: 4px;
@@ -853,7 +847,7 @@ html.is-widget #root {
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   animation: hud-in 0.35s var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)) both;
@@ -868,7 +862,10 @@ html.is-widget #root {
   line-height: 1;
 }
 .hud-chip b.is-soon {
-  color: var(--gold, #e3b341);
+  color: var(--accent);
+}
+.hud-chip .ti {
+  margin-right: 0;
 }
 @keyframes hud-in {
   from {
@@ -876,13 +873,17 @@ html.is-widget #root {
     transform: translateY(6px) scale(0.92);
   }
 }
+/* every ring the same: a neutral line icon and track, the accent under 30 s (HudBits.tsx SOON) */
 .hud-ring {
+  --c: var(--text-2);
   position: relative;
   display: inline-grid;
   place-items: center;
   border-radius: 50%;
-  background: radial-gradient(circle, color-mix(in srgb, var(--c) 22%, transparent) 0 55%, transparent 56%);
   color: var(--c);
+}
+.hud-ring.is-soon {
+  --c: var(--accent);
 }
 .hud-ring .hud-ring__svg {
   position: absolute;
@@ -902,44 +903,39 @@ html.is-widget #root {
 }
 .hud-ring__icon {
   position: relative;
-  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--c) 60%, transparent));
+  margin: 0;
 }
 .hud-ring.is-soon {
   animation: hud-pulse 1s ease-in-out infinite;
 }
 @keyframes hud-pulse {
   50% {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 35%, transparent), 0 0 14px color-mix(in srgb, var(--c) 60%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 30%, transparent);
   }
 }
 .hud-obj {
   display: inline-flex;
   gap: 8px;
 }
+.hud-chip--obj.is-maybe b,
 .hud-chip--obj.is-dead b {
-  color: #ff8a8a;
-}
-.hud-chip--obj.is-maybe b {
-  color: #f2c14e;
-}
-.hud-chip--obj.is-alive b {
-  color: #7be39a;
+  color: var(--text-2);
 }
 .hud-aegis {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  color: #ffd76a;
+  color: var(--text-2);
   font-size: 11px;
 }
 .hud-btn {
   display: inline-grid;
   place-items: center;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   padding: 0;
   border: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-xs);
   background: rgba(255, 255, 255, 0.1);
   color: var(--text);
   cursor: pointer;
@@ -947,7 +943,9 @@ html.is-widget #root {
 }
 .hud-btn:hover {
   background: rgba(255, 255, 255, 0.22);
-  transform: scale(1.1);
+}
+.hud-btn .ti {
+  margin: 0;
 }
 .hud-neutral {
   display: inline-flex;
@@ -965,12 +963,12 @@ html.is-widget #root {
   min-width: 14px;
   height: 14px;
   padding: 0 3px;
-  border-radius: 7px;
-  background: #59d7c8;
-  color: #0b1a18;
+  border-radius: var(--radius-xs);
+  background: var(--chip-on);
+  color: var(--chip-on-text);
   font-size: 10px;
   font-style: normal;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 14px;
   text-align: center;
 }
@@ -979,10 +977,10 @@ html.is-widget #root {
 }
 @keyframes hud-flash {
   0% {
-    box-shadow: 0 0 0 0 rgba(89, 215, 200, 0.7);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 70%, transparent);
   }
   100% {
-    box-shadow: 0 0 0 12px rgba(89, 215, 200, 0);
+    box-shadow: 0 0 0 12px transparent;
   }
 }
 .hud-item {
@@ -992,7 +990,7 @@ html.is-widget #root {
 }
 .hud-item--held {
   margin-left: 4px;
-  box-shadow: 0 0 0 1px rgba(89, 215, 200, 0.6);
+  box-shadow: 0 0 0 1px var(--glass-border);
 }
 /* the next item, filling up from the bottom with the gold the player has */
 .hud-gold {
@@ -1028,8 +1026,7 @@ html.is-widget #root {
   right: 0;
   bottom: var(--p);
   height: 2px;
-  background: #f2c14e;
-  box-shadow: 0 0 6px #f2c14e;
+  background: var(--gold, #e3b341);
   transition: bottom 0.6s ease;
 }
 .hud-gold.is-ready .hud-fill .item-icon {
@@ -1040,7 +1037,7 @@ html.is-widget #root {
 }
 @keyframes hud-ready {
   50% {
-    box-shadow: 0 0 0 2px #5ad07a, 0 0 12px #5ad07a;
+    box-shadow: 0 0 0 2px var(--accent);
   }
 }
 .hud-gold__nums {
@@ -1067,19 +1064,18 @@ html.is-widget #root {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  color: #9db4ff;
+  color: var(--text-2);
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
+}
+.hud-night .ti {
+  margin-right: 0;
 }
 .hud-night.is-night {
-  color: #c7d4ff;
-  text-shadow: 0 0 6px rgba(157, 180, 255, 0.7);
-}
-.hud-night .is-enemy .hero-icon {
-  box-shadow: 0 0 0 1px #ff6b6b;
+  color: var(--text);
 }
 .hud-night .is-me .hero-icon {
-  box-shadow: 0 0 0 1px #5ad07a;
+  box-shadow: 0 0 0 1px var(--text);
 }
 .hud-win {
   display: inline-flex;
@@ -1091,13 +1087,13 @@ html.is-widget #root {
   width: 64px;
   height: 5px;
   border-radius: 3px;
-  background: rgba(255, 90, 90, 0.55);
+  background: rgba(255, 255, 255, 0.14);
   overflow: hidden;
 }
 .hud-win__bar i {
   display: block;
   height: 100%;
-  background: #5ad07a;
+  background: var(--text);
   transition: width 0.6s ease;
 }
 html.perf .hud-chip,
@@ -1128,11 +1124,6 @@ html.perf .hud-gold.is-ready .hud-fill {
   flex-direction: column;
   align-items: flex-start;
   gap: 0;
-}
-.hud-ring__img {
-  position: relative;
-  border-radius: 50%;
-  object-fit: cover;
 }
 .hud-gold__name {
   flex-basis: 100%;

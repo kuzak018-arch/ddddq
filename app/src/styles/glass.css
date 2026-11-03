@@ -6,11 +6,10 @@
  */
 
 .glass {
-  --sheen: 0.14;
+  --tint: var(--glass-tint);
   position: relative;
   background:
-    radial-gradient(120% 70% at 15% -20%, rgba(255, 255, 255, var(--sheen)), transparent 60%),
-    linear-gradient(var(--glass-tint), var(--glass-tint)),
+    linear-gradient(var(--tint), var(--tint)),
     rgba(var(--veil-rgb), var(--veil));
   -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
@@ -32,12 +31,13 @@
   backdrop-filter: var(--refract-filter);
 }
 
+/* the same glass, denser: sheets and dialogs over the page */
 .glass--strong {
-  --sheen: 0.18;
-  background:
-    radial-gradient(120% 70% at 15% -20%, rgba(255, 255, 255, var(--sheen)), transparent 60%),
-    linear-gradient(var(--glass-tint-strong), var(--glass-tint-strong)),
-    rgba(var(--veil-rgb), calc(var(--veil) + 0.08));
+  --tint: var(--glass-tint-strong);
+}
+/* the same glass, most transparent: navigation, the positions bar, popovers, tooltips */
+.glass--float {
+  --tint: var(--glass-tint-float);
 }
 
 /* The blurred wallpaper made once (lib/glassBackdrop.ts) instead of the live backdrop-filter, which
@@ -75,19 +75,11 @@ html.glass-pic .glass:not(.glass--inset)::before {
 html.glass-img .glass:not(.glass--inset)::after {
   background:
     var(--glass-grain, linear-gradient(transparent, transparent)),
-    radial-gradient(120% 70% at 15% -20%, rgba(255, 255, 255, var(--sheen)), transparent 60%),
-    linear-gradient(var(--glass-tint), var(--glass-tint)),
+    linear-gradient(var(--tint), var(--tint)),
     rgba(var(--veil-rgb), var(--veil));
   box-shadow:
     inset 0 1px 0 var(--glass-highlight),
     inset 0 0 0 1px var(--glass-border);
-}
-html.glass-img .glass--strong:not(.glass--inset)::after {
-  background:
-    var(--glass-grain, linear-gradient(transparent, transparent)),
-    radial-gradient(120% 70% at 15% -20%, rgba(255, 255, 255, var(--sheen)), transparent 60%),
-    linear-gradient(var(--glass-tint-strong), var(--glass-tint-strong)),
-    rgba(var(--veil-rgb), calc(var(--veil) + 0.08));
 }
 
 /* «Матовое»: heavy frost, little of the wallpaper's detail, calm and readable */
@@ -98,9 +90,6 @@ html[data-material='matte'] {
   --glass-highlight: rgba(255, 255, 255, 0.16);
   --glass-blur: 48px;
   --glass-saturate: 120%;
-}
-html[data-material='matte'] .glass {
-  --sheen: 0.05;
 }
 html[data-material='matte'][data-theme='light'] {
   --glass-tint: rgba(255, 255, 255, 0.66);
@@ -117,9 +106,6 @@ html[data-material='acrylic'] {
   --glass-blur: 34px;
   --glass-saturate: 140%;
   --glass-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-html[data-material='acrylic'] .glass {
-  --sheen: 0.07;
 }
 html[data-material='acrylic'][data-theme='light'] {
   --glass-tint: rgba(255, 255, 255, 0.5);
@@ -173,16 +159,16 @@ html[data-material='dota'][data-theme='light'] .glass:not(.glass--inset)::after 
   height: 38px;
   padding: 0 18px;
   border: 0;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   color: var(--text);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
   background:
-    radial-gradient(110px circle at var(--mx, 30%) var(--my, -20%), rgba(255, 255, 255, 0.24), transparent 60%),
+    radial-gradient(110px circle at var(--mx, 30%) var(--my, -20%), rgba(255, 255, 255, 0.1), transparent 60%),
     var(--control-bg);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
     inset 0 0 0 1px var(--glass-rim-2);
   transition:
     transform 0.45s var(--ease-spring),
@@ -191,7 +177,7 @@ html[data-material='dota'][data-theme='light'] .glass:not(.glass--inset)::after 
 
 .btn:hover {
   background:
-    radial-gradient(110px circle at var(--mx, 30%) var(--my, -20%), rgba(255, 255, 255, 0.34), transparent 60%),
+    radial-gradient(110px circle at var(--mx, 30%) var(--my, -20%), rgba(255, 255, 255, 0.14), transparent 60%),
     var(--control-bg-hover);
 }
 
@@ -207,7 +193,7 @@ html[data-material='dota'][data-theme='light'] .glass:not(.glass--inset)::after 
   color: var(--chip-on-text);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 6px 18px -8px rgba(0, 0, 0, 0.45);
+    0 1px 2px rgba(0, 0, 0, 0.25);
 }
 .btn--accent:hover {
   background: #fff;

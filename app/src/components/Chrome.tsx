@@ -16,7 +16,7 @@ import { refractionSupported } from '../glass/refraction';
 import { useDraft } from '../state/draft';
 import { loadBackgroundFile } from '../state/bgstore';
 import { useUi, type Background, type Page } from '../state/ui';
-import { POS_ROLE, RoleIcon } from './DotaIcons';
+import { POS_ROLE, PosTag } from './DotaIcons';
 import { IconClose, IconMax, IconMin, IconSettings, Ti } from './Icons';
 
 /** The tab pill. Builds live under «Герои» (the hero page and its builds share one tab). */
@@ -53,7 +53,7 @@ export function TitleBar() {
         </span>
       </div>
 
-      <nav className="tabs glass" aria-label="Разделы">
+      <nav className="tabs glass glass--float" aria-label="Разделы">
         {NAV.map(({ page: p, label, icon, also }, i) => {
           const on = page === p || !!also?.includes(page);
           return (
@@ -77,7 +77,7 @@ export function TitleBar() {
       <div className="topbar__right" data-tauri-drag-region>
         <PositionPicker />
         <button
-          className={`round-btn glass ${page === 'settings' || page === 'vision' ? 'is-active' : ''}`}
+          className={`round-btn glass glass--float ${page === 'settings' || page === 'vision' ? 'is-active' : ''}`}
           onClick={() => go('settings')}
           title={update ? `Настройки (Ctrl+8) · доступна версия ${update}` : 'Настройки (Ctrl+8)'}
           aria-label="Настройки"
@@ -109,7 +109,7 @@ function PositionPicker() {
   const d = useDraft();
   const pos = d.pos ?? settings?.pos ?? 1;
   return (
-    <div className="posnav glass" role="radiogroup" aria-label="Моя позиция">
+    <div className="posnav glass glass--float" role="radiogroup" aria-label="Моя позиция">
       {[1, 2, 3, 4, 5].map((p) => (
         <button
           key={p}
@@ -121,9 +121,7 @@ function PositionPicker() {
           aria-label={`Позиция ${p} · ${POS_ROLE[p]}`}
         >
           {p === pos && <motion.span layoutId="pos-pill" className="posnav__pill" transition={{ type: 'spring', stiffness: 380, damping: 34 }} />}
-          <span>
-            <RoleIcon pos={p} size={20} />
-          </span>
+          <PosTag pos={p} bare={p !== pos} />
         </button>
       ))}
     </div>
