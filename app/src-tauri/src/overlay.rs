@@ -104,23 +104,55 @@ pub fn set_click_through_inner(app: &AppHandle, on: bool) -> Result<(), String> 
     Ok(())
 }
 
+/// A widget window is made when a match starts and destroyed after it: outside a match (and for a
+/// widget turned off) no WebView is kept in memory. The window-state plugin puts it back where the
+/// user left it (it restores every new window by its label).
+fn build_widget(app: &AppHandle, label: &str) -> Result<WebviewWindow, String> {
+    let (w, h, x, y) = match label {
+        "w-timers" => (270.0, 150.0, 10.0, 560.0),
+        "w-now" => (270.0, 86.0, 10.0, 470.0),
+        _ => (290.0, 150.0, 1600.0, 620.0),
+    };
+    let url = tauri::WebviewUrl::App(format!("index.html#widget-{}", &label[2..]).into());
+    tauri::WebviewWindowBuilder::new(app, label, url)
+        .title("Dota Drafter — виджет")
+        .inner_size(w, h)
+        .position(x, y)
+        .transparent(true)
+        .decorations(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .shadow(false)
+        .resizable(false)
+        .focused(false)
+        .visible(false)
+        .build()
+        .map_err(|e| format!("окно виджета не создано: {e}"))
+}
+
 /// Show or hide one widget window (the overlay page decides: in a match, when the widget is on).
 #[tauri::command]
 pub fn widget_show(app: AppHandle, label: String, show: bool) -> Result<(), String> {
     if !WIDGETS.contains(&label.as_str()) {
         return Err(format!("нет такого виджета: {label}"));
     }
-    let w = app.get_webview_window(&label).ok_or_else(|| "окно виджета не найдено".to_string())?;
-    if show == w.is_visible().unwrap_or(false) {
+    let existing = app.get_webview_window(&label);
+    if !show {
+        if let Some(w) = existing {
+            w.destroy().map_err(|e| e.to_string())?;
+        }
         return Ok(());
     }
-    if show {
-        let _ = w.set_ignore_cursor_events(!widgets_interactive(&app));
-        show_keeping_focus(&w)?;
-        let _ = w.set_always_on_top(true);
-    } else {
-        w.hide().map_err(|e| e.to_string())?;
+    let w = match existing {
+        Some(w) => w,
+        None => build_widget(&app, &label)?,
+    };
+    if w.is_visible().unwrap_or(false) {
+        return Ok(());
     }
+    let _ = w.set_ignore_cursor_events(!widgets_interactive(&app));
+    show_keeping_focus(&w)?;
+    let _ = w.set_always_on_top(true);
     Ok(())
 }
 

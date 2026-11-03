@@ -37,20 +37,39 @@ import { useUi } from '../state/ui';
  * handlers; the background effects are drawn under the window on this page, not over it.
  */
 export function SettingsPage() {
+  const tab = useUi((s) => s.settingsTab);
+  const set = useUi((s) => s.set);
   return (
     <div className="settings">
       <AppearanceCard />
       <div className="settings-side glass">
+        <div className="settings-tabs">
+          <Segmented
+            value={tab}
+            onChange={(settingsTab) => set({ settingsTab })}
+            options={[
+              { value: 'main', label: 'Основное', title: 'Аккаунт, GSI, чтение с экрана, оверлей и виджеты, обновления' },
+              { value: 'more', label: 'Дополнительно', title: 'Советы драфта, программа, данные и модель, данные линий' },
+            ]}
+          />
+        </div>
         <div className="settings-scroll">
-          <AccountCard />
-          <GsiCard />
-          <VisionCard />
-          <OverlayCard />
-          <AdviceCard />
-          <AppCard />
-          <DataCard />
-          <LaneBulkCard />
-          <VersionCard />
+          {tab === 'main' ? (
+            <>
+              <AccountCard />
+              <GsiCard />
+              <VisionCard />
+              <OverlayCard />
+              <VersionCard />
+            </>
+          ) : (
+            <>
+              <AdviceCard />
+              <AppCard />
+              <DataCard />
+              <LaneBulkCard />
+            </>
+          )}
         </div>
       </div>
     </div>

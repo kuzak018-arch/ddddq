@@ -24,6 +24,7 @@ import { boardSound, play } from './lib/sounds';
 import { useResolvedTheme } from './lib/theme';
 import { useCloseToTray } from './lib/tray';
 import { useAutoUpdates } from './lib/updates';
+import { PatchBanner } from './components/PatchBanner';
 import { applyHotkeys, showOverlay } from './lib/overlay';
 import { useDraft } from './state/draft';
 import { startSync } from './state/sync';
@@ -171,6 +172,7 @@ export default function App() {
       {ready && <Onboarding />}
       <div className="app">
         <TitleBar />
+        {ready && <PatchBanner />}
         <div className="app__body">
           <main className="app__main" data-anim={anim} data-dir={stack.dir}>
             {!ready ? (

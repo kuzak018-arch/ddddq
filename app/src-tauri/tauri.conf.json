@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Dota Drafter",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "identifier": "com.dotadrafter.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -41,57 +41,6 @@
         "shadow": false,
         "resizable": true,
         "focus": false
-      },
-      {
-        "label": "w-timers",
-        "title": "Dota Drafter — Таймеры",
-        "url": "index.html#widget-timers",
-        "width": 270,
-        "height": 150,
-        "x": 10,
-        "y": 560,
-        "transparent": true,
-        "decorations": false,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "shadow": false,
-        "resizable": false,
-        "focus": false,
-        "visible": false
-      },
-      {
-        "label": "w-now",
-        "title": "Dota Drafter — Сейчас",
-        "url": "index.html#widget-now",
-        "width": 270,
-        "height": 86,
-        "x": 10,
-        "y": 470,
-        "transparent": true,
-        "decorations": false,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "shadow": false,
-        "resizable": false,
-        "focus": false,
-        "visible": false
-      },
-      {
-        "label": "w-gold",
-        "title": "Dota Drafter — Золото",
-        "url": "index.html#widget-gold",
-        "width": 290,
-        "height": 150,
-        "x": 1600,
-        "y": 620,
-        "transparent": true,
-        "decorations": false,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "shadow": false,
-        "resizable": false,
-        "focus": false,
-        "visible": false
       }
     ],
     "security": {

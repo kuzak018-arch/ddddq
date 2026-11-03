@@ -138,6 +138,8 @@ async def lifespan(app: FastAPI):
             except Exception:  # noqa: BLE001 - never a reason to disturb the app
                 pass
         threading.Thread(target=_hero_art, name="hero-art", daemon=True).start()
+        from .. import patch_watch
+        patch_watch.start(lambda kind, **data: bus.publish(kind, **data))
         try:
             build_service.start_prefetch(_pred().pos_mat)
         except HTTPException:
@@ -1608,6 +1610,16 @@ def debug_log(body: DebugLogIn):
         for line in body.lines:
             f.write(line[:4000].replace("\n", " ") + "\n")
     return {"ok": True, "path": str(path)}
+
+
+@app.get("/data/patch-status")
+def data_patch_status(check: bool = False):
+    """Is the data behind Dota's newest patch (Valve's patch list, checked in the background)?
+    `check`: ask Valve now."""
+    from .. import patch_watch
+    if check:
+        patch_watch.check()
+    return patch_watch.status()
 
 
 @app.post("/data/refresh")
