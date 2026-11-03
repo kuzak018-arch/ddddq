@@ -835,3 +835,275 @@ html.is-widget #root {
   background: rgba(90, 200, 120, 0.12);
   box-shadow: inset 0 0 0 1px rgba(90, 200, 120, 0.45);
 }
+
+/* ---------- HUD pieces (HudBits.tsx): icons, rings, colours instead of words ---------- */
+.hud-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+.hud-timers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+.hud-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  animation: hud-in 0.35s var(--ease-spring, cubic-bezier(0.34, 1.56, 0.64, 1)) both;
+}
+.hud-chip--col {
+  flex-direction: column;
+  gap: 1px;
+  min-width: 34px;
+}
+.hud-chip--col b {
+  font-size: 11px;
+  line-height: 1;
+}
+.hud-chip b.is-soon {
+  color: var(--gold, #e3b341);
+}
+@keyframes hud-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.92);
+  }
+}
+.hud-ring {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--c) 22%, transparent) 0 55%, transparent 56%);
+  color: var(--c);
+}
+.hud-ring .hud-ring__svg {
+  position: absolute;
+  inset: 0;
+}
+.hud-ring__track {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 2.5;
+}
+.hud-ring__fill {
+  fill: none;
+  stroke: var(--c);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.6s linear;
+}
+.hud-ring__icon {
+  position: relative;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--c) 60%, transparent));
+}
+.hud-ring.is-soon {
+  animation: hud-pulse 1s ease-in-out infinite;
+}
+@keyframes hud-pulse {
+  50% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 35%, transparent), 0 0 14px color-mix(in srgb, var(--c) 60%, transparent);
+  }
+}
+.hud-obj {
+  display: inline-flex;
+  gap: 8px;
+}
+.hud-chip--obj.is-dead b {
+  color: #ff8a8a;
+}
+.hud-chip--obj.is-maybe b {
+  color: #f2c14e;
+}
+.hud-chip--obj.is-alive b {
+  color: #7be39a;
+}
+.hud-aegis {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: #ffd76a;
+  font-size: 11px;
+}
+.hud-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+.hud-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+  transform: scale(1.1);
+}
+.hud-neutral {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.hud-gem {
+  position: relative;
+  display: inline-grid;
+}
+.hud-gem i {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: #59d7c8;
+  color: #0b1a18;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 14px;
+  text-align: center;
+}
+.hud-neutral.is-fresh .hud-ring {
+  animation: hud-flash 1.4s ease-out 3;
+}
+@keyframes hud-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgba(89, 215, 200, 0.7);
+  }
+  100% {
+    box-shadow: 0 0 0 12px rgba(89, 215, 200, 0);
+  }
+}
+.hud-item {
+  display: inline-flex;
+  border-radius: 4px;
+  animation: hud-in 0.35s both;
+}
+.hud-item--held {
+  margin-left: 4px;
+  box-shadow: 0 0 0 1px rgba(89, 215, 200, 0.6);
+}
+/* the next item, filling up from the bottom with the gold the player has */
+.hud-gold {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 22px;
+}
+.hud-fill {
+  position: relative;
+  display: inline-flex;
+  border-radius: 5px;
+  overflow: hidden;
+}
+.hud-fill .item-icon {
+  filter: grayscale(0.85) brightness(0.6);
+}
+.hud-fill i {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  clip-path: inset(calc(100% - var(--p)) 0 0 0);
+  transition: clip-path 0.6s ease;
+}
+.hud-fill i .item-icon {
+  filter: none;
+}
+.hud-fill::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--p);
+  height: 2px;
+  background: #f2c14e;
+  box-shadow: 0 0 6px #f2c14e;
+  transition: bottom 0.6s ease;
+}
+.hud-gold.is-ready .hud-fill .item-icon {
+  filter: none;
+}
+.hud-gold.is-ready .hud-fill {
+  animation: hud-ready 1.2s ease-in-out infinite;
+}
+@keyframes hud-ready {
+  50% {
+    box-shadow: 0 0 0 2px #5ad07a, 0 0 12px #5ad07a;
+  }
+}
+.hud-gold__nums {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 8px;
+}
+.hud-btn--corner {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+.hud-note {
+  position: absolute;
+  bottom: -2px;
+  right: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  opacity: 0.8;
+}
+.hud-night {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #9db4ff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.hud-night.is-night {
+  color: #c7d4ff;
+  text-shadow: 0 0 6px rgba(157, 180, 255, 0.7);
+}
+.hud-night .is-enemy .hero-icon {
+  box-shadow: 0 0 0 1px #ff6b6b;
+}
+.hud-night .is-me .hero-icon {
+  box-shadow: 0 0 0 1px #5ad07a;
+}
+.hud-win {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+}
+.hud-win__bar {
+  width: 64px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 90, 90, 0.55);
+  overflow: hidden;
+}
+.hud-win__bar i {
+  display: block;
+  height: 100%;
+  background: #5ad07a;
+  transition: width 0.6s ease;
+}
+html.perf .hud-chip,
+html.perf .hud-item,
+html.perf .hud-ring.is-soon,
+html.perf .hud-neutral.is-fresh .hud-ring,
+html.perf .hud-gold.is-ready .hud-fill {
+  animation: none;
+}

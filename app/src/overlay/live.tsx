@@ -8,7 +8,8 @@ import { useBuild, useSettings, useTopTimings, useTopVs } from '../api/hooks';
 import type { AbilityInfo, DraftRequest } from '../api/types';
 import { ItemIcon, Mins } from '../components/ui';
 import { picked, useDraft } from '../state/draft';
-import { mmss, NeutralTierLine, NightNote, ObjectivesRow, SkillAnnounce, SkillNow, useElapsed, type NeutralTierNow, type Objectives, type SkillNext } from './InGame';
+import { BuybackHud, NeutralHud, NightHud, ObjectivesHud, TimersHud } from './HudBits';
+import { mmss, NightNote, SkillAnnounce, SkillNow, useElapsed, type NeutralTierNow, type Objectives, type SkillNext } from './InGame';
 
 export function useDraftRequest(): DraftRequest {
   const d = useDraft();
@@ -94,7 +95,7 @@ export interface GameLive {
   skill?: SkillNext | null;
   neutral_tier?: NeutralTierNow | null;
   objectives?: Objectives | null;
-  timers: { key: string; name: string; in: number }[];
+  timers: { key: string; name: string; in: number; period?: number }[];
   next: { key: string; name: string; cost: number; left: number; missing: number; ready: boolean; have: string[] } | null;
   passed?: { key: string; name: string; why: 'skipped' | 'later' | 'replaced'; by?: string; by_name?: string }[];
   buyback: { cost: number; enough: boolean; missing: number; cooldown: number } | null;
@@ -268,11 +269,15 @@ export function LiveHints({ plan, pos, order, ab, hero, enemies }: {
         <p className="hint">Дота пока не присылает способности: перезапусти её один раз (конфиг GSI обновлён).</p>
       )}
       <NextItem g={g} plan={plan} />
-      <TimersRow g={g} elapsed={g.live.paused ? 0 : elapsed} />
-      <Buyback g={g} />
-      <NightLine g={g} hero={hero} enemies={enemies} />
-      {g.neutral_tier && <NeutralTierLine t={g.neutral_tier} hero={hero} pos={pos} held={g.live.neutral ?? null} />}
-      {g.objectives && <ObjectivesRow o={g.objectives} />}
+      <TimersHud g={g} elapsed={g.live.paused ? 0 : elapsed} />
+      <div className="hud-line">
+        {g.neutral_tier && <NeutralHud t={g.neutral_tier} hero={hero} pos={pos} held={g.live.neutral ?? null} />}
+        {g.objectives && <ObjectivesHud o={g.objectives} />}
+      </div>
+      <div className="hud-line">
+        <BuybackHud g={g} />
+        <NightHud g={g} me={hero} enemies={enemies} elapsed={g.live.paused ? 0 : elapsed} />
+      </div>
       {g.pace && <PaceLines pace={g.pace} />}
     </div>
   );
