@@ -33,9 +33,8 @@ jobs:
         run: |
           gh release download seed-data --pattern seed-data.zip --repo "${{ github.repository }}"
           if ($LASTEXITCODE -ne 0) { throw "нет релиза seed-data с seed-data.zip: на ПК выполни scripts/publish-seed.ps1" }
-          $root = Join-Path $env:RUNNER_TEMP "appdata"
-          Expand-Archive seed-data.zip -DestinationPath (Join-Path $root "DotaDrafter\data") -Force
-          "LOCALAPPDATA=$root" >> $env:GITHUB_ENV
+          # run from the sources, the backend reads data/ in the checkout (as the release build does)
+          Expand-Archive seed-data.zip -DestinationPath data -Force
 
       - uses: actions/setup-python@v5
         with:
@@ -55,7 +54,7 @@ jobs:
         run: |
           python -m drafter.web_export ../site-data/demo
           if ($LASTEXITCODE -ne 0) { throw "выгрузка данных демо не удалась" }
-          Copy-Item -Recurse (Join-Path $env:LOCALAPPDATA "DotaDrafter\data\icons") ../site-data/icons
+          Copy-Item -Recurse ../data/icons ../site-data/icons
 
       - uses: actions/upload-artifact@v4
         with:
