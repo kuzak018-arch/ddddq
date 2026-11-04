@@ -107,7 +107,8 @@ const FILES: Record<string, string> = {
   Zap: 'f_rune.webp',
 };
 
-export const glyphUrl = (file: string) => `${import.meta.env.BASE_URL}dota-icons/ui/${file}`;
+// absolute: a url() inside a CSS variable resolves against the stylesheet that uses it, not the page
+export const glyphUrl = (file: string) => new URL(`${import.meta.env.BASE_URL}dota-icons/ui/${file}`, document.baseURI).href;
 
 function make(name: string, file: string): LucideIcon {
   const G = ({ size, className = '', style, title, 'aria-hidden': hidden }: GlyphProps) => (

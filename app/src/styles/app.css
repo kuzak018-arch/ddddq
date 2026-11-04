@@ -7152,3 +7152,14 @@ a.btn {
     flex-wrap: wrap;
   }
 }
+/* the demo has no 3D models: the hero's selection portrait stands in the card */
+.hmodel__fig--portrait {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: calc(100% - var(--card-top, 0px));
+  object-fit: cover;
+  border-radius: var(--radius-md);
+}

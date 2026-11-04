@@ -5,7 +5,7 @@
  */
 import { invoke, isTauri } from '@tauri-apps/api/core';
 
-import { BASE, DEMO, DemoError, demoApi } from '../demo/api';
+import { BASE, DEMO, DemoError, demoApi, demoAsset } from '../demo/api';
 
 export interface BackendInfo {
   url: string;
@@ -119,6 +119,7 @@ export async function apiBytes<T>(path: string, data: Blob): Promise<T> {
 let assetBase = '';
 /** Absolute URL for backend static files (icons). main.tsx resolves the backend before rendering. */
 export function asset(path: string): string {
+  if (DEMO) return demoAsset(path) ?? assetBase + path;   // the demo's icons are packed data URIs
   return assetBase + path;
 }
 backend().then((b) => (assetBase = b.url));

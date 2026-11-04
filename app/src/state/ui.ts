@@ -94,8 +94,8 @@ export const useUi = create<UiState>()(
       buildHero: null,
       buildPos: 1,
       theme: 'dark',
-      // the demo site opens on liquid glass over a hero's art, as the app is meant to look
-      background: DEMO ? { kind: 'hero', key: 'juggernaut' } : { kind: 'preset', id: 'slate' },
+      // the demo opens on liquid glass over a coloured wallpaper (a page host may block hero art from Steam's CDN)
+      background: DEMO ? { kind: 'preset', id: 'night' } : { kind: 'preset', id: 'slate' },
       bgBlur: 0,
       bgDim: 0.15,
       bgPos: { x: 50, y: 30 },
