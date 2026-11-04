@@ -107,7 +107,7 @@ const FILES: Record<string, string> = {
   Zap: 'f_rune.webp',
 };
 
-export const glyphUrl = (file: string) => `/dota-icons/ui/${file}`;
+export const glyphUrl = (file: string) => `${import.meta.env.BASE_URL}dota-icons/ui/${file}`;
 
 function make(name: string, file: string): LucideIcon {
   const G = ({ size, className = '', style, title, 'aria-hidden': hidden }: GlyphProps) => (

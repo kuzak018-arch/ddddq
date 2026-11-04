@@ -10,6 +10,7 @@ import { BuildView } from '../components/BuildView';
 import { HeroModel, useHeroModel } from '../components/HeroModel';
 import { Panel } from '../components/Glass';
 import { AttrIcon, RoleIcon } from '../components/DotaIcons';
+import { DEMO } from '../demo/api';
 import { HeroAbilities } from '../components/HeroAbilities';
 import { HeroModeSwitch } from '../components/HeroModeSwitch';
 import { Ti } from '../components/Icons';
@@ -163,10 +164,10 @@ function HeroHeader({ p }: { p: HeroPageData }) {
             <Ti icon={Hammer} />
             Билды
           </button>
-          <button className="btn btn--sm" onClick={() => go('top')}>
+          {!DEMO && <button className="btn btn--sm" onClick={() => go('top')}>
             <Ti icon={Trophy} />
             Игры топов
-          </button>
+          </button>}
         </div>
       </div>
     </div>

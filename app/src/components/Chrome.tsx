@@ -17,6 +17,7 @@ import { useDraft } from '../state/draft';
 import { loadBackgroundFile } from '../state/bgstore';
 import { useUi, type Background, type Page } from '../state/ui';
 import { POS_ROLE, RoleIcon } from './DotaIcons';
+import { DEMO, DEMO_PAGES } from '../demo/api';
 import { IconClose, IconMax, IconMin, IconSettings, Ti } from './Icons';
 
 /** The tab pill. Builds live under «Герои» (the hero page and its builds share one tab). */
@@ -54,7 +55,7 @@ export function TitleBar() {
       </div>
 
       <nav className="tabs glass" aria-label="Разделы">
-        {NAV.map(({ page: p, label, icon, also }, i) => {
+        {(DEMO ? NAV.filter((n) => DEMO_PAGES.includes(n.page)) : NAV).map(({ page: p, label, icon, also }, i) => {
           const on = page === p || !!also?.includes(page);
           return (
             <button
@@ -76,7 +77,7 @@ export function TitleBar() {
 
       <div className="topbar__right" data-tauri-drag-region>
         <PositionPicker />
-        <button
+        {!DEMO && <button
           className={`round-btn glass ${page === 'settings' || page === 'vision' ? 'is-active' : ''}`}
           onClick={() => go('settings')}
           title={update ? `Настройки (Ctrl+8) · доступна версия ${update}` : 'Настройки (Ctrl+8)'}
@@ -84,7 +85,7 @@ export function TitleBar() {
         >
           <IconSettings />
           {update && <span className="round-btn__dot" />}
-        </button>
+        </button>}
         {win && (
           <div className="winbtns">
             <button className="winbtn" aria-label="Свернуть" onClick={() => win.minimize()}>
@@ -133,7 +134,7 @@ function PositionPicker() {
 /** The built-in logo: crossed blades on a glass lens over a Radiant-to-Dire glow (the app icon,
  * app/design/app-icon.svg; public/brand.svg is the same file). */
 export function BrandMark() {
-  return <img className="brand-mark" src="/brand.svg" alt="" draggable={false} data-tauri-drag-region />;
+  return <img className="brand-mark" src={`${import.meta.env.BASE_URL}brand.svg`} alt="" draggable={false} data-tauri-drag-region />;
 }
 
 /** Built-in wallpapers (slate, graphite, light, dark, night); `luma` is how bright each one is (for the glass veil). */

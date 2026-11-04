@@ -25,6 +25,8 @@ import { useResolvedTheme } from './lib/theme';
 import { useCloseToTray } from './lib/tray';
 import { useAutoUpdates } from './lib/updates';
 import { PatchBanner } from './components/PatchBanner';
+import { DemoBanner } from './components/DemoBanner';
+import { DEMO, DEMO_PAGES } from './demo/api';
 import { applyHotkeys, showOverlay } from './lib/overlay';
 import { useDraft } from './state/draft';
 import { startSync } from './state/sync';
@@ -126,6 +128,10 @@ export default function App() {
   }, [page]);
   useCloseToTray();
   useAutoUpdates();
+  // the demo site has the draft, the meta and the heroes only
+  useEffect(() => {
+    if (DEMO && !DEMO_PAGES.includes(page)) go('draft');
+  }, [page, go]);
 
   useEffect(() => {
     waitForBackend()
@@ -169,10 +175,11 @@ export default function App() {
   return (
     <>
       <Wallpaper />
-      {ready && <Onboarding />}
+      {ready && !DEMO && <Onboarding />}
       <div className="app">
         <TitleBar />
-        {ready && <PatchBanner />}
+        {DEMO && <DemoBanner />}
+        {ready && !DEMO && <PatchBanner />}
         <div className="app__body">
           <main className="app__main" data-anim={anim} data-dir={stack.dir}>
             {!ready ? (

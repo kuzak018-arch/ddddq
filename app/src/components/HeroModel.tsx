@@ -152,7 +152,7 @@ export function HeroModel({ heroKey, heroId, fallback, animated = false, classNa
   }, []);
   // the video only where its model lands exactly on the still (no jump when it starts)
   const place = size && m.crop && m.frame && size[0] > 0 ? placeStill(size[0], size[1], m.crop, m.frame) : null;
-  const backing = `url("/portraits/${heroId}.webp")${fallback ? `, url("${fallback}")` : ''}`;
+  const backing = `url("${import.meta.env.BASE_URL}portraits/${heroId}.webp")${fallback ? `, url("${fallback}")` : ''}`;
   return (
     <div
       ref={box}

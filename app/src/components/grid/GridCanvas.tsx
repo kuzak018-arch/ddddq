@@ -24,7 +24,7 @@ export const useHeroDrag = create<{ hero: number | null; from: { id: string; ind
 }));
 
 export function portraitUrl(id: number) {
-  return `/portraits/${id}.webp`;
+  return `${import.meta.env.BASE_URL}portraits/${id}.webp`;
 }
 
 /** The hero's tall portrait, or its wide icon (cropped the same way) when there is none yet. */
