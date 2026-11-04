@@ -33,7 +33,7 @@ import { mmss, useThreats, type NeutralTierNow, type Objectives } from './InGame
 import type { GameLive, PlanItem } from './live';
 
 /** Dota's own HUD pictures (public/dota-icons/hud, from the game's panorama files). */
-const HUD = (name: string) => `/dota-icons/hud/${name}.webp`;
+const HUD = (name: string) => `${import.meta.env.BASE_URL}dota-icons/hud/${name}.webp`;
 
 // the runes and the lotus as the game's map timers draw them
 const LOOK: Record<string, { icon: LucideIcon; color: string; label: string; item?: string; src?: string }> = {

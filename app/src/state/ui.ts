@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+import { DEMO } from '../demo/api';
 import { migrateUi } from './uiMigrate';
 import type { Material } from '../lib/glassBackdrop';
 import type { PageAnim } from '../lib/pageAnim';
@@ -93,13 +94,14 @@ export const useUi = create<UiState>()(
       buildHero: null,
       buildPos: 1,
       theme: 'dark',
-      background: { kind: 'preset', id: 'slate' },
+      // the demo site opens on liquid glass over a hero's art, as the app is meant to look
+      background: DEMO ? { kind: 'hero', key: 'juggernaut' } : { kind: 'preset', id: 'slate' },
       bgBlur: 0,
       bgDim: 0.15,
       bgPos: { x: 50, y: 30 },
       autoUpdate: true,
       refraction: false,
-      material: 'dota',
+      material: DEMO ? 'glass' : 'dota',
       performance: false,
       pageAnim: 'rise',
       settingsTab: 'main',

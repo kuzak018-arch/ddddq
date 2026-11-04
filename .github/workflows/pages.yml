@@ -1,0 +1,109 @@
+# The demo site on GitHub Pages: the app's interface in a browser, without the PC (VITE_DEMO=1).
+# The draft is computed in the browser by the app's model; meta, heroes, builds and neutral items are
+# the app's own answers on the seed data (the "seed-data" release), exported by
+# backend/drafter/web_export.py. Nothing personal: no account, no tokens.
+# Once: Settings → Pages → Source «GitHub Actions». The site: https://<owner>.github.io/<repo>/
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ["app/**", "backend/**", ".github/workflows/pages.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  data:
+    # the backend imports Windows-only modules: the export runs where the app does
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Seed data from the "seed-data" release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download seed-data --pattern seed-data.zip --repo "${{ github.repository }}"
+          if ($LASTEXITCODE -ne 0) { throw "нет релиза seed-data с seed-data.zip: на ПК выполни scripts/publish-seed.ps1" }
+          $root = Join-Path $env:RUNNER_TEMP "appdata"
+          Expand-Archive seed-data.zip -DestinationPath (Join-Path $root "DotaDrafter\data") -Force
+          "LOCALAPPDATA=$root" >> $env:GITHUB_ENV
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Python packages
+        run: python -m pip install -r backend/requirements.txt
+
+      - name: Export the demo's data
+        shell: pwsh
+        working-directory: backend
+        env:
+          DRAFTER_NO_GSI: "1"
+          DRAFTER_NO_PREFETCH: "1"
+        run: |
+          python -m drafter.web_export ../site-data/demo
+          if ($LASTEXITCODE -ne 0) { throw "выгрузка данных демо не удалась" }
+          Copy-Item -Recurse (Join-Path $env:LOCALAPPDATA "DotaDrafter\data\icons") ../site-data/icons
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site-data
+          path: site-data
+          retention-days: 1
+
+  build:
+    needs: data
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Packages
+        working-directory: app
+        run: npm ci
+
+      - name: Build the site
+        working-directory: app
+        env:
+          VITE_DEMO: "1"
+        run: npx vite build --base "/${{ github.event.repository.name }}/" --outDir ../site
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: site-data
+          path: site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

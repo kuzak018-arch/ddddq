@@ -54,7 +54,7 @@ export function AbilityIcon({ info, name, size = 32 }: { info?: AbilityInfo | nu
 export function InnateIcon({ size = 32, label = 'Врождённая' }: { size?: number; label?: string }) {
   return (
     <span className="ability-icon ability-icon--glyph is-innate" style={{ width: size, height: size }} title={label}>
-      <img src="/dota-icons/hud/innate.webp" alt={label} width={size * 0.86} height={size * 0.86} draggable={false} />
+      <img src={`${import.meta.env.BASE_URL}dota-icons/hud/innate.webp`} alt={label} width={size * 0.86} height={size * 0.86} draggable={false} />
     </span>
   );
 }
@@ -63,7 +63,7 @@ export function InnateIcon({ size = 32, label = 'Врождённая' }: { size
 export function TalentIcon({ size = 32 }: { size?: number }) {
   return (
     <span className="ability-icon ability-icon--glyph ability-icon--talent" style={{ width: size, height: size }} aria-label="Талант">
-      <img src="/dota-icons/hud/talent.webp" alt="Талант" width={size} height={size} draggable={false} />
+      <img src={`${import.meta.env.BASE_URL}dota-icons/hud/talent.webp`} alt="Талант" width={size} height={size} draggable={false} />
     </span>
   );
 }

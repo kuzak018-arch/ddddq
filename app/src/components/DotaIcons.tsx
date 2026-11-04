@@ -16,7 +16,7 @@ export function RoleIcon({ pos, size = 18, title, className = '' }: { pos: numbe
       role="img"
       aria-label={title ?? `Позиция ${pos} · ${POS_ROLE[pos] ?? ''}`}
       title={title}
-      style={{ '--ico': `url("/dota-icons/roles/pos${pos}.webp")`, width: size, height: size } as CSSProperties}
+      style={{ '--ico': `url("${import.meta.env.BASE_URL}dota-icons/roles/pos${pos}.webp")`, width: size, height: size } as CSSProperties}
     />
   );
 }
@@ -28,7 +28,7 @@ export function AttrIcon({ attr, size = 16, className = '' }: { attr: string; si
   return (
     <img
       className={`attr-ico ${className}`}
-      src={`/dota-icons/attr/${attr}.png`}
+      src={`${import.meta.env.BASE_URL}dota-icons/attr/${attr}.png`}
       width={size}
       height={size}
       alt={ATTR[attr]}
@@ -49,13 +49,13 @@ export function RankMedal({ tier, leaderboard, size = 56, className = '' }: {
   const name = `${rankName(tier)}${leaderboard ? ` · #${leaderboard} в таблице лидеров` : ''}`;
   return (
     <span className={`rank-medal ${className}`} style={{ width: size, height: size }} title={name} role="img" aria-label={name}>
-      <img src={`/dota-icons/ranks/medal_${medal}.webp`} alt="" draggable={false} />
-      {stars > 0 && <img src={`/dota-icons/ranks/stars_${stars}.webp`} alt="" draggable={false} />}
+      <img src={`${import.meta.env.BASE_URL}dota-icons/ranks/medal_${medal}.webp`} alt="" draggable={false} />
+      {stars > 0 && <img src={`${import.meta.env.BASE_URL}dota-icons/ranks/stars_${stars}.webp`} alt="" draggable={false} />}
       {!!leaderboard && medal.startsWith('8') && <b className="rank-medal__place" style={{ fontSize: Math.max(9, Math.round(size * 0.19)) }}>{leaderboard}</b>}
     </span>
   );
 }
 
 export function PlusBadge({ size = 22 }: { size?: number }) {
-  return <img className="plus-badge" src="/dota-icons/plus.webp" height={size} alt="Dota Plus" title="Dota Plus" draggable={false} />;
+  return <img className="plus-badge" src={`${import.meta.env.BASE_URL}dota-icons/plus.webp`} height={size} alt="Dota Plus" title="Dota Plus" draggable={false} />;
 }

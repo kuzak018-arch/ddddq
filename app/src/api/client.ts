@@ -5,6 +5,8 @@
  */
 import { invoke, isTauri } from '@tauri-apps/api/core';
 
+import { BASE, DEMO, DemoError, demoApi } from '../demo/api';
+
 export interface BackendInfo {
   url: string;
   token: string;
@@ -29,7 +31,9 @@ async function askShell(): Promise<BackendInfo> {
 
 export function backend(): Promise<BackendInfo> {
   if (!infoPromise) {
-    infoPromise = isTauri()
+    infoPromise = DEMO
+      ? Promise.resolve({ url: BASE, token: '', source: 'demo' })
+      : isTauri()
       ? askShell()
       : Promise.resolve({ url: import.meta.env.VITE_API ?? 'http://127.0.0.1:47900', token: '', source: 'browser' });
   }
@@ -55,6 +59,15 @@ function detail(body: unknown): string {
 }
 
 export async function api<T>(path: string, init: { method?: string; body?: unknown } = {}): Promise<T> {
+  if (DEMO) {
+    // the demo site: the draft is computed in the browser, the pages come from a snapshot
+    try {
+      return await demoApi<T>(path, init);
+    } catch (e) {
+      if (e instanceof DemoError) throw new ApiError(e.status, e.message);
+      throw e;
+    }
+  }
   const { url, token } = await backend();
   const res = await fetch(url + path, {
     method: init.method ?? (init.body === undefined ? 'GET' : 'POST'),
@@ -125,6 +138,7 @@ export async function waitForBackend(timeoutMs = 60_000): Promise<void> {
 
 /** Events from the backend (job progress, later GSI and screen reading). Reconnects on its own. */
 export function subscribe(onEvent: (e: { type: string; [k: string]: unknown }) => void): () => void {
+  if (DEMO) return () => {};   // the demo has no backend to push events
   let ws: WebSocket | null = null;
   let closed = false;
   let retry = 0;
