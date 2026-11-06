@@ -7,6 +7,11 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vite.dev/config/
 export default defineConfig(() => ({
   plugins: [react()],
+  // the demo as a claude.ai page: that host serves fonts only from Google Fonts or inline, so the
+  // fonts go into the CSS as data URIs (VITE_DEMO_INLINE_FONTS=1; the app and GitHub Pages keep files)
+  build: process.env.VITE_DEMO_INLINE_FONTS === "1"
+    ? { assetsInlineLimit: (file: string) => (/\.(woff2?|ttf|otf)$/.test(file) ? true : undefined) }
+    : undefined,
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

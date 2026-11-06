@@ -4,6 +4,7 @@ import { waitForBackend } from './api/client';
 import { useSettingsFromOtherWindow } from './api/hooks';
 import { useAfterMatch } from './lib/afterMatch';
 import { TitleBar, useCalmBackground, Wallpaper } from './components/Chrome';
+import { CommandPalette } from './components/CommandPalette';
 import { Effects } from './components/Effects';
 import { Panel } from './components/Glass';
 import { Onboarding } from './components/Onboarding';
@@ -44,7 +45,8 @@ const PAGES: Record<Page, () => React.JSX.Element> = {
   settings: SettingsPage,
   vision: VisionPage,
 };
-const ORDER: Page[] = ['draft', 'meta', 'hero', 'top', 'patches', 'grids', 'profile', 'settings'];
+/** Ctrl+1…6: the four tabs, «Оформление», the settings */
+const ORDER: Page[] = ['draft', 'hero', 'meta', 'profile', 'grids', 'settings'];
 
 function useAppearance() {
   const { theme, refraction, tilt, material } = useUi();
@@ -142,7 +144,7 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const m = /^Digit([1-8])$/.exec(e.code);
+      const m = /^Digit([1-6])$/.exec(e.code);
       if (e.ctrlKey && m) {
         e.preventDefault();
         go(ORDER[Number(m[1]) - 1]!);
@@ -178,6 +180,7 @@ export default function App() {
       {ready && !DEMO && <Onboarding />}
       <div className="app">
         <TitleBar />
+        {ready && <CommandPalette />}
         {DEMO && <DemoBanner />}
         {ready && !DEMO && <PatchBanner />}
         <div className="app__body">

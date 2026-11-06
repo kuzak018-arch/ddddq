@@ -10,11 +10,14 @@ import { HeroSearch } from '../components/HeroSearch';
 import { LaneView } from '../components/LaneView';
 import { Empty, ErrorBox, HeroIcon, Loading, Segmented } from '../components/ui';
 import { picked, useDraft } from '../state/draft';
+import { useMyPos } from '../state/myPos';
 import { useUi } from '../state/ui';
 import { useState } from 'react';
 
 export function BuildsPage() {
-  const { buildHero, buildPos, set } = useUi();
+  const buildHero = useUi((s) => s.heroPageId);
+  const pickHero = useUi((s) => s.pickHero);
+  const [buildPos, setPos] = useMyPos();
   const draftEnemies = picked(useDraft((s) => s.enemies));
   const [enemies, setEnemies] = useState<number[] | null>(null); // null = follow the draft
   const vsList = enemies ?? draftEnemies;
@@ -34,15 +37,15 @@ export function BuildsPage() {
         </span>
         <div className="builds__hero">
           {buildHero && <HeroIcon id={buildHero} size="md" />}
-          <HeroSearch placeholder="Мой герой…" onPick={(h) => set({ buildHero: h.id })} compact />
+          <HeroSearch placeholder="Мой герой…" onPick={(h) => pickHero(h.id)} compact />
         </div>
         <span className="label">
           <RoleIcon pos={buildPos} size={14} className="seg-role" />
-          Позиция
+          Моя позиция <span className="muted">— одна на всю программу</span>
         </span>
         <Segmented
           value={buildPos}
-          onChange={(p) => set({ buildPos: p })}
+          onChange={setPos}
           options={[1, 2, 3, 4, 5].map((p) => ({ value: p, title: `Позиция ${p}`, label: <><RoleIcon pos={p} size={14} className="seg-role" />{p}</> }))}
         />
         <span className="label">

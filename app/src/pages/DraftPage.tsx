@@ -334,14 +334,14 @@ function PicksPanel({ req, comfort, onComfort, suggest: s }: {
         <Loading>Подбираю героев…</Loading>
       ) : (
         <>
-          <PickTable rows={s.data?.main ?? []} onPick={(h) => placeIn('ally', h)} />
+          <PickTable rows={s.data?.main ?? []} onPick={(h) => placeIn('ally', h)} onBan={(h) => placeIn('ban', h)} />
           {!!s.data?.offrole.length && (
             <>
               <button className="dr-reasons__more" onClick={() => setOffrole((v) => !v)}>
                 {offrole ? 'Скрыть нестандартные' : `Нестандартные на эту позицию (${s.data.offrole.length})`}
               </button>
               {offrole && (
-                <PickTable rows={s.data.offrole} onPick={(h) => placeIn('ally', h)} />
+                <PickTable rows={s.data.offrole} onPick={(h) => placeIn('ally', h)} onBan={(h) => placeIn('ban', h)} />
               )}
             </>
           )}
@@ -353,7 +353,7 @@ function PicksPanel({ req, comfort, onComfort, suggest: s }: {
 
 /** The suggestions as a stats table: chance with this pick and its gain, the hero's meta win rate,
  * how often it plays this position, its pick rate, and the two strongest reasons in this draft. */
-function PickTable({ rows, onPick }: { rows: Suggestion[]; onPick: (hero: number) => void }) {
+function PickTable({ rows, onPick, onBan }: { rows: Suggestion[]; onPick: (hero: number) => void; onBan: (hero: number) => void }) {
   const openHero = useUi((s) => s.openHero);
   const heroes = useHeroes().data;
   return (
@@ -375,9 +375,9 @@ function PickTable({ rows, onPick }: { rows: Suggestion[]; onPick: (hero: number
           const name = heroes?.byId.get(r.hero)?.name ?? '';
           const plus = [...r.terms].filter((t) => t.pct > 0).sort((x, y) => y.pct - x.pct).slice(0, 2);
           return (
-            <tr key={r.hero} className="picks__row" onClick={() => onPick(r.hero)} title="Клик — взять в драфт">
+            <tr key={r.hero} className="picks__row" onClick={() => onPick(r.hero)} title="Клик по строке — взять в драфт">
               <td className="picks__n muted">{i + 1}</td>
-              <td className="table__hero">
+              <td>
                 <span className="picks__hero">
                   <HeroIcon id={r.hero} size="sm" />
                   <b>{name}</b>
@@ -394,15 +394,35 @@ function PickTable({ rows, onPick }: { rows: Suggestion[]; onPick: (hero: number
               <td className={r.meta_wr >= 0.5 ? 'c-good' : 'c-bad'}>{fmtPct(r.meta_wr)}</td>
               <td>{fmtPct(r.pos_share, 0)}</td>
               <td className="muted">{fmtPct(r.pick_rate, 0)}</td>
-              <td className="table__hero picks__why">
+              <td className="picks__why">
                 {plus.length ? plus.map((t, k) => (
-                  <span key={k}>
-                    {k > 0 && ' · '}
+                  <span key={k} className="picks__reason" title={t.text}>
                     {mainReason([t], name)} <small className="c-good">{fmtSigned(t.pct)}%</small>
                   </span>
                 )) : <span className="muted">без явных плюсов в этом драфте</span>}
               </td>
-              <td>
+              <td className="picks__acts">
+                <button
+                  className="btn btn--sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPick(r.hero);
+                  }}
+                  title="Взять в нашу команду"
+                >
+                  Взять
+                </button>
+                <button
+                  className="btn btn--sm btn--ghost"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onBan(r.hero);
+                  }}
+                  title="Забанить"
+                  aria-label={`Забанить ${name}`}
+                >
+                  <Ti icon={Ban} />
+                </button>
                 <button
                   className="btn btn--sm btn--ghost"
                   onClick={(e) => {
@@ -410,6 +430,7 @@ function PickTable({ rows, onPick }: { rows: Suggestion[]; onPick: (hero: number
                     openHero(r.hero);
                   }}
                   title="Страница героя"
+                  aria-label={`Страница героя ${name}`}
                 >
                   →
                 </button>
@@ -488,7 +509,7 @@ function VsPanel({ hero, pos, enemies, when }: { hero: number | null; pos: numbe
         </ul>
       )}
       {hero && (
-        <button className="btn btn--sm" onClick={() => openBuild(hero, pos)}>
+        <button className="btn btn--sm" onClick={() => openBuild(hero)}>
           Весь билд
         </button>
       )}
@@ -503,7 +524,7 @@ function useDraftHotkeys(search: React.RefObject<HeroSearchHandle | null>) {
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
       const d = useDraft.getState();
       const digit = /^Digit([1-5])$/.exec(e.code);
-      if (e.key === '/' || (e.ctrlKey && e.code === 'KeyK')) {
+      if (e.key === '/') {
         e.preventDefault();
         search.current?.focus();
       } else if (digit && !e.ctrlKey && !e.altKey) {

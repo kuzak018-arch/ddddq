@@ -38,6 +38,27 @@ function file<T>(name: string): Promise<T> {
   return p as Promise<T>;
 }
 
+/** One hero's answer from a pack (`pack/<name>.json` = {hero id: answer}, web_export.py). */
+async function packed<T>(name: string, hero: string | number): Promise<T> {
+  const all = await file<Record<string, T>>(`pack/${name}.json`);
+  const v = all[String(hero)];
+  if (v === undefined) throw new DemoError(404, `нет героя с id ${hero}`);
+  return v;
+}
+
+// the hero, item and ability icons as data URIs (icons/<group>.json), loaded before the app starts
+const icons = new Map<string, string>();
+let iconsLoading: Promise<void> | null = null;
+function loadIcons(): Promise<void> {
+  return (iconsLoading ??= Promise.all(
+    ['heroes', 'items', 'abilities'].map((g) =>
+      file<Record<string, string>>(`icons/${g}.json`).then((m) => Object.entries(m).forEach(([k, v]) => icons.set(k, v))),
+    ),
+  ).then(() => undefined));
+}
+/** The picture for a backend path ("/icons/items/blink.png"), when the demo has it. */
+export const demoAsset = (path: string) => icons.get(path.split('?')[0]!);
+
 let predictor: Promise<Predictor> | null = null;
 const model = () => (predictor ??= file<DemoModel>('model.json').then((m) => new Predictor(m)));
 
@@ -125,7 +146,7 @@ type Build = { core: BuildEntry[]; early: BuildEntry[]; boots?: BuildEntry | nul
 
 async function buildVs(hero: number, b: { enemies?: number[]; pos?: number }) {
   const [build, c, pr] = await Promise.all([
-    file<{ pos: number; item_share?: Record<string, number>; builds: Build[]; approximate: Build | null }>(`builds/${hero}_${b.pos || 1}.json`),
+    packed<{ pos: number; item_share?: Record<string, number>; builds: Build[]; approximate: Build | null }>(`builds_${b.pos || 1}`, hero),
     file<CounterData>('counter.json'),
     file<DemoModel>('model.json'),
   ]);
@@ -191,7 +212,10 @@ export async function demoApi<T>(path: string, init: { method?: string; body?: u
   const method = init.method ?? (init.body === undefined ? 'GET' : 'POST');
   const body = (init.body ?? {}) as Record<string, unknown>;
   const out = async (): Promise<unknown> => {
-    if (p === '/health') return file('health.json');
+    if (p === '/health') {
+      await loadIcons();
+      return file('health.json');
+    }
     if (p === '/heroes') return file('heroes.json');
     if (p === '/settings') {
       if (method === 'GET') return settings();
@@ -211,10 +235,10 @@ export async function demoApi<T>(path: string, init: { method?: string; body?: u
     if (p === '/draft/bans') return draft('bans', body as DraftIn);
     if (p === '/meta/tierlist') return file(`tierlist/${q.get('pos') || 'all'}.json`);
     let m = p.match(/^\/heroes\/(\d+)$/);
-    if (m) return file(`hero/${m[1]}.json`);
-    if ((m = p.match(/^\/heroes\/(\d+)\/abilities$/))) return file(`abilities/${m[1]}.json`);
-    if ((m = p.match(/^\/heroes\/(\d+)\/neutrals$/))) return file(`neutrals/${m[1]}_${q.get('pos') || 1}.json`);
-    if ((m = p.match(/^\/builds\/(\d+)$/))) return file(`builds/${m[1]}_${q.get('pos') || 1}.json`);
+    if (m) return packed('hero', m[1]!);
+    if ((m = p.match(/^\/heroes\/(\d+)\/abilities$/))) return packed('abilities', m[1]!);
+    if ((m = p.match(/^\/heroes\/(\d+)\/neutrals$/))) return packed('neutrals', m[1]!);
+    if ((m = p.match(/^\/builds\/(\d+)$/))) return packed(`builds_${q.get('pos') || 1}`, m[1]!);
     if ((m = p.match(/^\/builds\/(\d+)\/vs$/))) return buildVs(Number(m[1]), body as { enemies?: number[]; pos?: number });
     // the app asks these on its own: quiet empty answers instead of errors
     if (p === '/ui-icons') return { talent: null, innate: null };

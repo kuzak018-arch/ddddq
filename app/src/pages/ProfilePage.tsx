@@ -56,8 +56,6 @@ const ACCENTS: { value: string; name: string }[] = [
 
 export function ProfilePage() {
   const prof = useProfile();
-  const heroes = useHeroes().data;
-  const openHero = useUi((s) => s.openHero);
   const qc = useQueryClient();
   const refresh = useMutation({
     mutationFn: () => api('/me/refresh', { method: 'POST' }),
@@ -68,30 +66,40 @@ export function ProfilePage() {
   const summary = useMeSummary().data;
   const { profileTab: tab, ruinId, set: setNav } = useNav();
   const setTab = (profileTab: ProfileTab) => setNav({ profileTab });
+  // «Матчи» holds the list, Stratz's grades and one match's breakdown
+  const inMatches = tab === 'history' || tab === 'matches' || tab === 'ruin';
   const setRuinId = (id: number | null) => setNav({ ruinId: id });
   const [look, setLook] = useState(false);
   const health = useHealth().data;
   const go = useUi((s) => s.go);
+  const actions = (
+    <div className="pro__actions">
+      <button className="btn btn--sm" onClick={() => setLook(true)}>
+        <Ti icon={Paintbrush} />
+        Оформить
+      </button>
+      <button className="btn btn--sm" onClick={() => refresh.mutate()} disabled={refresh.isPending}>
+        <Ti icon={RefreshCw} />
+        {refresh.isPending ? 'Загружаю…' : 'Обновить историю'}
+      </button>
+    </div>
+  );
 
   return (
-    <div className="profile">
+    <div className={`profile ${tab === 'pool' ? 'profile--wide' : ''}`}>
       <Panel className="profile__head" refracting>
         <Banner>
-          <div className="panel__head">
-            <h2>
-              <Ti icon={User} />
-              Профиль
-            </h2>
-            <button className="btn btn--sm" onClick={() => setLook(true)}>
-              <Ti icon={Paintbrush} />
-              Оформить
-            </button>
-            <button className="btn btn--sm" onClick={() => refresh.mutate()} disabled={refresh.isPending}>
-              <Ti icon={RefreshCw} />
-              {refresh.isPending ? 'Загружаю…' : 'Обновить историю'}
-            </button>
-          </div>
-          {p && <ProfileCard p={p} summary={summary} />}
+          {p ? (
+            <ProfileCard p={p} summary={summary} actions={actions} />
+          ) : (
+            <div className="panel__head">
+              <h2>
+                <Ti icon={User} />
+                Профиль
+              </h2>
+              {actions}
+            </div>
+          )}
         </Banner>
         {prof.error && !health?.account_id ? (
           <div className="empty-cta">
@@ -122,19 +130,29 @@ export function ProfilePage() {
         {!exp && !(summary && (summary.form.length || summary.positions.length || summary.month_heroes.length)) && <Empty>Здесь будут форма, винрейт по позициям и главные герои месяца.</Empty>}
       </Panel>
       <Panel className="profile__pool">
-        <div className="panel__head">
+        <div className="panel__head panel__head--wrap">
           <Segmented
-            value={tab}
+            value={inMatches ? 'history' : tab}
             onChange={setTab}
             options={[
               { value: 'stats', label: <><Ti icon={ChartLine} />Статистика</> },
-              { value: 'history', label: <><Ti icon={Gamepad2} />История</> },
-              { value: 'matches', label: <><Ti icon={Gamepad2} />Оценки Stratz</> },
-              { value: 'ruin', label: <><Ti icon={Skull} />Кто заруинил</> },
+              { value: 'history', label: <><Ti icon={Gamepad2} />Матчи</> },
               { value: 'pool', label: <><Ti icon={LayoutGrid} />Пул героев</> },
-              { value: 'search', label: <><Ti icon={UserSearch} />Найти игрока</> },
+              { value: 'search', label: <><Ti icon={UserSearch} />Найти игрока</>, title: 'Или Ctrl+K из любого места: Friend ID или ссылка' },
             ]}
           />
+          {inMatches && (
+            <Segmented
+              small
+              value={tab}
+              onChange={setTab}
+              options={[
+                { value: 'history', label: 'Список', title: 'Все рейтинговые матчи с цифрами и фильтрами' },
+                { value: 'matches', label: 'Оценки Stratz', title: 'Последние матчи с оценкой игры от Stratz' },
+                { value: 'ruin', label: <><Ti icon={Skull} />Кто заруинил</>, title: 'Разбор одного матча' },
+              ]}
+            />
+          )}
         </div>
         {tab === 'matches' && (
           <MatchHistory
@@ -163,35 +181,54 @@ export function ProfilePage() {
         )}
         {tab === 'search' && <PlayerSearch />}
         {tab === 'pool' && !p && !prof.error && <Empty>Загрузка…</Empty>}
-        {tab === 'pool' && p && (
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Герой</th>
-                <th>Игр</th>
-                <th>Побед</th>
-                <th title="Насколько ты играешь лучше или хуже ожидаемого при таком опыте">Личный перевес</th>
-                <th title="Поправка за опыт: чем больше игр, тем ближе к нулю">Опыт</th>
-              </tr>
-            </thead>
-            <tbody>
-              {p.heroes.map((h) => (
-                <tr key={h.hero} onClick={() => openHero(h.hero)}>
-                  <td className="table__hero">
-                    <HeroIcon id={h.hero} size="sm" /> <AttrIcon attr={heroes?.byId.get(h.hero)?.attr ?? ''} size={14} /> {heroes?.byId.get(h.hero)?.name}
-                  </td>
-                  <td>{h.games}</td>
-                  <td className={h.wins / h.games >= 0.5 ? 'c-good' : 'c-bad'}>{fmtPct(h.wins / h.games, 0)}</td>
-                  <td className={h.edge >= 0 ? 'c-good' : 'c-bad'}>{fmtSigned(pp(h.edge))}%</td>
-                  <td className="muted">{fmtSigned(pp(h.experience))}%</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+        {tab === 'pool' && p && <PoolTable p={p} />}
       </Panel>
       <ProfileLook open={look} onClose={() => setLook(false)} />
     </div>
+  );
+}
+
+type PoolSort = 'games' | 'wr' | 'edge' | 'experience';
+
+/** «Пул героев» across the whole width: every hero I played, sorted by the clicked column. */
+function PoolTable({ p }: { p: Profile }) {
+  const heroes = useHeroes().data;
+  const openHero = useUi((s) => s.openHero);
+  const [sort, setSort] = useState<PoolSort>('games');
+  const key = (h: Profile['heroes'][number]) => (sort === 'wr' ? h.wins / h.games : h[sort]);
+  const rows = [...p.heroes].sort((a, b) => key(b) - key(a));
+  const th = (k: PoolSort, label: string, title?: string) => (
+    <th className={`is-sortable ${sort === k ? 'is-sorted' : ''}`} onClick={() => setSort(k)} title={title}>
+      {label}
+    </th>
+  );
+  return (
+    <table className="table pool-table">
+      <thead>
+        <tr>
+          <th>Герой</th>
+          {th('games', 'Игр')}
+          {th('wr', 'Побед')}
+          {th('edge', 'Личный перевес', 'Насколько ты играешь лучше или хуже ожидаемого при таком опыте')}
+          {th('experience', 'Опыт', 'Поправка за опыт: чем больше игр, тем ближе к нулю')}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((h) => (
+          <tr key={h.hero} onClick={() => openHero(h.hero)}>
+            <td>
+              <span className="picks__hero">
+                <HeroIcon id={h.hero} size="sm" /> <AttrIcon attr={heroes?.byId.get(h.hero)?.attr ?? ''} size={14} /> {heroes?.byId.get(h.hero)?.name}
+              </span>
+            </td>
+            <td>{h.games}</td>
+            <td className={h.wins / h.games >= 0.5 ? 'c-good' : 'c-bad'}>{fmtPct(h.wins / h.games, 0)}</td>
+            <td className={h.edge >= 0 ? 'c-good' : 'c-bad'}>{fmtSigned(pp(h.edge))}%</td>
+            <td className="muted">{fmtSigned(pp(h.experience))}%</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
@@ -215,7 +252,7 @@ function RankProgressLine({ r }: { r: RankProgress }) {
 }
 
 /** The header card: avatar in its frame, rank medal, name, Dota Plus, status, tiles and the showcase. */
-function ProfileCard({ p, summary }: { p: Profile; summary?: MeSummary }) {
+function ProfileCard({ p, summary, actions }: { p: Profile; summary?: MeSummary; actions?: ReactNode }) {
   const b = useUi((s) => s.banner);
   const openHero = useUi((s) => s.openHero);
   const avatar = useAvatar(p.avatar, p.fetched);
@@ -224,12 +261,15 @@ function ProfileCard({ p, summary }: { p: Profile; summary?: MeSummary }) {
   return (
     <div className="pro">
       <div className={`pro__avatar pro__avatar--${b.avatar}`}>{avatar ? <img src={avatar} alt="" /> : <span />}</div>
-      <RankMedal tier={p.rank_tier} leaderboard={p.leaderboard} size={92} className="pro__medal" />
+      <RankMedal tier={p.rank_tier} leaderboard={p.leaderboard} size={78} className="pro__medal" />
       <div className="pro__who">
-        <h1>
-          {p.name ?? p.account_id}
-          {p.plus && <PlusBadge size={26} />}
-        </h1>
+        <div className="pro__top">
+          <h1>
+            {p.name ?? p.account_id}
+            {p.plus && <PlusBadge size={26} />}
+          </h1>
+          {actions}
+        </div>
         {b.status && <p className="pro__status">{b.status}</p>}
         <p className="me__sub">
           {rankName(p.rank_tier)}
@@ -240,13 +280,13 @@ function ProfileCard({ p, summary }: { p: Profile; summary?: MeSummary }) {
           {b.tiles.games && (
             <div className="pro__tile">
               <b>{(p.overall?.games ?? 0).toLocaleString('ru')}</b>
-              <span>игр в рейтинге</span>
+              <span title="Все рейтинговые матчи All Pick из истории OpenDota">рейтинговых игр · вся история</span>
             </div>
           )}
           {b.tiles.winrate && (
             <div className="pro__tile">
               <b className={(p.overall?.wr ?? 0) >= 0.5 ? 'c-good' : 'c-bad'}>{fmtPct(p.overall?.wr)}</b>
-              <span>побед</span>
+              <span title="Доля побед во всех рейтинговых матчах All Pick из истории">побед · вся история</span>
             </div>
           )}
           {b.tiles.pos && main && (
@@ -254,8 +294,8 @@ function ProfileCard({ p, summary }: { p: Profile; summary?: MeSummary }) {
               <b>
                 <RoleIcon pos={main.pos} size={20} /> {POS_NAMES[main.pos]}
               </b>
-              <span>
-                главная роль · {fmtPct(main.wr, 0)}
+              <span title="Позиция, на которой ты чаще всего играл в последних 100 играх, и винрейт на ней">
+                главная роль · {fmtPct(main.wr, 0)} · последние 100
               </span>
             </div>
           )}

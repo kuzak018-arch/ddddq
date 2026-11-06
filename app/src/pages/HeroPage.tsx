@@ -1,4 +1,4 @@
-import { Ban, BookOpen, Hammer, HeartHandshake, Percent, Shield, Star, Swords, ThumbsDown, Trophy, TrendingUp, User, type LucideIcon } from '../components/glyphs';
+import { Ban, BookOpen, Hammer, HeartHandshake, Percent, Shield, Star, Swords, ThumbsDown, TrendingUp, User, type LucideIcon } from '../components/glyphs';
 import type { CSSProperties } from 'react';
 import { useEffect, useState } from 'react';
 
@@ -10,13 +10,13 @@ import { BuildView } from '../components/BuildView';
 import { HeroModel, useHeroModel } from '../components/HeroModel';
 import { Panel } from '../components/Glass';
 import { AttrIcon, RoleIcon } from '../components/DotaIcons';
-import { DEMO } from '../demo/api';
 import { HeroAbilities } from '../components/HeroAbilities';
 import { HeroModeSwitch } from '../components/HeroModeSwitch';
 import { Ti } from '../components/Icons';
 import { HeroSearch } from '../components/HeroSearch';
 import { SteamGuides } from '../components/SteamGuides';
 import { Empty, ErrorBox, fmtPct, fmtSigned, HeroIcon, Loading, Segmented } from '../components/ui';
+import { useMyPos } from '../state/myPos';
 import { useUi } from '../state/ui';
 
 export function HeroPage() {
@@ -24,10 +24,13 @@ export function HeroPage() {
   const openHero = useUi((s) => s.openHero);
   const page = useHeroPage(id);
   const p = page.data;
+  const [myPos] = useMyPos();
   const [pos, setPos] = useState<number | null>(null);
   useEffect(() => setPos(null), [id]);
   const bestPos = p ? p.positions.indexOf(Math.max(...p.positions)) + 1 : 1;
-  const buildPos = pos ?? (p?.builds_for_positions.includes(bestPos) ? bestPos : p?.builds_for_positions[0] ?? bestPos);
+  // my position when the hero is played there, else the hero's own main one
+  const auto = p?.builds_for_positions.includes(myPos) ? myPos : p?.builds_for_positions.includes(bestPos) ? bestPos : p?.builds_for_positions[0] ?? bestPos;
+  const buildPos = pos ?? auto;
   const build = useBuild(p ? id : null, buildPos, []);
 
   return (
@@ -104,8 +107,6 @@ const ATTR_RU: Record<string, string> = { str: 'Сила', agi: 'Ловкост�
  * the roles, the numbers and the positions, and shortcuts to its builds and top players' games. */
 function HeroHeader({ p }: { p: HeroPageData }) {
   const color = useHeroModel(p.hero.key).color;
-  const openBuild = useUi((s) => s.openBuild);
-  const go = useUi((s) => s.go);
   const best = p.positions.indexOf(Math.max(...p.positions)) + 1;
   return (
     <div className="hero-hdr" style={{ '--glow': color ?? 'var(--accent)' } as CSSProperties}>
@@ -158,16 +159,6 @@ function HeroHeader({ p }: { p: HeroPageData }) {
               </span>
             </div>
           ))}
-        </div>
-        <div className="hero-hdr__actions">
-          <button className="btn btn--sm" onClick={() => openBuild(p.hero.id, best)}>
-            <Ti icon={Hammer} />
-            Билды
-          </button>
-          {!DEMO && <button className="btn btn--sm" onClick={() => go('top')}>
-            <Ti icon={Trophy} />
-            Игры топов
-          </button>}
         </div>
       </div>
     </div>

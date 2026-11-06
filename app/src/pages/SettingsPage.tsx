@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AppWindow, Database, KeyRound, Lightbulb, Monitor, Palette, Plug, ScanEye, Volume2, Wand } from '../components/glyphs';
+import { AppWindow, Database, KeyRound, Lightbulb, Monitor, Palette, Plug, ScanEye, Search, Volume2, Wand, type LucideIcon } from '../components/glyphs';
 
 import { comboFromEvent, dotaKeyName, toggleOverlay, useHotkeyStatus } from '../lib/overlay';
 
@@ -24,8 +24,8 @@ import { PAGE_ANIMS, replayPageIn } from '../lib/pageAnim';
 import { play } from '../lib/sounds';
 import { autostartEnabled, setAutostart } from '../lib/tray';
 import { loadBackgroundFile, saveBackgroundFile, saveFile } from '../state/bgstore';
-import { resetWidgetPlaces, WIDGET_KINDS, WIDGET_NAMES } from '../lib/widgets';
-import { useUi } from '../state/ui';
+import { resetWidgetPlaces, WIDGET_KINDS, WIDGET_NAMES, widgetOn } from '../lib/widgets';
+import { useUi, type SettingsSection } from '../state/ui';
 
 /**
  * Settings: the appearance on the left, everything else in one scrolling column on the right.
@@ -36,46 +36,106 @@ import { useUi } from '../state/ui';
  * no animations or transforms, no masks, no nested scrolling areas, no drag region, no wheel
  * handlers; the background effects are drawn under the window on this page, not over it.
  */
+interface Card {
+  id: string;
+  section: SettingsSection;
+  /** what the settings search finds it by */
+  words: string;
+  el: () => React.JSX.Element | null;
+}
+
+const CARDS: Card[] = [
+  { id: 'account', section: 'account', words: 'аккаунт steam id friend stratz токен ключ steam api руководства', el: AccountCard },
+  { id: 'data', section: 'account', words: 'данные модель обучение матчи обновить база патч скачать', el: DataCard },
+  { id: 'lanes', section: 'account', words: 'данные линий графики пул линия', el: LaneBulkCard },
+  { id: 'advice', section: 'draft', words: 'подсказки советы драфт позиция пул опыт ранг вес', el: AdviceCard },
+  { id: 'gsi', section: 'draft', words: 'gsi дота конфиг подключение игра драфт сам', el: GsiCard },
+  { id: 'vision', section: 'draft', words: 'экран распознавание захват драфт по экрану картинка', el: VisionCard },
+  { id: 'overlay', section: 'overlay', words: 'оверлей виджеты горячие клавиши прозрачность подсказки в игре таймеры', el: OverlayCard },
+  { id: 'app', section: 'app', words: 'программа трей автозапуск звуки громкость мастер', el: AppCard },
+  { id: 'version', section: 'app', words: 'версия обновления установить автоматически', el: VersionCard },
+];
+const LOOK_WORDS = 'оформление внешний вид тема светлая тёмная фон обои материал стекло анимации логотип иконка эффекты';
+
+const SECTIONS: { id: SettingsSection; label: string; icon: LucideIcon; hint: string }[] = [
+  { id: 'account', label: 'Аккаунт и данные', icon: KeyRound, hint: 'Steam ID, Stratz, ключ Steam, данные и модель' },
+  { id: 'draft', label: 'Драфт и советы', icon: Lightbulb, hint: 'Советы, GSI, драфт по экрану' },
+  { id: 'overlay', label: 'Оверлей и виджеты', icon: Monitor, hint: 'Оверлей, клавиши, виджеты в игре' },
+  { id: 'look', label: 'Внешний вид', icon: Palette, hint: 'Тема, фон, материал, анимации' },
+  { id: 'app', label: 'Программа', icon: AppWindow, hint: 'Трей, автозапуск, звуки, версия' },
+];
+const KNOWN = new Set<string>(SECTIONS.map((x) => x.id));
+
+/**
+ * Settings: the sections on the left (and a search over all of them), the open section on the right.
+ *
+ * The right column is deliberately plain (it would not scroll with the wheel in the installed app):
+ * one glass frame with one ordinary overflow-y:auto block inside it, the way every tab whose
+ * scrolling works is built. Inside it there are only flat sections — no glass, no backdrop-filter,
+ * no animations or transforms, no masks, no nested scrolling areas, no drag region, no wheel
+ * handlers; the background effects are drawn under the window on this page, not over it.
+ * «Внешний вид» is its own glass panel (it has the animated controls) and is never inside it.
+ */
 export function SettingsPage() {
-  const tab = useUi((s) => s.settingsTab);
+  const saved = useUi((s) => s.settingsTab);
   const set = useUi((s) => s.set);
+  const section: SettingsSection = KNOWN.has(saved) ? saved : 'account'; // older versions kept 'main' / 'more'
+  const [q, setQ] = useState('');
+  const t = q.trim().toLowerCase().replace(/ё/g, 'е');
+  const hit = (words: string) => words.replace(/ё/g, 'е').includes(t);
+  const found = t ? CARDS.filter((c) => hit(c.words)) : null;
+  const lookFound = !!t && hit(LOOK_WORDS);
+  const open = (id: SettingsSection) => {
+    setQ('');
+    set({ settingsTab: id });
+  };
+  const shown = found ?? CARDS.filter((c) => c.section === section);
+  const look = !found && section === 'look';
   return (
-    <div className="settings">
-      <AppearanceCard />
-      <div className="settings-side glass">
-        <div className="settings-tabs">
-          <Segmented
-            value={tab}
-            onChange={(settingsTab) => set({ settingsTab })}
-            options={[
-              { value: 'main', label: 'Основное', title: 'Аккаунт, GSI, чтение с экрана, оверлей и виджеты, обновления' },
-              { value: 'more', label: 'Дополнительно', title: 'Советы драфта, программа, данные и модель, данные линий' },
-            ]}
-          />
+    <div className="settings settings--nav">
+      <nav className="settings-nav glass" aria-label="Разделы настроек">
+        <div className="settings-nav__search glass glass--inset">
+          <Ti icon={Search} />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Найти настройку…" spellCheck={false} />
         </div>
-        <div className="settings-scroll">
-          {tab === 'main' ? (
-            <>
-              <AccountCard />
-              <GsiCard />
-              <VisionCard />
-              <OverlayCard />
-              <VersionCard />
-            </>
-          ) : (
-            <>
-              <AdviceCard />
-              <AppCard />
-              <DataCard />
-              <LaneBulkCard />
-            </>
-          )}
+        {SECTIONS.map((x) => (
+          <button
+            key={x.id}
+            className={`settings-nav__item ${!found && x.id === section ? 'is-on' : ''}`}
+            onClick={() => open(x.id)}
+            title={x.hint}
+          >
+            <Ti icon={x.icon} />
+            <span>
+              <b>{x.label}</b>
+              <small>{x.hint}</small>
+            </span>
+          </button>
+        ))}
+      </nav>
+      {look ? (
+        <AppearanceCard />
+      ) : (
+        <div className="settings-side glass">
+          <div className="settings-scroll">
+            {found && !found.length && !lookFound && <p className="settings-none muted">Ничего не нашлось. Попробуй другое слово: «токен», «виджеты», «фон».</p>}
+            {lookFound && (
+              <section className="settings-section">
+                <button className="btn" onClick={() => open('look')}>
+                  <Ti icon={Palette} />
+                  Внешний вид: тема, фон, материал, анимации →
+                </button>
+              </section>
+            )}
+            {shown.map((c) => (
+              <c.el key={c.id} />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
-
 
 function AppearanceCard() {
   const ui = useUi();
@@ -89,7 +149,7 @@ function AppearanceCard() {
     <Panel refracting>
       <h2>
         <Ti icon={Palette} />
-        Оформление
+        Внешний вид
       </h2>
       <div className="field">
         <span className="label">Тема</span>
@@ -715,9 +775,9 @@ function OverlayCard() {
           value={ov.mode}
           onChange={(mode) => setOv({ mode })}
           options={[
-            { value: 'auto', label: 'Авто' },
+            { value: 'auto', label: 'Авто', title: 'Драфт во время выбора героев, «Игра» после начала матча' },
             { value: 'draft', label: 'Драфт' },
-            { value: 'build', label: 'Билд' },
+            { value: 'build', label: 'Игра', title: 'Билд, план и линия' },
           ]}
         />
       </div>
@@ -734,8 +794,8 @@ function OverlayCard() {
         {WIDGET_KINDS.map((k) => (
           <Toggle
             key={k}
-            on={!!ov.widgets?.[k]}
-            onChange={(v) => setOv({ widgets: { ...{ timers: true, now: true, gold: true }, ...ov.widgets, [k]: v } })}
+            on={widgetOn(ov.widgets, k)}
+            onChange={(v) => setOv({ widgets: { ...ov.widgets, [k]: v } })}
             label={WIDGET_NAMES[k]}
           />
         ))}

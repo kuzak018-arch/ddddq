@@ -1283,6 +1283,17 @@ html:not(.kbd-nav) :focus-visible {
   gap: 10px;
   font-weight: 600;
 }
+/* a table cell stays a cell (a flex <td> drops out of the row: its line no longer meets the others) */
+td.table__hero {
+  display: table-cell;
+  white-space: nowrap;
+}
+td.table__hero > * {
+  vertical-align: middle;
+}
+td.table__hero > * + * {
+  margin-left: 6px;
+}
 .table__trend {
   display: flex;
   align-items: center;
@@ -1835,6 +1846,13 @@ html:not(.kbd-nav) :focus-visible {
   grid-column: 2;
   grid-row: 2;
 }
+/* «Пул героев»: the table takes the whole width */
+.profile--wide .profile__side {
+  display: none;
+}
+.profile--wide .profile__pool {
+  grid-column: 1 / -1;
+}
 .profile__side > .panel__body {
   display: flex;
   flex-direction: column;
@@ -1850,8 +1868,8 @@ html:not(.kbd-nav) :focus-visible {
 .pro__avatar {
   --shape: 26%;
   flex: none;
-  width: 112px;
-  height: 112px;
+  width: 92px;
+  height: 92px;
   padding: 3px;
   border-radius: var(--shape);
   background: linear-gradient(150deg, #fff, var(--accent-p) 45%, color-mix(in srgb, var(--accent-p) 40%, transparent));
@@ -1893,7 +1911,7 @@ html:not(.kbd-nav) :focus-visible {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: clamp(28px, 3vw, 40px);
+  font-size: clamp(26px, 2.6vw, 36px);
   line-height: 1.05;
   text-shadow: 0 4px 24px color-mix(in srgb, var(--accent-p) 45%, transparent);
 }
@@ -1908,13 +1926,13 @@ html:not(.kbd-nav) :focus-visible {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 .pro__tile {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  padding: 8px 14px;
+  padding: 6px 12px;
   border: 0;
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.08);
@@ -3584,7 +3602,8 @@ html:not(.kbd-nav) :focus-visible {
 .dr {
   height: 100%;
   display: grid;
-  grid-template-rows: minmax(0, 1.25fr) minmax(0, 1fr);
+  /* the suggestions get the larger half: they are what the draft is for */
+  grid-template-rows: minmax(300px, 1fr) minmax(0, 1.3fr);
   gap: var(--gutter);
 }
 .dr__top {
@@ -3835,7 +3854,7 @@ html:not(.kbd-nav) :focus-visible {
 }
 .ring {
   position: relative;
-  width: min(100%, 176px);
+  width: min(100%, 138px);
   aspect-ratio: 1;
   margin: 2px auto 4px;
   flex: none;
@@ -3869,7 +3888,7 @@ html:not(.kbd-nav) :focus-visible {
 }
 .ring__num {
   font-family: var(--font-display);
-  font-size: 40px;
+  font-size: 32px;
   font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1;
@@ -4159,10 +4178,10 @@ html:not(.kbd-nav) :focus-visible {
 
 @media (max-height: 760px) {
   .ring {
-    width: min(100%, 140px);
+    width: min(100%, 112px);
   }
   .ring__num {
-    font-size: 32px;
+    font-size: 26px;
   }
   .dr-row__text b {
     font-size: 14px;
@@ -7151,4 +7170,273 @@ a.btn {
   .panel__head {
     flex-wrap: wrap;
   }
+}
+/* the demo has no 3D models: the hero's selection portrait stands in the card */
+.hmodel__fig--portrait {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: calc(100% - var(--card-top, 0px));
+  object-fit: cover;
+  border-radius: var(--radius-md);
+}
+
+/* the search on Ctrl+K (components/CommandPalette.tsx) */
+.cmdk {
+  place-items: start center;
+  padding-top: 12vh;
+}
+.cmdk__card {
+  width: min(620px, 100%);
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+.cmdk__field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+}
+.cmdk__field input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: 0;
+  outline: 0;
+  color: inherit;
+  font: inherit;
+  font-size: 16px;
+}
+.cmdk__lead {
+  opacity: 0.7;
+}
+.cmdk__kbd,
+.cmdk__foot kbd {
+  font: 11px/1 var(--font-mono, monospace);
+  padding: 3px 5px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 0 2px;
+}
+.cmdk__list {
+  list-style: none;
+  margin: 0;
+  padding: 6px 8px 8px;
+  overflow: auto;
+}
+.cmdk__list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.cmdk__title {
+  display: block;
+  padding: 8px 8px 4px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  opacity: 0.55;
+}
+.cmdk__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  min-height: 38px;
+}
+.cmdk__row.is-active {
+  background: rgba(255, 255, 255, 0.09);
+}
+[data-theme='light'] .cmdk__row.is-active {
+  background: rgba(0, 0, 0, 0.06);
+}
+.cmdk__icon {
+  width: 44px;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+.cmdk__hero {
+  width: 44px;
+  border-radius: 5px;
+}
+.cmdk__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+.cmdk__sub {
+  margin-right: auto;
+}
+.cmdk__act {
+  opacity: 0;
+}
+.cmdk__row.is-active .cmdk__act {
+  opacity: 1;
+}
+.cmdk__none {
+  padding: 18px 10px;
+  text-align: center;
+}
+.cmdk__foot {
+  display: flex;
+  gap: 16px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+}
+
+/* the actions of a suggestion: take, ban, the hero's page */
+.picks__acts {
+  white-space: nowrap;
+  text-align: right;
+}
+.picks__acts .btn + .btn {
+  margin-left: 4px;
+}
+.picks__acts .btn--ghost {
+  padding-inline: 8px;
+}
+/* the reasons of a suggestion: one per line, cut when long (the full text is in the hero's tooltip) */
+.table td.picks__why {
+  max-width: 0; /* take what is left, never widen the table */
+  width: 100%;
+  font-family: var(--font);
+}
+.picks__reason {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  line-height: 1.35;
+}
+.picks__hero {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font);
+  font-weight: 600;
+  white-space: nowrap;
+}
+/* the profile's name and its buttons (Оформить, Обновить историю) on one line */
+.pro__top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.pro__top h1 {
+  min-width: 0;
+}
+.pro__actions {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+/* top games: the missing Stratz token in one line; the arrow of an expandable match */
+.top__notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--warn, #ffc95c) 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn, #ffc95c) 35%, transparent);
+  font-size: 13px;
+}
+.top__notice-text {
+  flex: 1;
+  min-width: 220px;
+}
+.top__chev {
+  display: inline-block;
+  width: 12px;
+  margin-right: 4px;
+  font-style: normal;
+  opacity: 0.6;
+  transition: transform 0.2s var(--ease-out);
+}
+.top__row.is-open .top__chev {
+  transform: rotate(90deg);
+}
+
+/* settings: the sections and the search on the left (pages/SettingsPage.tsx) */
+.settings--nav {
+  grid-template-columns: minmax(230px, 270px) minmax(0, 1fr);
+}
+.settings-nav {
+  min-height: 0;
+  border-radius: var(--radius-xl);
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+}
+.settings-nav__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-pill);
+  margin-bottom: 8px;
+}
+.settings-nav__search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+}
+.settings-nav__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.settings-nav__item .ti {
+  margin-top: 2px;
+}
+.settings-nav__item:hover {
+  background: var(--row-bg-hover);
+}
+.settings-nav__item.is-on {
+  background: var(--row-bg);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+.settings-nav__item span {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.settings-nav__item b {
+  font-size: 14px;
+  font-weight: 650;
+}
+.settings-nav__item small {
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+.settings-none {
+  padding: 24px 22px;
 }

@@ -19,16 +19,17 @@ export const PAGE_ANIMS: { value: PageAnim; label: string; title: string }[] = [
 /** How long the page being left stays on screen (ms): its panels animate out meanwhile. */
 export const LEAVE_MS: Record<PageAnim, number> = { none: 0, fade: 220, rise: 220, slide: 300, zoom: 260, blur: 260 };
 
-/** Tab order of the top bar; builds sit under «Герои», the screen reader under the settings. */
-const ORDER: Page[] = ['draft', 'meta', 'hero', 'top', 'patches', 'grids', 'profile', 'settings'];
-const place = (p: Page) => ORDER.indexOf(p === 'builds' ? 'hero' : p === 'vision' ? 'settings' : p);
+/** Left to right as on screen: the tabs with their views (overview, build, top games; tier list,
+ * patches), then «Оформление», the settings and the screen reader under them. */
+const ORDER: Page[] = ['draft', 'hero', 'builds', 'top', 'meta', 'patches', 'profile', 'grids', 'settings', 'vision'];
+const place = (p: Page) => ORDER.indexOf(p);
 
 /** Which way a slide goes: to a tab further right the new page comes in from the right. */
 export function slideDir(from: Page | null, to: Page): 'fwd' | 'back' {
   if (!from) return 'fwd';
   const a = place(from);
   const b = place(to);
-  return b < a || (b === a && to === 'hero' && from === 'builds') ? 'back' : 'fwd';
+  return b < a ? 'back' : 'fwd';
 }
 
 /** Plays the current page's entrance again, so a newly picked animation can be seen at once. */

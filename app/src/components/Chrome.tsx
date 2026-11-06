@@ -2,11 +2,12 @@
  * wallpaper behind everything (picture, GIF, video, hero art or a built-in one). */
 import { isTauri } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { ChartColumnIncreasing, Palette, ScrollText, Shield, Swords, Trophy, User, type LucideIcon } from './glyphs';
+import { ChartColumnIncreasing, Palette, Search, Shield, Swords, User, type LucideIcon } from './glyphs';
+import { openSearch } from './CommandPalette';
 import { motion } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 
-import { useHealth, useSettings } from '../api/hooks';
+import { useHealth } from '../api/hooks';
 import { useLogoUrl } from '../lib/appIcon';
 import { blurPicture, loadPicture, setGlassPicture, type Material } from '../lib/glassBackdrop';
 import { lightVeilFor, lumaOfBlob, lumaOfUrl, veilFor } from '../lib/wallLuma';
@@ -14,20 +15,20 @@ import { useResolvedTheme } from '../lib/theme';
 import { useUpdate } from '../lib/updates';
 import { refractionSupported } from '../glass/refraction';
 import { useDraft } from '../state/draft';
+import { useMyPos } from '../state/myPos';
 import { loadBackgroundFile } from '../state/bgstore';
 import { useUi, type Background, type Page } from '../state/ui';
 import { POS_ROLE, RoleIcon } from './DotaIcons';
 import { DEMO, DEMO_PAGES } from '../demo/api';
 import { IconClose, IconMax, IconMin, IconSettings, Ti } from './Icons';
 
-/** The tab pill. Builds live under «Герои» (the hero page and its builds share one tab). */
+/** The tab pill: four tabs. «Герои» holds the hero's overview, build and top players' games
+ * (one hero for all three), «Мета» the tier list and the patches; «Оформление» and the settings
+ * are the round buttons on the right. */
 export const NAV: { page: Page; label: string; icon: LucideIcon; also?: Page[] }[] = [
   { page: 'draft', label: 'Драфт', icon: Swords },
-  { page: 'meta', label: 'Мета', icon: ChartColumnIncreasing },
-  { page: 'hero', label: 'Герои', icon: Shield, also: ['builds'] },
-  { page: 'top', label: 'Игры топов', icon: Trophy },
-  { page: 'patches', label: 'Патчи', icon: ScrollText },
-  { page: 'grids', label: 'Оформление', icon: Palette },
+  { page: 'hero', label: 'Герои', icon: Shield, also: ['builds', 'top'] },
+  { page: 'meta', label: 'Мета', icon: ChartColumnIncreasing, also: ['patches'] },
   { page: 'profile', label: 'Профиль', icon: User },
 ];
 
@@ -76,11 +77,22 @@ export function TitleBar() {
       </nav>
 
       <div className="topbar__right" data-tauri-drag-region>
+        <button className="round-btn glass" onClick={openSearch} title="Поиск: герой, игрок, раздел (Ctrl+K)" aria-label="Поиск">
+          <Ti icon={Search} />
+        </button>
         <PositionPicker />
+        {!DEMO && <button
+          className={`round-btn glass ${page === 'grids' ? 'is-active' : ''}`}
+          onClick={() => go('grids')}
+          title="Оформление: сетки героев, фон и шрифт игры, свои VPK (Ctrl+5)"
+          aria-label="Оформление"
+        >
+          <Ti icon={Palette} />
+        </button>}
         {!DEMO && <button
           className={`round-btn glass ${page === 'settings' || page === 'vision' ? 'is-active' : ''}`}
           onClick={() => go('settings')}
-          title={update ? `Настройки (Ctrl+8) · доступна версия ${update}` : 'Настройки (Ctrl+8)'}
+          title={update ? `Настройки (Ctrl+6) · доступна версия ${update}` : 'Настройки (Ctrl+6)'}
           aria-label="Настройки"
         >
           <IconSettings />
@@ -106,9 +118,7 @@ export function TitleBar() {
 
 /** My position for the draft and its suggestions: round buttons with Dota's position icons. */
 function PositionPicker() {
-  const settings = useSettings().data;
-  const d = useDraft();
-  const pos = d.pos ?? settings?.pos ?? 1;
+  const [pos, setPos] = useMyPos();
   return (
     <div className="posnav glass" role="radiogroup" aria-label="Моя позиция">
       {[1, 2, 3, 4, 5].map((p) => (
@@ -117,8 +127,8 @@ function PositionPicker() {
           role="radio"
           aria-checked={p === pos}
           className={`posnav__btn ${p === pos ? 'is-on' : ''}`}
-          onClick={() => d.setPos(p)}
-          title={`Моя позиция: ${p} · ${POS_ROLE[p]}`}
+          onClick={() => setPos(p)}
+          title={`Моя позиция: ${p} · ${POS_ROLE[p]} (одна на драфт, билды и героев)`}
           aria-label={`Позиция ${p} · ${POS_ROLE[p]}`}
         >
           {p === pos && <motion.span layoutId="pos-pill" className="posnav__pill" transition={{ type: 'spring', stiffness: 380, damping: 34 }} />}

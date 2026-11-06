@@ -16,7 +16,7 @@ export function RoleIcon({ pos, size = 18, title, className = '' }: { pos: numbe
       role="img"
       aria-label={title ?? `Позиция ${pos} · ${POS_ROLE[pos] ?? ''}`}
       title={title}
-      style={{ '--ico': `url("${import.meta.env.BASE_URL}dota-icons/roles/pos${pos}.webp")`, width: size, height: size } as CSSProperties}
+      style={{ '--ico': `url("${new URL(`${import.meta.env.BASE_URL}dota-icons/roles/pos${pos}.webp`, document.baseURI).href}")`, width: size, height: size } as CSSProperties}
     />
   );
 }

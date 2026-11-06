@@ -7,7 +7,9 @@ export type ProfileTab = 'stats' | 'history' | 'matches' | 'ruin' | 'pool' | 'se
 interface NavState {
   profileTab: ProfileTab;
   ruinId: number | null;
+  /** a player to look up in «Найти игрока» (from the search on Ctrl+K), taken once */
+  playerQuery: string | null;
   set: (p: Partial<Omit<NavState, 'set'>>) => void;
 }
 
-export const useNav = create<NavState>((set) => ({ profileTab: 'stats', ruinId: null, set }));
+export const useNav = create<NavState>((set) => ({ profileTab: 'stats', ruinId: null, playerQuery: null, set }));

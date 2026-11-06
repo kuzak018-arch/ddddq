@@ -32,6 +32,8 @@ test('a slide goes the way of the tab clicked', () => {
   assert.equal(slideDir('settings', 'draft'), 'back');
   assert.equal(slideDir('hero', 'builds'), 'fwd');    // the same tab: builds open «forward»
   assert.equal(slideDir('builds', 'hero'), 'back');
+  assert.equal(slideDir('builds', 'top'), 'fwd');     // overview → build → top games
+  assert.equal(slideDir('patches', 'meta'), 'back');
   assert.equal(slideDir('vision', 'profile'), 'back'); // the screen reader sits under the settings
   assert.equal(slideDir(null, 'meta'), 'fwd');
 });

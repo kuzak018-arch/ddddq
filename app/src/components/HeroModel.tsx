@@ -12,6 +12,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 
+import { DEMO } from '../demo/api';
 import { api, apiBytes, asset } from '../api/client';
 import { isCutOut, placeStill } from '../lib/heroModel';
 
@@ -124,7 +125,7 @@ export function useHeroModel(key: string | null | undefined) {
     color: d?.color ?? null,
     crop: d?.crop ?? null,
     frame: d?.frame ?? null,
-    loading: !!key && !failed && !d?.still,
+    loading: !DEMO && !!key && !failed && !d?.still,   // the demo has no models: no waiting
     failed,
   };
 }
@@ -165,7 +166,11 @@ export function HeroModel({ heroKey, heroId, fallback, animated = false, classNa
         <div className="hmodel__rim" />
       </div>
       <div className="hmodel__figs">
-        {m.still && <img className={`hmodel__fig ${playing ? 'is-hidden' : ''}`} src={m.still} alt="" draggable={false} />}
+        {m.still ? (
+          <img className={`hmodel__fig ${playing ? 'is-hidden' : ''}`} src={m.still} alt="" draggable={false} />
+        ) : (
+          DEMO && <img className="hmodel__fig hmodel__fig--portrait" src={`${import.meta.env.BASE_URL}portraits/${heroId}.webp`} alt="" draggable={false} />
+        )}
         {animated && m.video && place && (
           <video
             className={`hmodel__vid ${playing ? '' : 'is-hidden'}`}

@@ -6,7 +6,7 @@
  * looks at the user's current match.
  */
 import { useQuery } from '@tanstack/react-query';
-import { ChartLine, Crown, Hammer, ShoppingBag, Swords, Trophy } from '../components/glyphs';
+import { ChartLine, Crown, Hammer, KeyRound, ShoppingBag, Swords, Trophy } from '../components/glyphs';
 import { useMemo, useState } from 'react';
 
 import { api } from '../api/client';
@@ -20,7 +20,7 @@ import { Ti } from '../components/Icons';
 import { HeroSearch } from '../components/HeroSearch';
 import { Empty, ErrorBox, HeroIcon, ItemIcon, Loading, plural, Segmented, Toggle } from '../components/ui';
 import { clock, coreTimings, filterMatches, skillLevels, summarize, type TopMatch } from '../lib/topgames';
-import { useDraft } from '../state/draft';
+import { HeroModeSwitch } from '../components/HeroModeSwitch';
 import { useUi } from '../state/ui';
 
 type Source = 'immortal' | 'divine' | 'pro';
@@ -48,12 +48,11 @@ const fmt = (n: number | null | undefined) => (n == null ? '—' : n >= 10000 ? 
 const when = (t: number | null) => (t ? new Date(t * 1000).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) : '');
 
 export function TopGamesPage() {
-  const ui = useUi();
+  const hero = useUi((s) => s.heroPageId);
+  const pickHero = useUi((s) => s.pickHero);
   const heroes = useHeroes().data;
-  const myPos = useDraft((s) => s.pos);
-  const [hero, setHero] = useState<number | null>(ui.heroPageId);
   const [source, setSource] = useState<Source>('immortal');
-  const [pos, setPos] = useState<number | null>(myPos);
+  const [pos, setPos] = useState<number | null>(null);
   const [winsOnly, setWinsOnly] = useState(false);
   const [against, setAgainst] = useState<number | null>(null);
   const [open, setOpen] = useState<number | null>(null);
@@ -67,6 +66,9 @@ export function TopGamesPage() {
     staleTime: 60_000,
   });
   const d = data.data;
+  const go = useUi((s) => s.go);
+  // no Stratz token: one line on top instead of an error in the list
+  const noToken = !!d?.error && /токен/i.test(d.error) && source !== 'pro';
   const core = useMemo(() => new Set(d?.core ?? []), [d?.core]);
   const list = useMemo(() => (d ? filterMatches(d.matches, { pos, winsOnly, against }) : []), [d, pos, winsOnly, against]);
   const sum = useMemo(() => summarize(list, core), [list, core]);
@@ -77,10 +79,11 @@ export function TopGamesPage() {
     <div className="top">
       <Panel className="top__head">
         <div className="top__bar">
+          <HeroModeSwitch />
           <div className="top__hero">
             {h ? <HeroIcon id={h.id} size="md" /> : null}
             <div className="top__search">
-              <HeroSearch compact placeholder={h ? `${h.name} — сменить героя` : 'Выбери героя: «ам», «пудж», «вр»…'} onPick={(x) => (setHero(x.id), setOpen(null))} />
+              <HeroSearch compact placeholder={h ? `${h.name} — сменить героя` : 'Выбери героя: «ам», «пудж», «вр»…'} onPick={(x) => (pickHero(x.id), setOpen(null))} />
             </div>
           </div>
           <Segmented
@@ -112,7 +115,19 @@ export function TopGamesPage() {
           </div>
         </div>
         {!hero && <Empty>Выбери героя — покажу его матчи у топов за текущий патч.</Empty>}
-        {hero && d && (
+        {noToken && (
+          <div className="top__notice">
+            <Ti icon={KeyRound} />
+            <span className="top__notice-text">Для Immortal и Divine+ нужен токен Stratz (бесплатно, вход через Steam). Про-матчи работают без него.</span>
+            <button className="btn btn--sm" onClick={() => go('settings')}>
+              Указать токен
+            </button>
+            <button className="btn btn--sm btn--ghost" onClick={() => (setSource('pro'), setOpen(null))}>
+              Смотреть про
+            </button>
+          </div>
+        )}
+        {hero && d && sum.count > 0 && (
           <div className="top__sum">
             <div className="top__stat">
               <b>{sum.count}</b>
@@ -171,8 +186,9 @@ export function TopGamesPage() {
           </div>
           {data.isPending && <Loading>Загружаю матчи…</Loading>}
           {data.error && <ErrorBox error={data.error} />}
-          {d?.error && <ErrorBox error={d.error} />}
+          {d?.error && !noToken && <ErrorBox error={d.error} />}
           {d?.note && <p className="hint">{d.note}</p>}
+          {noToken && <Empty>Матчи Immortal и Divine+ появятся, когда будет токен Stratz (см. строку сверху).</Empty>}
           {d && !d.matches.length && !d.loading && !d.error && (
             <Empty>{source === 'pro' ? 'Про-матчей на этом герое в текущем патче не нашлось.' : 'Разобранных матчей топов на этом герое за патч пока нет.'}</Empty>
           )}
@@ -195,10 +211,10 @@ export function TopGamesPage() {
               <MatchRow key={m.m} m={m} d={d!} core={core} open={open === m.m} onToggle={() => setOpen(open === m.m ? null : m.m)} />
             ))}
           </div>
-          {d && d.source !== 'pro' && (
+          {d && d.source !== 'pro' && !noToken && (
             <p className="hint">
-              Матчи — топ-игроков героя из таблицы лидеров Stratz ({d.label}), только разобранные и только этого патча. Запросы берегут лимит токена:
-              одна загрузка — до 16 запросов, повторное открытие — из кэша.
+              Топ-игроки героя из таблицы лидеров Stratz ({d.label}), только разобранные матчи этого патча. Клик по матчу — покупки, прокачка и
+              график. Повторное открытие — из кэша, без запросов к Stratz.
             </p>
           )}
         </Panel>
@@ -213,7 +229,10 @@ function MatchRow({ m, d, core, open, onToggle }: { m: TopMatch; d: TopResponse;
   return (
     <div className={`top__row ${open ? 'is-open' : ''}`}>
       <button className="top__line" onClick={onToggle} aria-expanded={open}>
-        <span className={`top__res ${m.w ? 'c-good' : 'c-bad'}`}>{m.w ? 'Победа' : 'Поражение'}</span>
+        <span className={`top__res ${m.w ? 'c-good' : 'c-bad'}`}>
+          <i className="top__chev" aria-hidden>›</i>
+          {m.w ? 'Победа' : 'Поражение'}
+        </span>
         <span className="top__who">
           <b>{m.name ?? (m.src === 'pro' ? 'Про-игрок' : rank ?? 'Топ-игрок')}</b>
           <span className="muted small">

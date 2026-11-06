@@ -7,7 +7,9 @@
     "overlay",
     "w-timers",
     "w-now",
-    "w-gold"
+    "w-gold",
+    "w-creeps",
+    "w-networth"
   ],
   "permissions": [
     "core:default",
