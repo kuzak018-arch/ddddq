@@ -1283,6 +1283,17 @@ html:not(.kbd-nav) :focus-visible {
   gap: 10px;
   font-weight: 600;
 }
+/* a table cell stays a cell (a flex <td> drops out of the row: its line no longer meets the others) */
+td.table__hero {
+  display: table-cell;
+  white-space: nowrap;
+}
+td.table__hero > * {
+  vertical-align: middle;
+}
+td.table__hero > * + * {
+  margin-left: 6px;
+}
 .table__trend {
   display: flex;
   align-items: center;
@@ -1835,6 +1846,13 @@ html:not(.kbd-nav) :focus-visible {
   grid-column: 2;
   grid-row: 2;
 }
+/* «Пул героев»: the table takes the whole width */
+.profile--wide .profile__side {
+  display: none;
+}
+.profile--wide .profile__pool {
+  grid-column: 1 / -1;
+}
 .profile__side > .panel__body {
   display: flex;
   flex-direction: column;
@@ -1850,8 +1868,8 @@ html:not(.kbd-nav) :focus-visible {
 .pro__avatar {
   --shape: 26%;
   flex: none;
-  width: 112px;
-  height: 112px;
+  width: 92px;
+  height: 92px;
   padding: 3px;
   border-radius: var(--shape);
   background: linear-gradient(150deg, #fff, var(--accent-p) 45%, color-mix(in srgb, var(--accent-p) 40%, transparent));
@@ -1893,7 +1911,7 @@ html:not(.kbd-nav) :focus-visible {
   display: flex;
   align-items: center;
   gap: 12px;
-  font-size: clamp(28px, 3vw, 40px);
+  font-size: clamp(26px, 2.6vw, 36px);
   line-height: 1.05;
   text-shadow: 0 4px 24px color-mix(in srgb, var(--accent-p) 45%, transparent);
 }
@@ -1908,13 +1926,13 @@ html:not(.kbd-nav) :focus-visible {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 .pro__tile {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  padding: 8px 14px;
+  padding: 6px 12px;
   border: 0;
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.08);
@@ -7306,4 +7324,20 @@ a.btn {
   font-family: var(--font);
   font-weight: 600;
   white-space: nowrap;
+}
+/* the profile's name and its buttons (Оформить, Обновить историю) on one line */
+.pro__top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.pro__top h1 {
+  min-width: 0;
+}
+.pro__actions {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+  flex: none;
 }
