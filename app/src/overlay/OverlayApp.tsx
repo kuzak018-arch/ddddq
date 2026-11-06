@@ -32,7 +32,8 @@ import { useDraft } from '../state/draft';
 import { startSync } from '../state/sync';
 import { useUi } from '../state/ui';
 
-type Mode = 'draft' | 'build' | 'lane' | 'plan' | 'enemies';
+/** Three tabs: the draft, the game (build, plan, lane in one column), the enemies. */
+type Mode = 'draft' | 'game' | 'enemies';
 const FULL = { w: 400, h: 660 };
 const PILL = { w: 320, h: 64 };
 
@@ -110,7 +111,7 @@ export function OverlayApp() {
     setCollapsed(on);
   }
 
-  const auto: Mode = ov.mode === 'auto' ? (phase === 'game' ? 'build' : 'draft') : ov.mode;
+  const auto: Mode = ov.mode === 'auto' ? (phase === 'game' ? 'game' : 'draft') : ov.mode === 'build' ? 'game' : 'draft';
   const shown = mode ?? auto;
   if (collapsed)
     return (
@@ -123,10 +124,10 @@ export function OverlayApp() {
     <div className={`ov ov--${effectInUse} ${clickThrough ? 'is-through' : ''}`} style={{ opacity: ov.opacity }}>
       <header className="ov__head" data-tauri-drag-region>
         <div className="ov-switch" role="tablist">
-          {(['draft', 'build', 'lane', 'plan', 'enemies'] as Mode[]).map((m) => (
+          {(['draft', 'game', 'enemies'] as Mode[]).map((m) => (
             <button key={m} role="tab" className={`ov-switch__btn ${shown === m ? 'is-on' : ''}`} onClick={() => setMode(m)}>
               {shown === m && <motion.span layoutId="ov-pill" className="ov-switch__pill" transition={{ type: 'spring', stiffness: 380, damping: 34 }} />}
-              <span>{m === 'draft' ? 'Драфт' : m === 'build' ? 'Билд' : m === 'lane' ? 'Линия' : m === 'plan' ? 'План' : 'Враги'}</span>
+              <span title={m === 'game' ? 'Билд, план на игру и линия' : undefined}>{m === 'draft' ? 'Драфт' : m === 'game' ? 'Игра' : 'Враги'}</span>
             </button>
           ))}
         </div>
@@ -162,12 +163,8 @@ export function OverlayApp() {
             >
               {shown === 'draft' ? (
                 <DraftMode search={search} />
-              ) : shown === 'build' ? (
-                <BuildMode />
-              ) : shown === 'lane' ? (
-                <LaneMode />
-              ) : shown === 'plan' ? (
-                <PlanMode />
+              ) : shown === 'game' ? (
+                <GameMode />
               ) : (
                 <EnemiesHere />
               )}
@@ -407,6 +404,26 @@ function Pill({ onOpen }: { onOpen: () => void }) {
   );
 }
 
+/** «Игра»: the build first (what to buy now), then the plan for this draft, then the lane on demand. */
+function GameMode() {
+  const [lane, setLane] = useState(false);
+  return (
+    <div className="ov__game">
+      <BuildMode />
+      <section className="ov__game-part">
+        <span className="kicker">План на игру</span>
+        <PlanMode />
+      </section>
+      <section className="ov__game-part">
+        <button className="ov__more" onClick={() => setLane((v) => !v)} aria-expanded={lane}>
+          <i aria-hidden>{lane ? '▾' : '▸'}</i> Линия: кто против меня и как она обычно идёт
+        </button>
+        {lane && <LaneMode />}
+      </section>
+    </div>
+  );
+}
+
 function LaneMode() {
   const req = useDraftRequest();
   const me = useMe(req);
@@ -573,7 +590,7 @@ function PlanMode() {
           ))}
         </div>
       )}
-      {!me && req.allies.length > 0 && <p className="hint">Отметь своего героя (в «Билде» или кликом по союзнику) — появится, кого ловить.</p>}
+      {!me && req.allies.length > 0 && <p className="hint">Отметь своего героя (выше, «Мой герой») — появится, кого ловить.</p>}
       <HowTo>
         Окна — по винрейту героев в коротких и длинных играх, «кого ловить» — по контрпикам, живучести и побегу героев. Предметов и уровней
         в настоящей игре программа не видит.

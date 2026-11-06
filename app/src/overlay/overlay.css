@@ -1261,3 +1261,36 @@ html.perf .hud-gold.is-ready .hud-fill {
   background: rgba(250, 250, 252, 0.97);
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1), 0 10px 30px rgba(0, 0, 0, 0.2);
 }
+
+/* «Игра»: the build, the plan and the lane in one column */
+.ov__game {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ov__game-part {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+.ov__more {
+  align-self: flex-start;
+  border: 0;
+  background: none;
+  color: var(--text-2, rgba(255, 255, 255, 0.7));
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 2px 0;
+  cursor: pointer;
+}
+.ov__more i {
+  font-style: normal;
+  display: inline-block;
+  width: 12px;
+}
+.ov__more:hover {
+  color: var(--text, #fff);
+}

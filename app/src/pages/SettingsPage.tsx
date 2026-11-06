@@ -775,9 +775,9 @@ function OverlayCard() {
           value={ov.mode}
           onChange={(mode) => setOv({ mode })}
           options={[
-            { value: 'auto', label: 'Авто' },
+            { value: 'auto', label: 'Авто', title: 'Драфт во время выбора героев, «Игра» после начала матча' },
             { value: 'draft', label: 'Драфт' },
-            { value: 'build', label: 'Билд' },
+            { value: 'build', label: 'Игра', title: 'Билд, план и линия' },
           ]}
         />
       </div>
