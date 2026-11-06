@@ -3584,7 +3584,8 @@ html:not(.kbd-nav) :focus-visible {
 .dr {
   height: 100%;
   display: grid;
-  grid-template-rows: minmax(0, 1.25fr) minmax(0, 1fr);
+  /* the suggestions get the larger half: they are what the draft is for */
+  grid-template-rows: minmax(300px, 1fr) minmax(0, 1.3fr);
   gap: var(--gutter);
 }
 .dr__top {
@@ -3835,7 +3836,7 @@ html:not(.kbd-nav) :focus-visible {
 }
 .ring {
   position: relative;
-  width: min(100%, 176px);
+  width: min(100%, 138px);
   aspect-ratio: 1;
   margin: 2px auto 4px;
   flex: none;
@@ -3869,7 +3870,7 @@ html:not(.kbd-nav) :focus-visible {
 }
 .ring__num {
   font-family: var(--font-display);
-  font-size: 40px;
+  font-size: 32px;
   font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1;
@@ -4159,10 +4160,10 @@ html:not(.kbd-nav) :focus-visible {
 
 @media (max-height: 760px) {
   .ring {
-    width: min(100%, 140px);
+    width: min(100%, 112px);
   }
   .ring__num {
-    font-size: 32px;
+    font-size: 26px;
   }
   .dr-row__text b {
     font-size: 14px;
@@ -7272,4 +7273,37 @@ a.btn {
   gap: 16px;
   padding: 8px 16px;
   border-top: 1px solid var(--line, rgba(255, 255, 255, 0.08));
+}
+
+/* the actions of a suggestion: take, ban, the hero's page */
+.picks__acts {
+  white-space: nowrap;
+  text-align: right;
+}
+.picks__acts .btn + .btn {
+  margin-left: 4px;
+}
+.picks__acts .btn--ghost {
+  padding-inline: 8px;
+}
+/* the reasons of a suggestion: one per line, cut when long (the full text is in the hero's tooltip) */
+.table td.picks__why {
+  max-width: 0; /* take what is left, never widen the table */
+  width: 100%;
+  font-family: var(--font);
+}
+.picks__reason {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  line-height: 1.35;
+}
+.picks__hero {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font);
+  font-weight: 600;
+  white-space: nowrap;
 }
