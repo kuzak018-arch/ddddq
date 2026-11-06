@@ -7341,3 +7341,102 @@ a.btn {
   gap: 6px;
   flex: none;
 }
+/* top games: the missing Stratz token in one line; the arrow of an expandable match */
+.top__notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--warn, #ffc95c) 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn, #ffc95c) 35%, transparent);
+  font-size: 13px;
+}
+.top__notice-text {
+  flex: 1;
+  min-width: 220px;
+}
+.top__chev {
+  display: inline-block;
+  width: 12px;
+  margin-right: 4px;
+  font-style: normal;
+  opacity: 0.6;
+  transition: transform 0.2s var(--ease-out);
+}
+.top__row.is-open .top__chev {
+  transform: rotate(90deg);
+}
+
+/* settings: the sections and the search on the left (pages/SettingsPage.tsx) */
+.settings--nav {
+  grid-template-columns: minmax(230px, 270px) minmax(0, 1fr);
+}
+.settings-nav {
+  min-height: 0;
+  border-radius: var(--radius-xl);
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+}
+.settings-nav__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-pill);
+  margin-bottom: 8px;
+}
+.settings-nav__search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 14px;
+}
+.settings-nav__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.settings-nav__item .ti {
+  margin-top: 2px;
+}
+.settings-nav__item:hover {
+  background: var(--row-bg-hover);
+}
+.settings-nav__item.is-on {
+  background: var(--row-bg);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+.settings-nav__item span {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.settings-nav__item b {
+  font-size: 14px;
+  font-weight: 650;
+}
+.settings-nav__item small {
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+.settings-none {
+  padding: 24px 22px;
+}

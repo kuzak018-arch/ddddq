@@ -7,6 +7,9 @@ import type { Material } from '../lib/glassBackdrop';
 import type { PageAnim } from '../lib/pageAnim';
 import type { WidgetKind } from '../lib/widgets';
 
+/** The sections of the settings, left to right in its nav. */
+export type SettingsSection = 'account' | 'draft' | 'overlay' | 'look' | 'app';
+
 export type Page = 'draft' | 'meta' | 'hero' | 'builds' | 'top' | 'patches' | 'grids' | 'profile' | 'settings' | 'vision';
 export type Theme = 'system' | 'light' | 'dark';
 export type Effect = 'none' | 'rain' | 'snow' | 'stars' | 'fog' | 'particles';
@@ -38,7 +41,7 @@ interface UiState {
   performance: boolean; // no blur, no refraction, no animations
   /** how one tab turns into another (lib/pageAnim.ts) */
   pageAnim: PageAnim;
-  settingsTab: 'main' | 'more';   // Settings: the everyday cards, or the rest
+  settingsTab: SettingsSection;   // the section open in the settings (pages/SettingsPage.tsx)
   /** cards lean towards the pointer with a glare (lib/tilt.ts) */
   tilt: boolean;
   /** interface sounds (lib/sounds.ts): on/off, volume 0..1, a tick on tab change */
@@ -107,7 +110,7 @@ export const useUi = create<UiState>()(
       material: DEMO ? 'glass' : 'dota',
       performance: false,
       pageAnim: 'rise',
-      settingsTab: 'main',
+      settingsTab: 'account',
       tilt: true,
       sounds: { on: true, volume: 0.5, tabs: false },
       closeToTray: false,

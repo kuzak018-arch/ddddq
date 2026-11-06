@@ -32,7 +32,7 @@ export function PatchBanner() {
     mutationFn: () => api('/data/refresh', { method: 'POST' }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['jobs'] });
-      useUi.getState().set({ settingsTab: 'more' });   // the refresh log is in «Данные»
+      useUi.getState().set({ settingsTab: 'account' });   // the refresh log is in «Данные»
       go('settings');
     },
   });
