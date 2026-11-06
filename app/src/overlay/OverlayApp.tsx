@@ -21,7 +21,7 @@ import { HeroSearch, type HeroSearchHandle } from '../components/HeroSearch';
 import { NeutralItems } from '../components/NeutralItems';
 import { EnemiesMode, WinStrip } from './InGame';
 import { LiveHints, useBuildPlan, useDraftRequest, useMe } from './live';
-import { WidgetsController } from './Widgets';
+import { WidgetsController, WidgetsMenu } from './Widgets';
 import { SteamGuideCompact } from '../components/SteamGuides';
 import { IconClose } from '../components/Icons';
 import { LaneCard, LaneView } from '../components/LaneView';
@@ -137,6 +137,7 @@ export function OverlayApp() {
         >
           <CursorIcon />
         </button>
+        <WidgetsMenu />
         <button className="ov-round" title="Свернуть в таблетку" onClick={() => toggleCollapsed(true)}>
           <span className="ov-round__min" />
         </button>

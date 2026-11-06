@@ -13,7 +13,7 @@ pub const LABEL: &str = "overlay";
 /// Small widget windows over the game (tauri.conf): timers and «now» above the minimap, gold above
 /// the gold panel. Clicks go through them into the game unless the overlay is open and managed
 /// (visible and not click-through): then they can be dragged and their buttons pressed.
-pub const WIDGETS: [&str; 3] = ["w-timers", "w-now", "w-gold"];
+pub const WIDGETS: [&str; 5] = ["w-timers", "w-now", "w-gold", "w-creeps", "w-networth"];
 
 #[derive(Default)]
 pub struct OverlayState {
@@ -111,6 +111,8 @@ fn build_widget(app: &AppHandle, label: &str) -> Result<WebviewWindow, String> {
     let (w, h, x, y) = match label {
         "w-timers" => (270.0, 150.0, 10.0, 560.0),
         "w-now" => (270.0, 86.0, 10.0, 470.0),
+        "w-creeps" => (230.0, 80.0, 1600.0, 520.0),
+        "w-networth" => (230.0, 80.0, 1600.0, 430.0),
         _ => (290.0, 150.0, 1600.0, 620.0),
     };
     let url = tauri::WebviewUrl::App(format!("index.html#widget-{}", &label[2..]).into());

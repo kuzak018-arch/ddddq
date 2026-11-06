@@ -24,7 +24,7 @@ import { PAGE_ANIMS, replayPageIn } from '../lib/pageAnim';
 import { play } from '../lib/sounds';
 import { autostartEnabled, setAutostart } from '../lib/tray';
 import { loadBackgroundFile, saveBackgroundFile, saveFile } from '../state/bgstore';
-import { resetWidgetPlaces, WIDGET_KINDS, WIDGET_NAMES } from '../lib/widgets';
+import { resetWidgetPlaces, WIDGET_KINDS, WIDGET_NAMES, widgetOn } from '../lib/widgets';
 import { useUi } from '../state/ui';
 
 /**
@@ -734,8 +734,8 @@ function OverlayCard() {
         {WIDGET_KINDS.map((k) => (
           <Toggle
             key={k}
-            on={!!ov.widgets?.[k]}
-            onChange={(v) => setOv({ widgets: { ...{ timers: true, now: true, gold: true }, ...ov.widgets, [k]: v } })}
+            on={widgetOn(ov.widgets, k)}
+            onChange={(v) => setOv({ widgets: { ...ov.widgets, [k]: v } })}
             label={WIDGET_NAMES[k]}
           />
         ))}

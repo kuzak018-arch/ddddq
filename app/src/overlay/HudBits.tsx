@@ -14,8 +14,8 @@ import {
   RotateCcw,
   Skull,
   Sun,
-  TrendingDown,
-  TrendingUp,
+  
+  
   Trophy,
   X,
   Zap,
@@ -30,7 +30,7 @@ import { NeutralTip, useNeutrals } from '../components/NeutralItems';
 import { Tip } from '../components/Tip';
 import { HeroIcon, ItemIcon, Mins } from '../components/ui';
 import { mmss, useThreats, type NeutralTierNow, type Objectives } from './InGame';
-import type { GameLive, PlanItem } from './live';
+import type { GameLive, Pace, PlanItem } from './live';
 
 /** Dota's own HUD pictures (public/dota-icons/hud, from the game's panorama files). */
 const HUD = (name: string) => `${import.meta.env.BASE_URL}dota-icons/hud/${name}.webp`;
@@ -284,16 +284,55 @@ export function BuybackHud({ g }: { g: GameLive }) {
   );
 }
 
-export function PaceHud({ g }: { g: GameLive }) {
-  const nw = g.pace?.networth;
-  if (!nw) return null;
+const fmtN = (n: number) => Math.round(n).toLocaleString('ru');
+const signed = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${fmtN(Math.abs(n))}`;
+
+/** The «Нетворс» widget: mine now, the top players' at this minute, how far ahead or behind. */
+export function NetworthHud({ nw }: { nw: NonNullable<Pace['networth']> }) {
   const pct = Math.round((nw.ratio - 1) * 100);
-  const Icon = pct >= 0 ? TrendingUp : TrendingDown;
+  const cls = nw.verdict === 'bad' ? 'c-bad' : nw.verdict === 'good' ? 'c-good' : '';
   return (
-    <Chip className={nw.verdict === 'bad' ? 'c-bad' : nw.verdict === 'good' ? 'c-good' : 'muted'} title={`Нетворс ${nw.now.toLocaleString('ru')} к ${nw.minute}-й минуте, у топов ${nw.top.toLocaleString('ru')}`}>
-      <Icon size={13} /> нетворс {pct > 0 ? '+' : ''}
-      {pct}% к топам
-    </Chip>
+    <div
+      className="hud-pace"
+      title={`К ${nw.minute}-й минуте у топов на этом герое в среднем ${fmtN(nw.top)} (по ${nw.games} играм)${nw.estimated ? '; твой нетворс оценён по GPM' : ''}`}
+    >
+      <span className="hud-pace__now">
+        <HudImg name="gold_small" size={16} />
+        <b>{nw.estimated ? '≈ ' : ''}{fmtN(nw.now)}</b>
+        <small>нетворс · {nw.minute} мин</small>
+      </span>
+      <span className="hud-pace__vs">
+        <b className={cls}>
+          {signed(nw.now - nw.top)} ({pct > 0 ? '+' : ''}
+          {pct}%)
+        </b>
+        <small>к топам · у них {fmtN(nw.top)}</small>
+      </span>
+    </div>
+  );
+}
+
+/** The «Крипы» widget: last hits now, what is usual on the hero at this minute, the gap. */
+export function CreepsHud({ lh }: { lh: NonNullable<Pace['last_hits']> }) {
+  const gap = lh.expected != null ? lh.last_hits - lh.expected : null;
+  const cls = lh.few ? 'c-bad' : gap != null && gap > 0 ? 'c-good' : '';
+  return (
+    <div
+      className="hud-pace"
+      title={`${lh.per_min.toLocaleString('ru')} добиваний в минуту${lh.percentile != null ? ` — лучше, чем у ${lh.percentile}% игроков на этом герое` : ''} (OpenDota)`}
+    >
+      <span className="hud-pace__now">
+        <Skull size={15} />
+        <b>{lh.last_hits}</b>
+        <small>крипов · {lh.minute} мин</small>
+      </span>
+      {gap != null && (
+        <span className="hud-pace__vs">
+          <b className={cls}>{signed(gap)}</b>
+          <small>к обычному · обычно {lh.expected}</small>
+        </span>
+      )}
+    </div>
   );
 }
 

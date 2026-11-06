@@ -5,6 +5,7 @@ import { DEMO } from '../demo/api';
 import { migrateUi } from './uiMigrate';
 import type { Material } from '../lib/glassBackdrop';
 import type { PageAnim } from '../lib/pageAnim';
+import type { WidgetKind } from '../lib/widgets';
 
 export type Page = 'draft' | 'meta' | 'hero' | 'builds' | 'top' | 'patches' | 'grids' | 'profile' | 'settings' | 'vision';
 export type Theme = 'system' | 'light' | 'dark';
@@ -78,7 +79,7 @@ interface UiState {
     autoPerf: boolean;   // performance mode in the overlay while a match is running
     autoShow: boolean;   // show the overlay by itself when hero selection starts (GSI)
     hints: boolean;      // in-game hints in the build mode: next item, timers, buyback (GSI)
-    widgets: { timers: boolean; now: boolean; gold: boolean }; // small windows over the HUD in a match
+    widgets: Partial<Record<WidgetKind, boolean>>; // small windows over the HUD in a match (lib/widgets.ts widgetOn)
   };
   go: (page: Page) => void;
   openHero: (id: number) => void;

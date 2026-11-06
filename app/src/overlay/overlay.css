@@ -52,8 +52,8 @@ html.is-overlay body {
 .ov__head {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 12px 12px 6px;
+  gap: 4px;
+  padding: 12px 10px 6px;
   cursor: grab;
 }
 .ov-switch {
@@ -91,8 +91,8 @@ html.is-overlay body {
   box-shadow: inset 0 1px 0 #fff;
 }
 .ov-round {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   flex: none;
   display: grid;
   place-items: center;
@@ -1156,4 +1156,108 @@ html.perf .hud-gold.is-ready .hud-fill {
 .hud-ring__img--hud {
   border-radius: 0;
   object-fit: contain;
+}
+
+/* the «Нетворс» and «Крипы» widgets: my number, then the gap to the reference */
+.hud-pace {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 200px;
+}
+.hud-pace__now,
+.hud-pace__vs {
+  display: grid;
+  grid-auto-flow: row;
+  align-items: center;
+  column-gap: 6px;
+  line-height: 1.15;
+}
+.hud-pace__now {
+  grid-template-columns: auto auto;
+}
+.hud-pace__now > :first-child {
+  grid-row: span 2;
+}
+.hud-pace__vs {
+  text-align: right;
+}
+.hud-pace b {
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.hud-pace small {
+  font-size: 10.5px;
+  color: var(--text-2);
+}
+/* the «×» of a widget while arranging: hide it (Widgets.tsx) */
+.wg__edit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.wg__hide {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 18px;
+  cursor: pointer;
+}
+.wg__hide:hover {
+  background: rgba(255, 90, 90, 0.5);
+}
+
+/* the «Виджеты» menu in the overlay's head (Widgets.tsx WidgetsMenu) */
+.ov-wmenu {
+  position: relative;
+  flex: none;
+}
+.ov-wmenu__list {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(14, 15, 21, 0.96);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+.ov-wmenu__title {
+  padding: 2px 6px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.ov-wmenu__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.ov-wmenu__row:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.ov-wmenu__hint {
+  padding: 4px 6px 0;
+  font-size: 11px;
+  color: var(--text-3, rgba(255, 255, 255, 0.6));
+}
+:root[data-theme='light'] .ov-wmenu__list {
+  background: rgba(250, 250, 252, 0.97);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1), 0 10px 30px rgba(0, 0, 0, 0.2);
 }
