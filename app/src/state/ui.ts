@@ -20,9 +20,10 @@ export type Background =
 
 interface UiState {
   page: Page;
+  /** the hero of «Герои»: its overview, its build and top players' games show this one */
   heroPageId: number | null;
+  /** the same hero (kept for old saved state and the overlay; always set with heroPageId) */
   buildHero: number | null;
-  buildPos: number;
   theme: Theme;
   background: Background;
   bgBlur: number;      // px applied to the wallpaper itself
@@ -83,7 +84,9 @@ interface UiState {
   };
   go: (page: Page) => void;
   openHero: (id: number) => void;
-  openBuild: (hero: number, pos?: number) => void;
+  openBuild: (hero: number) => void;
+  /** pick the hero of «Герои» without leaving the current view (overview, build or top games) */
+  pickHero: (id: number | null) => void;
   set: (patch: Partial<UiState>) => void;
 }
 
@@ -93,7 +96,6 @@ export const useUi = create<UiState>()(
       page: 'draft',
       heroPageId: null,
       buildHero: null,
-      buildPos: 1,
       theme: 'dark',
       // the demo opens on liquid glass over a coloured wallpaper (a page host may block hero art from Steam's CDN)
       background: DEMO ? { kind: 'preset', id: 'night' } : { kind: 'preset', id: 'slate' },
@@ -119,8 +121,9 @@ export const useUi = create<UiState>()(
       lookTab: 'grids',
       overlay: { toggle: 'Ctrl+Shift+M', interact: 'Ctrl+Shift+N', opacity: 0.94, effect: 'acrylic', mode: 'auto', autoPerf: true, autoShow: true, hints: true, widgets: { timers: true, now: true, gold: true } },
       go: (page) => set({ page }),
-      openHero: (id) => set({ page: 'hero', heroPageId: id }),
-      openBuild: (hero, pos) => set((s) => ({ page: 'builds', buildHero: hero, buildPos: pos ?? s.buildPos })),
+      openHero: (id) => set({ page: 'hero', heroPageId: id, buildHero: id }),
+      openBuild: (hero) => set({ page: 'builds', heroPageId: hero, buildHero: hero }),
+      pickHero: (id) => set({ heroPageId: id, buildHero: id }),
       set: (patch) => set(patch),
     }),
     {

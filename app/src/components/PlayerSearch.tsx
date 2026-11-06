@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { useHeroes } from '../api/hooks';
 import { rankName } from '../lib/ranks';
+import { useNav } from '../state/nav';
 import { PlusBadge, RankMedal, RoleIcon } from './DotaIcons';
 import { ExternalLink } from './ExternalLink';
 import { Ti } from './Icons';
@@ -58,7 +59,7 @@ const fmtDur = (s: number | null) => (s ? `${Math.floor(s / 60)}:${String(s % 60
 const fmtDate = (t: number | null) =>
   t ? new Date(t * 1000).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
 
-function loadRecent(): { q: string; name: string | null }[] {
+export function loadRecent(): { q: string; name: string | null }[] {
   try {
     return JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]');
   } catch {
@@ -98,6 +99,13 @@ export function PlayerSearch() {
     setText(v);
     setQ(v);
   };
+  // a player asked from the search on Ctrl+K
+  const asked = useNav((s) => s.playerQuery);
+  useEffect(() => {
+    if (!asked) return;
+    go(asked);
+    useNav.getState().set({ playerQuery: null });
+  }, [asked]);
   const name = (id: number | null) => (id ? heroes?.byId.get(id)?.name ?? `#${id}` : '?');
 
   return (

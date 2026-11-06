@@ -5,7 +5,7 @@
  * are marked in the list of patches.
  */
 import { useQuery } from '@tanstack/react-query';
-import { CalendarDays, Globe, Package, RefreshCw, ScrollText, Search, Shield, Star } from '../components/glyphs';
+import { CalendarDays, Globe, Package, RefreshCw, Search, Shield, Star } from '../components/glyphs';
 import { useMemo, useState } from 'react';
 
 import { api, asset } from '../api/client';
@@ -13,6 +13,7 @@ import { useHeroes } from '../api/hooks';
 import { TalentIcon } from '../components/Ability';
 import { AttrIcon } from '../components/DotaIcons';
 import { Panel } from '../components/Glass';
+import { MetaModeSwitch } from '../components/HeroModeSwitch';
 import { Ti } from '../components/Icons';
 import { Empty, ErrorBox, HeroIcon, ItemIcon, Loading, plural, Segmented } from '../components/ui';
 import { useUi } from '../state/ui';
@@ -59,10 +60,7 @@ export function PatchesPage() {
     <div className="patches">
       <Panel className="patches__list" refracting>
         <div className="panel__head">
-          <h2>
-            <Ti icon={ScrollText} />
-            Патчи
-          </h2>
+          <MetaModeSwitch />
           <button className="btn btn--sm btn--ghost" onClick={() => setRefresh((n) => n + 1)} disabled={list.isFetching} title="Скачать свежие патчноуты">
             <Ti icon={RefreshCw} />
           </button>

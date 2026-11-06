@@ -20,7 +20,7 @@ import { Ti } from '../components/Icons';
 import { HeroSearch } from '../components/HeroSearch';
 import { Empty, ErrorBox, HeroIcon, ItemIcon, Loading, plural, Segmented, Toggle } from '../components/ui';
 import { clock, coreTimings, filterMatches, skillLevels, summarize, type TopMatch } from '../lib/topgames';
-import { useDraft } from '../state/draft';
+import { HeroModeSwitch } from '../components/HeroModeSwitch';
 import { useUi } from '../state/ui';
 
 type Source = 'immortal' | 'divine' | 'pro';
@@ -48,12 +48,11 @@ const fmt = (n: number | null | undefined) => (n == null ? '—' : n >= 10000 ? 
 const when = (t: number | null) => (t ? new Date(t * 1000).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) : '');
 
 export function TopGamesPage() {
-  const ui = useUi();
+  const hero = useUi((s) => s.heroPageId);
+  const pickHero = useUi((s) => s.pickHero);
   const heroes = useHeroes().data;
-  const myPos = useDraft((s) => s.pos);
-  const [hero, setHero] = useState<number | null>(ui.heroPageId);
   const [source, setSource] = useState<Source>('immortal');
-  const [pos, setPos] = useState<number | null>(myPos);
+  const [pos, setPos] = useState<number | null>(null);
   const [winsOnly, setWinsOnly] = useState(false);
   const [against, setAgainst] = useState<number | null>(null);
   const [open, setOpen] = useState<number | null>(null);
@@ -77,10 +76,11 @@ export function TopGamesPage() {
     <div className="top">
       <Panel className="top__head">
         <div className="top__bar">
+          <HeroModeSwitch />
           <div className="top__hero">
             {h ? <HeroIcon id={h.id} size="md" /> : null}
             <div className="top__search">
-              <HeroSearch compact placeholder={h ? `${h.name} — сменить героя` : 'Выбери героя: «ам», «пудж», «вр»…'} onPick={(x) => (setHero(x.id), setOpen(null))} />
+              <HeroSearch compact placeholder={h ? `${h.name} — сменить героя` : 'Выбери героя: «ам», «пудж», «вр»…'} onPick={(x) => (pickHero(x.id), setOpen(null))} />
             </div>
           </div>
           <Segmented

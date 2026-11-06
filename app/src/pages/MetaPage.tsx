@@ -5,6 +5,8 @@ import { useHeroes, useSettings, useTierList } from '../api/hooks';
 import type { TierRow } from '../api/types';
 import { AttrIcon, RankMedal, RoleIcon } from '../components/DotaIcons';
 import { Panel } from '../components/Glass';
+import { MetaModeSwitch } from '../components/HeroModeSwitch';
+import { DEMO } from '../demo/api';
 import { Ti } from '../components/Icons';
 import { ErrorBox, fmtPct, HeroIcon, Loading, Segmented, Sparkline } from '../components/ui';
 import { useUi } from '../state/ui';
@@ -31,10 +33,14 @@ export function MetaPage() {
   return (
     <Panel className="meta" refracting>
       <div className="panel__head panel__head--wrap">
-        <h2>
-          <Ti icon={ChartColumnIncreasing} />
-          Мета
-        </h2>
+        {DEMO ? (
+          <h2>
+            <Ti icon={ChartColumnIncreasing} />
+            Мета
+          </h2>
+        ) : (
+          <MetaModeSwitch />
+        )}
         <Segmented
           value={pos}
           onChange={setPos}

@@ -488,7 +488,7 @@ function VsPanel({ hero, pos, enemies, when }: { hero: number | null; pos: numbe
         </ul>
       )}
       {hero && (
-        <button className="btn btn--sm" onClick={() => openBuild(hero, pos)}>
+        <button className="btn btn--sm" onClick={() => openBuild(hero)}>
           Весь билд
         </button>
       )}
@@ -503,7 +503,7 @@ function useDraftHotkeys(search: React.RefObject<HeroSearchHandle | null>) {
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
       const d = useDraft.getState();
       const digit = /^Digit([1-5])$/.exec(e.code);
-      if (e.key === '/' || (e.ctrlKey && e.code === 'KeyK')) {
+      if (e.key === '/') {
         e.preventDefault();
         search.current?.focus();
       } else if (digit && !e.ctrlKey && !e.altKey) {
